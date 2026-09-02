@@ -5,10 +5,10 @@
 
 class QComboBox;
 class QLabel;
-class QVBoxLayout;
+class QHBoxLayout;
 
-// 销售业绩页: 今日/本月/总营收三大指标 + 近7日/近30日营收趋势折线图
-// 图表实现: 安装了 Qt Charts 用 QChart(HAVE_QTCHARTS), 未安装自动降级为自绘折线图
+// 销售业绩页: 今日/本月/总营收三大指标 + 近7日/近30日营收趋势(折线图+柱状图并排)
+// 图表实现: 安装了 Qt Charts 用 QChart(HAVE_QTCHARTS), 未安装自动降级为自绘
 class SalesPage : public QWidget
 {
     Q_OBJECT
@@ -24,7 +24,7 @@ private:
     QLabel *m_monthVal;
     QLabel *m_totalVal;
     QComboBox *m_rangeCombo;
-    QVBoxLayout *m_chartLayout;
+    QHBoxLayout *m_chartLayout;
 };
 
 #endif // SALESPAGE_H

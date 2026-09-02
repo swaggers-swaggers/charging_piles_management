@@ -17,7 +17,7 @@ CXX           = g++
 DEFINES       = -DQT_DEPRECATED_WARNINGS -DQT_QML_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_NETWORK_LIB -DQT_CORE_LIB
 CFLAGS        = -pipe -g -Wall -Wextra -D_REENTRANT -fPIC $(DEFINES)
 CXXFLAGS      = -pipe -g -std=gnu++1z -Wall -Wextra -D_REENTRANT -fPIC $(DEFINES)
-INCPATH       = -I../../code/client -I. -I../../code/client -I../../code/client/pages -I../../code/client/network -I../../code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++
+INCPATH       = -I../../code/client -I. -I../../code/client -I../../code/client/pages -I../../code/client/network -I../../code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I. -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++
 QMAKE         = /usr/bin/qmake6
 DEL_FILE      = rm -f
 CHK_DIR_EXISTS= test -d
@@ -215,7 +215,7 @@ TARGET        = ChargingClient
 first: all
 ####### Build rules
 
-ChargingClient:  $(OBJECTS)  
+ChargingClient: ui_LoginDialog.h $(OBJECTS)  
 	$(LINK) $(LFLAGS) -o $(TARGET) $(OBJECTS) $(OBJCOMP) $(LIBS)
 
 Makefile.ChargingClient: ../../code/client/ChargingClient.pro /usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++/qmake.conf /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/spec_pre.prf \
@@ -443,6 +443,7 @@ distdir: FORCE
 	$(COPY_FILE) --parents /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/data/dummy.cpp $(DISTDIR)/
 	$(COPY_FILE) --parents ../../code/common/protocol.h ../../code/common/types.h ../../code/common/GeoUtil.h ../../code/client/ClientSession.h ../../code/client/LoginDialog.h ../../code/client/UserMainWindow.h ../../code/client/pages/NearbyStationsPage.h ../../code/client/pages/NavigationPage.h ../../code/client/pages/UserInfoPage.h ../../code/client/pages/ChargingPage.h ../../code/client/network/TcpClient.h ../../code/client/network/TcpClientWorker.h $(DISTDIR)/
 	$(COPY_FILE) --parents ../../code/client/main.cpp ../../code/client/ClientSession.cpp ../../code/client/LoginDialog.cpp ../../code/client/UserMainWindow.cpp ../../code/client/pages/NearbyStationsPage.cpp ../../code/client/pages/NavigationPage.cpp ../../code/client/pages/UserInfoPage.cpp ../../code/client/pages/ChargingPage.cpp ../../code/client/network/TcpClient.cpp ../../code/client/network/TcpClientWorker.cpp $(DISTDIR)/
+	$(COPY_FILE) --parents ../../code/client/LoginDialog.ui $(DISTDIR)/
 
 
 clean: compiler_clean 
@@ -528,15 +529,20 @@ compiler_moc_objc_header_make_all:
 compiler_moc_objc_header_clean:
 compiler_moc_source_make_all:
 compiler_moc_source_clean:
-compiler_uic_make_all:
+compiler_uic_make_all: ui_LoginDialog.h
 compiler_uic_clean:
+	-$(DEL_FILE) ui_LoginDialog.h
+ui_LoginDialog.h: ../../code/client/LoginDialog.ui \
+		/usr/lib/qt6/libexec/uic
+	/usr/lib/qt6/libexec/uic ../../code/client/LoginDialog.ui -o ui_LoginDialog.h
+
 compiler_yacc_decl_make_all:
 compiler_yacc_decl_clean:
 compiler_yacc_impl_make_all:
 compiler_yacc_impl_clean:
 compiler_lex_make_all:
 compiler_lex_clean:
-compiler_clean: compiler_rcc_clean compiler_moc_predefs_clean compiler_moc_header_clean 
+compiler_clean: compiler_rcc_clean compiler_moc_predefs_clean compiler_moc_header_clean compiler_uic_clean 
 
 ####### Compile
 
@@ -549,6 +555,7 @@ ClientSession.o: ../../code/client/ClientSession.cpp ../../code/client/ClientSes
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o ClientSession.o ../../code/client/ClientSession.cpp
 
 LoginDialog.o: ../../code/client/LoginDialog.cpp ../../code/client/LoginDialog.h \
+		ui_LoginDialog.h \
 		../../code/client/ClientSession.h \
 		../../code/common/protocol.h \
 		../../code/client/network/TcpClient.h

@@ -11,6 +11,7 @@
 #include <QHeaderView>
 #include <QJsonArray>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QTableWidget>
@@ -32,6 +33,25 @@ const RegionCoord kRegions[] = {
     { "大东区",        123.4700, 41.8100 },
     { "皇姑区",        123.4100, 41.8200 },
 };
+
+// 地址关键词 → 坐标(模拟腾讯地图 Web API 地理编码;
+//   真实项目应调用 https://apis.map.qq.com/ws/geocoder/v1 换取经纬度)
+const RegionCoord kLandmarks[] = {
+    { "奥体中心",  123.4570, 41.7380 },
+    { "奥体",      123.4570, 41.7380 },
+    { "中街",      123.4620, 41.7950 },
+    { "太原街",    123.4050, 41.7890 },
+    { "北站",      123.4380, 41.8170 },
+    { "沈阳站",    123.3880, 41.7890 },
+    { "桃仙机场",  123.4820, 41.6390 },
+    { "世博园",    123.5450, 41.8670 },
+    { "浑南",      123.4500, 41.7000 },
+    { "和平",      123.4200, 41.7800 },
+    { "沈河",      123.4500, 41.7900 },
+    { "铁西",      123.3600, 41.7800 },
+    { "大东",      123.4700, 41.8100 },
+    { "皇姑",      123.4100, 41.8200 },
+};
 } // namespace
 
 NearbyStationsPage::NearbyStationsPage(QWidget *parent)
@@ -49,16 +69,28 @@ NearbyStationsPage::NearbyStationsPage(QWidget *parent)
     m_regionCombo = new QComboBox(this);
     for (const RegionCoord &r : kRegions)
         m_regionCombo->addItem(QString::fromUtf8(r.name));
+
+    QLabel *addrLabel = new QLabel("或输入地址:", this);
+    m_addrEdit = new QLineEdit(this);
+    m_addrEdit->setPlaceholderText("如: 奥体中心 / 中街 (模拟腾讯地图定位)");
+    m_addrEdit->setClearButtonEnabled(true);
+    QPushButton *locateBtn = new QPushButton("定位", this);
+    locateBtn->setObjectName("primaryBtn");
     QPushButton *refreshBtn = new QPushButton("查询", this);
+
     topRow->addWidget(regionLabel);
     topRow->addWidget(m_regionCombo);
+    topRow->addSpacing(8);
+    topRow->addWidget(addrLabel);
+    topRow->addWidget(m_addrEdit, 1);
+    topRow->addWidget(locateBtn);
     topRow->addWidget(refreshBtn);
-    topRow->addStretch();
 
     m_table = new QTableWidget(this);
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_table->setAlternatingRowColors(true);
     m_table->verticalHeader()->setVisible(false);
     m_table->setColumnCount(6);
     m_table->setHorizontalHeaderLabels(
@@ -69,6 +101,8 @@ NearbyStationsPage::NearbyStationsPage(QWidget *parent)
     layout->addWidget(m_table, 1);
 
     connect(refreshBtn, &QPushButton::clicked, this, &NearbyStationsPage::refresh);
+    connect(locateBtn, &QPushButton::clicked, this, &NearbyStationsPage::onLocate);
+    connect(m_addrEdit, &QLineEdit::returnPressed, this, &NearbyStationsPage::onLocate);
     connect(m_regionCombo, &QComboBox::currentIndexChanged, this, &NearbyStationsPage::refresh);
     connect(m_table, &QTableWidget::cellDoubleClicked, this, &NearbyStationsPage::showPileDetail);
 }
@@ -78,6 +112,50 @@ void NearbyStationsPage::showEvent(QShowEvent *event)
     QWidget::showEvent(event);
     // 延迟到界面显示完成后再请求, 避免同步网络请求阻塞主窗口首次显示
     QTimer::singleShot(0, this, &NearbyStationsPage::refresh);
+}
+
+void NearbyStationsPage::onLocate()
+{
+    const QString addr = m_addrEdit->text().trimmed();
+    if (addr.isEmpty()) {
+        QMessageBox::information(this, "提示", "请输入要定位的地址");
+        m_addrEdit->setFocus();
+        return;
+    }
+
+    // 模拟腾讯地图 Web API 地理编码: 关键词匹配内置地址库
+    bool found = false;
+    for (const RegionCoord &l : kLandmarks) {
+        if (addr.contains(QString::fromUtf8(l.name))) {
+            m_lon = l.lon;
+            m_lat = l.lat;
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        QMessageBox::warning(this, "定位失败",
+                             QString("未识别地址: %1\n已保持当前位置, 可尝试输入: 奥体中心 / 中街 / 太原街 / 北站 / 沈阳站 等")
+                                 .arg(addr));
+        return;
+    }
+
+    // 若命中某个城区, 同步下拉框(会联动触发 refresh)
+    for (int i = 0; i < int(sizeof(kRegions) / sizeof(kRegions[0])); ++i) {
+        QString regionName = QString::fromUtf8(kRegions[i].name);
+        const int paren = regionName.indexOf('(');
+        if (paren > 0)
+            regionName = regionName.left(paren);
+        if (!regionName.isEmpty() && addr.contains(regionName)) {
+            m_regionCombo->setCurrentIndex(i);
+            return;
+        }
+    }
+
+    QMessageBox::information(this, "定位成功",
+                             QString("已定位到: %1  (经度 %.4f, 纬度 %.4f)")
+                                 .arg(addr).arg(m_lon, 0, 'f', 4).arg(m_lat, 0, 'f', 4));
+    refresh();
 }
 
 void NearbyStationsPage::refresh()

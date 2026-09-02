@@ -66,4 +66,7 @@ HEADERS += \
     network/TcpServer.h \
     network/ClientHandler.h
 
+FORMS += \
+    AdminLoginDialog.ui
+
 RESOURCES += ../resources/res.qrc

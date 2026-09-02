@@ -42,4 +42,7 @@ HEADERS += \
     network/TcpClient.h \
     network/TcpClientWorker.h
 
+FORMS += \
+    LoginDialog.ui
+
 RESOURCES += ../resources/res.qrc

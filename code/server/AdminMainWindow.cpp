@@ -8,11 +8,13 @@
 #include "StationManagePage.h"
 #include "UserManagePage.h"
 
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QScreen>
 #include <QStackedWidget>
 #include <QStatusBar>
 #include <QVBoxLayout>
@@ -23,7 +25,10 @@ AdminMainWindow::AdminMainWindow(const QString &serverInfo, QWidget *parent)
     , m_serverInfo(serverInfo)
 {
     setWindowTitle("东软电动汽车充电桩应用管理平台 - 服务端");
-    resize(1100, 700);
+    // 尺寸自适应屏幕, 避免在分辨率较小的虚拟机窗口上超出屏幕看不到
+    const QSize screen = QGuiApplication::primaryScreen()->availableGeometry().size();
+    resize(qMin(1100, qMax(720, screen.width() - 80)),
+           qMin(700, qMax(500, screen.height() - 120)));
 
     initUi();
 
@@ -55,10 +60,15 @@ void AdminMainWindow::initUi()
 
     m_navList = new QListWidget(sidebar);
     m_navList->setObjectName("navList");
-    const QStringList navItems = {
+    const QStringList navNames = {
         "销售业绩", "电桩状态", "充电桩管理", "充电站管理", "用户管理",
     };
-    m_navList->addItems(navItems);
+    const QStringList navIcons = { "📈", "🔋", "🔌", "🏢", "👥" };
+    for (int i = 0; i < navNames.size(); ++i) {
+        auto *item = new QListWidgetItem(navIcons[i] + "  " + navNames[i]);
+        item->setData(Qt::UserRole, navNames[i]);   // 纯文本标题(不含图标)
+        m_navList->addItem(item);
+    }
     m_navList->setCurrentRow(0);
     m_navList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_navList->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -84,7 +94,7 @@ void AdminMainWindow::initUi()
     QHBoxLayout *headerLayout = new QHBoxLayout(header);
     headerLayout->setContentsMargins(24, 0, 24, 0);
 
-    m_headerTitle = new QLabel(navItems.first(), header);
+    m_headerTitle = new QLabel(navNames.first(), header);
     m_headerTitle->setObjectName("headerTitle");
     m_headerUser = new QLabel("管理员: " + ServerSession::instance().adminName, header);
     m_headerUser->setObjectName("headerUser");
@@ -117,7 +127,7 @@ void AdminMainWindow::onNavChanged(int row)
     if (row < 0)
         return;
     m_stack->setCurrentIndex(row);
-    m_headerTitle->setText(m_navList->item(row)->text());
+    m_headerTitle->setText(m_navList->item(row)->data(Qt::UserRole).toString());
 }
 
 void AdminMainWindow::onLogoutClicked()

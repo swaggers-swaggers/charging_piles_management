@@ -5,6 +5,7 @@
 #include <QDebug>
 #include <QFile>
 #include <QFileInfo>
+#include <QPair>
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -42,6 +43,9 @@ bool DatabaseManager::init(QString *errMsg)
         return false;
 
     seedDefaultData();
+
+    // 旧库升级: 把明文手机号迁移为哈希存储(隐私保护)
+    migratePhoneEncryption();
 
     qDebug() << "[Database] 已连接:" << m_dbPath;
     return true;
@@ -94,6 +98,7 @@ bool DatabaseManager::createTables(const QString &connName, QString *errMsg)
         "CREATE TABLE IF NOT EXISTS user ("
         " id INTEGER PRIMARY KEY AUTOINCREMENT,"
         " phone TEXT UNIQUE NOT NULL,"
+        " phone_masked TEXT DEFAULT '',"
         " nickname TEXT DEFAULT '',"
         " avatar TEXT DEFAULT '',"
         " balance REAL DEFAULT 0,"
@@ -269,9 +274,13 @@ bool DatabaseManager::loginOrRegisterUser(const QString &phone, UserInfo *info,
 {
     QSqlDatabase db = QSqlDatabase::database(connName);
 
+    // 数据库只存哈希(不可逆) + 脱敏号, 不落明文手机号
+    const QString phoneHash = hashPhone(phone);
+    const QString masked = maskPhone(phone);
+
     QSqlQuery query(db);
     query.prepare("SELECT id, nickname, balance, status FROM user WHERE phone = :p");
-    query.bindValue(":p", phone);
+    query.bindValue(":p", phoneHash);
 
     if (!query.exec()) {
         if (errMsg)
@@ -287,7 +296,7 @@ bool DatabaseManager::loginOrRegisterUser(const QString &phone, UserInfo *info,
         }
         if (info) {
             info->id = query.value(0).toInt();
-            info->phone = phone;
+            info->phone = masked;
             info->nickname = query.value(1).toString();
             info->balance = query.value(2).toDouble();
         }
@@ -298,8 +307,9 @@ bool DatabaseManager::loginOrRegisterUser(const QString &phone, UserInfo *info,
 
     // 手机号不存在, 自动注册新用户
     const QString nickname = "用户" + phone.right(4);
-    query.prepare("INSERT INTO user (phone, nickname) VALUES (:p, :n)");
-    query.bindValue(":p", phone);
+    query.prepare("INSERT INTO user (phone, phone_masked, nickname) VALUES (:p, :m, :n)");
+    query.bindValue(":p", phoneHash);
+    query.bindValue(":m", masked);
     query.bindValue(":n", nickname);
 
     if (!query.exec()) {
@@ -310,11 +320,71 @@ bool DatabaseManager::loginOrRegisterUser(const QString &phone, UserInfo *info,
 
     if (info) {
         info->id = query.lastInsertId().toInt();
-        info->phone = phone;
+        info->phone = masked;
         info->nickname = nickname;
         info->balance = 0.0;
     }
     if (isNewUser)
         *isNewUser = true;
     return true;
+}
+
+QString DatabaseManager::hashPhone(const QString &phone)
+{
+    // 固定应用级盐 + SHA-256: 同一手机号哈希稳定(可精确匹配), 但不可逆还原明文
+    static const QByteArray kSalt = "neusoft-charging-platform-2026";
+    return QString::fromLatin1(
+        QCryptographicHash::hash(kSalt + phone.toUtf8(), QCryptographicHash::Sha256).toHex());
+}
+
+QString DatabaseManager::maskPhone(const QString &phone)
+{
+    // 脱敏: 保留前3后4, 中间变星号; 如 13812345678 → 138****5678
+    if (phone.size() <= 7)
+        return phone.left(3) + "****";
+    return phone.left(3) + "****" + phone.right(4);
+}
+
+void DatabaseManager::migratePhoneEncryption()
+{
+    QSqlDatabase db = QSqlDatabase::database();
+
+    // 旧库升级(关键): 老版本 user 表没有 phone_masked 列, CREATE TABLE IF NOT EXISTS
+    // 不会给已存在的表加列, 必须先 ALTER 补列, 否则后续 INSERT/SELECT 都会失败
+    {
+        QSqlQuery colCheck(db);
+        if (!colCheck.exec("SELECT phone_masked FROM user LIMIT 1")) {
+            QSqlQuery alter(db);
+            if (alter.exec("ALTER TABLE user ADD COLUMN phone_masked TEXT DEFAULT ''"))
+                qDebug() << "[Database] 已为旧库 user 表补充 phone_masked 列";
+            else
+                qWarning() << "[Database] 补充 phone_masked 列失败:" << alter.lastError().text();
+        }
+    }
+
+    QSqlQuery check(db);
+    if (!check.exec("SELECT phone, id FROM user"))
+        return;
+
+    QList<QPair<int, QString>> migrate;   // (id, 明文手机号)
+    while (check.next()) {
+        const QString phone = check.value(0).toString();
+        // 已加密的哈希为 64 位 hex, 明文(手机号)一般 ≤ 11 位, 据此区分
+        if (phone.length() == 64)
+            continue;
+        migrate.append({ check.value(1).toInt(), phone });
+    }
+    if (migrate.isEmpty())
+        return;
+
+    for (const auto &row : migrate) {
+        const QString masked = maskPhone(row.second);
+        QSqlQuery up(db);
+        up.prepare("UPDATE user SET phone = :h, phone_masked = :m WHERE id = :id");
+        up.bindValue(":h", hashPhone(row.second));
+        up.bindValue(":m", masked);
+        up.bindValue(":id", row.first);
+        up.exec();
+    }
+    qDebug() << "[Database] 已完成" << migrate.size() << "条手机号加密迁移";
 }

@@ -169,7 +169,7 @@ QJsonObject ClientHandler::processUserLogin(const QJsonObject &req)
     reply.insert("nickname", info.nickname);
     reply.insert("balance", info.balance);
     reply.insert("isNew", isNewUser);
-    qDebug() << "[ClientHandler] 用户登录:" << phone
+    qDebug() << "[ClientHandler] 用户登录:" << info.phone   // 仅打印脱敏号
              << (isNewUser ? "(新注册)" : "") << "nickname=" << info.nickname;
     return reply;
 }

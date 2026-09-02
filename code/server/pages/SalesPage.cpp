@@ -15,6 +15,9 @@
 #include <QtGlobal>
 
 #ifdef HAVE_QTCHARTS
+#include <QBarCategoryAxis>
+#include <QBarSeries>
+#include <QBarSet>
 #include <QDateTimeAxis>
 #include <QLineSeries>
 #include <QValueAxis>
@@ -133,6 +136,74 @@ protected:
 private:
     QVector<QPair<QString, double>> m_data;
 };
+
+// 降级方案: 未安装 Qt Charts 时, 用 QPainter 自绘柱状图
+class PlainBarChart : public QWidget
+{
+public:
+    explicit PlainBarChart(QWidget *parent = nullptr) : QWidget(parent) {}
+
+    void setData(const QVector<QPair<QString, double>> &data)
+    {
+        m_data = data;
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.fillRect(rect(), Qt::white);
+
+        const QRectF plot = QRectF(rect()).adjusted(52, 12, -14, -30);
+        const int n = m_data.size();
+        if (n == 0)
+            return;
+
+        double maxV = 0;
+        for (const auto &d : m_data)
+            maxV = qMax(maxV, d.second);
+        if (maxV <= 0)
+            maxV = 1.0;
+
+        // 网格 + Y 轴刻度
+        QPen gridPen(QColor("#E2E8F0"));
+        gridPen.setWidth(1);
+        p.setPen(gridPen);
+        for (int i = 0; i <= 4; ++i) {
+            const double y = plot.top() + plot.height() * i / 4.0;
+            p.drawLine(QPointF(plot.left(), y), QPointF(plot.right(), y));
+            const double val = maxV * (4 - i) / 4.0;
+            p.setPen(QColor("#64748B"));
+            p.drawText(QRectF(0, y - 10, plot.left() - 8, 20),
+                       Qt::AlignRight | Qt::AlignVCenter, QString::number(val, 'f', 0));
+            p.setPen(gridPen);
+        }
+
+        // X 轴标签
+        p.setPen(QColor("#64748B"));
+        for (int i = 0; i < n; ++i) {
+            const double x = plot.left() + plot.width() * (i + 0.5) / n;
+            p.drawText(QRectF(x - 32, plot.bottom() + 6, 64, 20),
+                       Qt::AlignHCenter | Qt::AlignTop, m_data[i].first);
+        }
+
+        // 柱体
+        const double barW = qMin(plot.width() * 0.6 / n, 40.0);
+        p.setPen(Qt::NoPen);
+        for (int i = 0; i < n; ++i) {
+            const double h = plot.height() * (m_data[i].second / maxV);
+            const double x = plot.left() + plot.width() * (i + 0.5) / n - barW / 2;
+            const QRectF bar(x, plot.bottom() - h, barW, h);
+            p.setBrush(QColor("#FFB020"));
+            p.drawRoundedRect(bar, 2, 2);
+        }
+    }
+
+private:
+    QVector<QPair<QString, double>> m_data;
+};
 #endif // !HAVE_QTCHARTS
 
 SalesPage::SalesPage(QWidget *parent)
@@ -161,8 +232,9 @@ SalesPage::SalesPage(QWidget *parent)
     chartHead->addWidget(m_rangeCombo);
 
     QWidget *chartHost = new QWidget(this);
-    m_chartLayout = new QVBoxLayout(chartHost);
+    m_chartLayout = new QHBoxLayout(chartHost);
     m_chartLayout->setContentsMargins(0, 0, 0, 0);
+    m_chartLayout->setSpacing(14);
 
     layout->addWidget(title);
     layout->addLayout(metricRow);
@@ -199,14 +271,16 @@ void SalesPage::refresh()
     const int days = (m_rangeCombo->currentIndex() == 1) ? 30 : 7;
     const QVector<QPair<QString, double>> daily = OrderDao::dailyRevenue(days);
 
-#ifdef HAVE_QTCHARTS
-    QLineSeries *series = new QLineSeries();
     double maxY = 10.0;
+    for (const auto &entry : daily)
+        maxY = qMax(maxY, entry.second);
+
+#ifdef HAVE_QTCHARTS
+    // ---- 左: 折线图 ----
+    QLineSeries *series = new QLineSeries();
     for (const auto &entry : daily) {
         const QDateTime dt = QDateTime(QDate::fromString(entry.first, "yyyy-MM-dd"), QTime(12, 0));
         series->append(dt.toMSecsSinceEpoch(), entry.second);
-        if (entry.second > maxY)
-            maxY = entry.second;
     }
 
     QChart *chart = new QChart();
@@ -235,11 +309,47 @@ void SalesPage::refresh()
 
     QChartView *view = new QChartView(chart, this);
     view->setRenderHint(QPainter::Antialiasing);
-    m_chartLayout->addWidget(view);
+    m_chartLayout->addWidget(view, 1);
+
+    // ---- 右: 柱状图 ----
+    QBarSet *barSet = new QBarSet("营收");
+    QStringList cats;
+    for (const auto &entry : daily) {
+        barSet->append(entry.second);
+        cats << entry.first.mid(5);      // MM-dd
+    }
+
+    QBarSeries *barSeries = new QBarSeries();
+    barSeries->append(barSet);
+
+    QChart *barChart = new QChart();
+    barChart->setTitle(QString("每日营收对比 (近%1日)").arg(days));
+    barChart->legend()->hide();
+    barChart->addSeries(barSeries);
+
+    QBarCategoryAxis *axisXc = new QBarCategoryAxis();
+    axisXc->append(cats);
+    barChart->addAxis(axisXc, Qt::AlignBottom);
+
+    QValueAxis *axisYc = new QValueAxis();
+    axisYc->setLabelFormat("%.0f");
+    axisYc->setRange(0, maxY * 1.2);
+    barChart->addAxis(axisYc, Qt::AlignLeft);
+
+    barSeries->attachAxis(axisXc);
+    barSeries->attachAxis(axisYc);
+
+    QChartView *barView = new QChartView(barChart, this);
+    barView->setRenderHint(QPainter::Antialiasing);
+    m_chartLayout->addWidget(barView, 1);
 #else
-    // 未安装 Qt Charts: 使用自绘折线图(降级)
+    // 未安装 Qt Charts: 自绘折线图 + 柱状图(降级)
     auto *plain = new PlainLineChart(this);
     plain->setData(daily);
-    m_chartLayout->addWidget(plain);
+    m_chartLayout->addWidget(plain, 1);
+
+    auto *plainBar = new PlainBarChart(this);
+    plainBar->setData(daily);
+    m_chartLayout->addWidget(plainBar, 1);
 #endif
 }

@@ -22,9 +22,10 @@ QList<UserInfo> UserDao::list(const QString &search, const QString &connName)
 {
     QList<UserInfo> users;
     QSqlQuery query(QSqlDatabase::database(connName));
-    QString sql = "SELECT id, phone, nickname, avatar, balance, status, register_time FROM user";
+    // 手机号只读脱敏列(隐私保护), 搜索对脱敏号做模糊匹配(如输入 138 命中 138****5678)
+    QString sql = "SELECT id, phone_masked, nickname, avatar, balance, status, register_time FROM user";
     if (!search.isEmpty()) {
-        sql += " WHERE phone LIKE :s OR nickname LIKE :s2";
+        sql += " WHERE phone_masked LIKE :s OR nickname LIKE :s2";
     }
     sql += " ORDER BY id";
 
@@ -44,7 +45,8 @@ QList<UserInfo> UserDao::list(const QString &search, const QString &connName)
 bool UserDao::getById(int userId, UserInfo *out, QString *errMsg, const QString &connName)
 {
     QSqlQuery query(QSqlDatabase::database(connName));
-    query.prepare("SELECT id, phone, nickname, avatar, balance, status, register_time "
+    // 只读脱敏列, 不向任何调用方返回明文手机号
+    query.prepare("SELECT id, phone_masked, nickname, avatar, balance, status, register_time "
                   "FROM user WHERE id = :id");
     query.bindValue(":id", userId);
     if (!query.exec()) {

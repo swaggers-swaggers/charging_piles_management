@@ -59,10 +59,15 @@ void UserMainWindow::initUi()
 
     m_navList = new QListWidget(sidebar);
     m_navList->setObjectName("navList");
-    const QStringList navItems = {
+    const QStringList navNames = {
         "附近充电站", "一键导航", "用户信息", "电动汽车充电",
     };
-    m_navList->addItems(navItems);
+    const QStringList navIcons = { "📍", "🧭", "👤", "🔌" };
+    for (int i = 0; i < navNames.size(); ++i) {
+        auto *item = new QListWidgetItem(navIcons[i] + "  " + navNames[i]);
+        item->setData(Qt::UserRole, navNames[i]);   // 纯文本标题(不含图标)
+        m_navList->addItem(item);
+    }
     m_navList->setCurrentRow(0);
     m_navList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_navList->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -88,7 +93,7 @@ void UserMainWindow::initUi()
     QHBoxLayout *headerLayout = new QHBoxLayout(header);
     headerLayout->setContentsMargins(24, 0, 24, 0);
 
-    m_headerTitle = new QLabel(navItems.first(), header);
+    m_headerTitle = new QLabel(navNames.first(), header);
     m_headerTitle->setObjectName("headerTitle");
 
     m_headerUser = new QLabel(QString("%1  |  余额: %2 元")
@@ -124,7 +129,7 @@ void UserMainWindow::onNavChanged(int row)
     if (row < 0)
         return;
     m_stack->setCurrentIndex(row);
-    m_headerTitle->setText(m_navList->item(row)->text());
+    m_headerTitle->setText(m_navList->item(row)->data(Qt::UserRole).toString());
     // 每次切换页面刷新头部(余额可能被充值/结算改变)
     m_headerUser->setText(QString("%1  |  余额: %2 元")
                               .arg(ClientSession::instance().nickname)
