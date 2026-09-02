@@ -20,8 +20,8 @@ enum MessageType {
     ReqHeartbeat        = 1,   // {} → {ok}
     ReqUserLogin        = 2,   // {phone} → {userId, phone, nickname, balance, isNew}
     ReqGetUserInfo      = 3,   // {userId} → {nickname, balance, avatar, status}
-    ReqUpdateProfile    = 4,   // {userId, nickname?, avatar?} → {ok, nickname, balance}
-                               //   只更新给出的字段; avatar 为图片文件路径
+    ReqUpdateProfile    = 4,   // {userId, nickname?, avatar?} → {ok, nickname, balance, avatar}
+                               //   只更新给出的字段; avatar 为 96x96 PNG 图片的 base64 编码
     ReqRecharge         = 5,   // {userId, amount} → {balance}
     ReqStationList      = 6,   // {lon, lat} → {stations:[{id,name,address,price,totalPiles,
                                //              idlePiles,distance,predictIdle}]} 按距离升序
@@ -29,7 +29,7 @@ enum MessageType {
     ReqUnfinishedOrder  = 8,   // {userId} → {hasOrder, order:{...OrderInfo}}
     ReqStartCharge      = 9,   // {userId, pileId} → {order:{...OrderInfo}}
                                //   失败: 桩非空闲(ErrPileBusy) / 已有未完成订单(ErrOrderExists)
-    ReqStopCharge       = 10,  // {orderId, userId} → {order:{...OrderInfo}}  结算并扣余额
+    ReqStopCharge       = 10,  // {orderId, userId} → {order:{...OrderInfo}, balance}  结算并扣余额
 
     // 服务端推送
     PushOrderProgress   = 101, // {orderId, energy, amount, minutes} 充电进度(定时推送)
@@ -46,6 +46,7 @@ enum ErrorCode {
     ErrUserFrozen  = 6,
     ErrDbError     = 7,
     ErrInternal    = 8,
+    ErrBalanceNotEnough = 9,   // 余额不足, 结算被拒
 };
 
 // ---- 服务器地址 ----

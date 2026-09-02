@@ -3,17 +3,28 @@
 
 #include <QWidget>
 
-// 销售业绩页 (阶段 3 实现)
-// 计划功能(项目说明书 1.4):
-//   1. 今日营收 / 本月营收 / 总营收 三大核心数字指标
-//   2. 近7日 / 近30日 营收趋势折线图 (QT += charts, QChart)
-//   3. 时间维度切换查看营收变化趋势
+class QComboBox;
+class QLabel;
+class QVBoxLayout;
+
+// 销售业绩页: 今日/本月/总营收三大指标 + 近7日/近30日营收趋势折线图
+// 图表实现: 安装了 Qt Charts 用 QChart(HAVE_QTCHARTS), 未安装自动降级为自绘折线图
 class SalesPage : public QWidget
 {
     Q_OBJECT
 
 public:
     explicit SalesPage(QWidget *parent = nullptr);
+
+private slots:
+    void refresh();
+
+private:
+    QLabel *m_todayVal;
+    QLabel *m_monthVal;
+    QLabel *m_totalVal;
+    QComboBox *m_rangeCombo;
+    QVBoxLayout *m_chartLayout;
 };
 
 #endif // SALESPAGE_H

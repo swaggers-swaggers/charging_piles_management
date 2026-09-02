@@ -6,6 +6,7 @@
 
 #include "AdminLoginDialog.h"
 #include "AdminMainWindow.h"
+#include "DataExporter.h"
 #include "DatabaseManager.h"
 #include "network/TcpServer.h"
 #include "protocol.h"
@@ -42,6 +43,10 @@ int main(int argc, char *argv[])
         serverInfo = QString("服务端口 %1 监听中").arg(server.serverPort());
     else
         serverInfo = QString("端口监听失败: %1").arg(server.errorString());
+
+    // 大屏数据定时导出(web/data.json)
+    DataExporter exporter;
+    serverInfo += QString("    |    大屏数据: %1/data.json").arg(DataExporter::exportDir());
 
     // 管理员登录 → 管理后台
     AdminLoginDialog dlg;

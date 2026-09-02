@@ -98,6 +98,8 @@ DIST          = /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/spec_pre.prf \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/common/g++-base.conf \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/common/g++-unix.conf \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/qconfig.pri \
+		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_charts.pri \
+		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_chartsqml.pri \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_concurrent.pri \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_concurrent_private.pri \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_core.pri \
@@ -186,6 +188,7 @@ DIST          = /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/spec_pre.prf \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/lex.prf \
 		../../code/client/ChargingClient.pro ../../code/common/protocol.h \
 		../../code/common/types.h \
+		../../code/common/GeoUtil.h \
 		../../code/client/ClientSession.h \
 		../../code/client/LoginDialog.h \
 		../../code/client/UserMainWindow.h \
@@ -224,6 +227,8 @@ Makefile.ChargingClient: ../../code/client/ChargingClient.pro /usr/lib/x86_64-li
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/common/g++-base.conf \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/common/g++-unix.conf \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/qconfig.pri \
+		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_charts.pri \
+		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_chartsqml.pri \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_concurrent.pri \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_concurrent_private.pri \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_core.pri \
@@ -326,6 +331,8 @@ Makefile.ChargingClient: ../../code/client/ChargingClient.pro /usr/lib/x86_64-li
 /usr/lib/x86_64-linux-gnu/qt6/mkspecs/common/g++-base.conf:
 /usr/lib/x86_64-linux-gnu/qt6/mkspecs/common/g++-unix.conf:
 /usr/lib/x86_64-linux-gnu/qt6/mkspecs/qconfig.pri:
+/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_charts.pri:
+/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_chartsqml.pri:
 /usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_concurrent.pri:
 /usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_concurrent_private.pri:
 /usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_core.pri:
@@ -434,7 +441,7 @@ distdir: FORCE
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
 	$(COPY_FILE) --parents ../../code/resources/res.qrc $(DISTDIR)/
 	$(COPY_FILE) --parents /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/data/dummy.cpp $(DISTDIR)/
-	$(COPY_FILE) --parents ../../code/common/protocol.h ../../code/common/types.h ../../code/client/ClientSession.h ../../code/client/LoginDialog.h ../../code/client/UserMainWindow.h ../../code/client/pages/NearbyStationsPage.h ../../code/client/pages/NavigationPage.h ../../code/client/pages/UserInfoPage.h ../../code/client/pages/ChargingPage.h ../../code/client/network/TcpClient.h ../../code/client/network/TcpClientWorker.h $(DISTDIR)/
+	$(COPY_FILE) --parents ../../code/common/protocol.h ../../code/common/types.h ../../code/common/GeoUtil.h ../../code/client/ClientSession.h ../../code/client/LoginDialog.h ../../code/client/UserMainWindow.h ../../code/client/pages/NearbyStationsPage.h ../../code/client/pages/NavigationPage.h ../../code/client/pages/UserInfoPage.h ../../code/client/pages/ChargingPage.h ../../code/client/network/TcpClient.h ../../code/client/network/TcpClientWorker.h $(DISTDIR)/
 	$(COPY_FILE) --parents ../../code/client/main.cpp ../../code/client/ClientSession.cpp ../../code/client/LoginDialog.cpp ../../code/client/UserMainWindow.cpp ../../code/client/pages/NearbyStationsPage.cpp ../../code/client/pages/NavigationPage.cpp ../../code/client/pages/UserInfoPage.cpp ../../code/client/pages/ChargingPage.cpp ../../code/client/network/TcpClient.cpp ../../code/client/network/TcpClientWorker.cpp $(DISTDIR)/
 
 
@@ -485,11 +492,13 @@ moc_UserMainWindow.cpp: ../../code/client/UserMainWindow.h \
 	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/client/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/client -I/home/bit/shared/共享文件夹/Projects/code/client -I/home/bit/shared/共享文件夹/Projects/code/client/pages -I/home/bit/shared/共享文件夹/Projects/code/client/network -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/client/UserMainWindow.h -o moc_UserMainWindow.cpp
 
 moc_NearbyStationsPage.cpp: ../../code/client/pages/NearbyStationsPage.h \
+		../../code/common/types.h \
 		moc_predefs.h \
 		/usr/lib/qt6/libexec/moc
 	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/client/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/client -I/home/bit/shared/共享文件夹/Projects/code/client -I/home/bit/shared/共享文件夹/Projects/code/client/pages -I/home/bit/shared/共享文件夹/Projects/code/client/network -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/client/pages/NearbyStationsPage.h -o moc_NearbyStationsPage.cpp
 
 moc_NavigationPage.cpp: ../../code/client/pages/NavigationPage.h \
+		../../code/common/types.h \
 		moc_predefs.h \
 		/usr/lib/qt6/libexec/moc
 	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/client/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/client -I/home/bit/shared/共享文件夹/Projects/code/client -I/home/bit/shared/共享文件夹/Projects/code/client/pages -I/home/bit/shared/共享文件夹/Projects/code/client/network -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/client/pages/NavigationPage.h -o moc_NavigationPage.cpp
@@ -500,6 +509,7 @@ moc_UserInfoPage.cpp: ../../code/client/pages/UserInfoPage.h \
 	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/client/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/client -I/home/bit/shared/共享文件夹/Projects/code/client -I/home/bit/shared/共享文件夹/Projects/code/client/pages -I/home/bit/shared/共享文件夹/Projects/code/client/network -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/client/pages/UserInfoPage.h -o moc_UserInfoPage.cpp
 
 moc_ChargingPage.cpp: ../../code/client/pages/ChargingPage.h \
+		../../code/common/types.h \
 		moc_predefs.h \
 		/usr/lib/qt6/libexec/moc
 	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/client/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/client -I/home/bit/shared/共享文件夹/Projects/code/client -I/home/bit/shared/共享文件夹/Projects/code/client/pages -I/home/bit/shared/共享文件夹/Projects/code/client/network -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/client/pages/ChargingPage.h -o moc_ChargingPage.cpp
@@ -547,22 +557,38 @@ LoginDialog.o: ../../code/client/LoginDialog.cpp ../../code/client/LoginDialog.h
 UserMainWindow.o: ../../code/client/UserMainWindow.cpp ../../code/client/UserMainWindow.h \
 		../../code/client/ClientSession.h \
 		../../code/client/pages/NearbyStationsPage.h \
+		../../code/common/types.h \
 		../../code/client/pages/NavigationPage.h \
 		../../code/client/pages/UserInfoPage.h \
 		../../code/client/pages/ChargingPage.h \
 		../../code/common/protocol.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o UserMainWindow.o ../../code/client/UserMainWindow.cpp
 
-NearbyStationsPage.o: ../../code/client/pages/NearbyStationsPage.cpp ../../code/client/pages/NearbyStationsPage.h
+NearbyStationsPage.o: ../../code/client/pages/NearbyStationsPage.cpp ../../code/client/pages/NearbyStationsPage.h \
+		../../code/common/types.h \
+		../../code/client/ClientSession.h \
+		../../code/common/protocol.h \
+		../../code/client/network/TcpClient.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o NearbyStationsPage.o ../../code/client/pages/NearbyStationsPage.cpp
 
-NavigationPage.o: ../../code/client/pages/NavigationPage.cpp ../../code/client/pages/NavigationPage.h
+NavigationPage.o: ../../code/client/pages/NavigationPage.cpp ../../code/client/pages/NavigationPage.h \
+		../../code/common/types.h \
+		../../code/common/GeoUtil.h \
+		../../code/common/protocol.h \
+		../../code/client/network/TcpClient.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o NavigationPage.o ../../code/client/pages/NavigationPage.cpp
 
-UserInfoPage.o: ../../code/client/pages/UserInfoPage.cpp ../../code/client/pages/UserInfoPage.h
+UserInfoPage.o: ../../code/client/pages/UserInfoPage.cpp ../../code/client/pages/UserInfoPage.h \
+		../../code/client/ClientSession.h \
+		../../code/common/protocol.h \
+		../../code/client/network/TcpClient.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o UserInfoPage.o ../../code/client/pages/UserInfoPage.cpp
 
-ChargingPage.o: ../../code/client/pages/ChargingPage.cpp ../../code/client/pages/ChargingPage.h
+ChargingPage.o: ../../code/client/pages/ChargingPage.cpp ../../code/client/pages/ChargingPage.h \
+		../../code/common/types.h \
+		../../code/client/ClientSession.h \
+		../../code/common/protocol.h \
+		../../code/client/network/TcpClient.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o ChargingPage.o ../../code/client/pages/ChargingPage.cpp
 
 TcpClient.o: ../../code/client/network/TcpClient.cpp ../../code/client/network/TcpClient.h \

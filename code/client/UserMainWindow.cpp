@@ -7,11 +7,13 @@
 #include "ChargingPage.h"
 #include "protocol.h"
 
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QScreen>
 #include <QStackedWidget>
 #include <QStatusBar>
 #include <QVBoxLayout>
@@ -21,7 +23,10 @@ UserMainWindow::UserMainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     setWindowTitle("东软电动汽车充电桩应用管理平台 - 用户端");
-    resize(1000, 680);
+    // 尺寸自适应屏幕, 避免在分辨率较小的虚拟机窗口上超出屏幕看不到
+    const QSize screen = QGuiApplication::primaryScreen()->availableGeometry().size();
+    resize(qMin(1000, qMax(640, screen.width() - 80)),
+           qMin(680, qMax(480, screen.height() - 120)));
 
     initUi();
 
@@ -120,6 +125,10 @@ void UserMainWindow::onNavChanged(int row)
         return;
     m_stack->setCurrentIndex(row);
     m_headerTitle->setText(m_navList->item(row)->text());
+    // 每次切换页面刷新头部(余额可能被充值/结算改变)
+    m_headerUser->setText(QString("%1  |  余额: %2 元")
+                              .arg(ClientSession::instance().nickname)
+                              .arg(ClientSession::instance().balance, 0, 'f', 2));
 }
 
 void UserMainWindow::onLogoutClicked()

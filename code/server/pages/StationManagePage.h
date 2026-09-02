@@ -3,17 +3,29 @@
 
 #include <QWidget>
 
-// 充电站管理页 (阶段 1 实现)
-// 计划功能(项目说明书 1.4):
-//   1. 列表展示: 充电站ID / 站名 / 详细地址 / 经纬度 / 总电桩数 / 当前在线率
-//   2. 点击电站行, 查看该站所有电桩的实时状态明细
-//   3. 新增电站: 填写站名 / 地址 / 经纬度 / 电桩数量等字段
+class QLabel;
+class QTableWidget;
+
+// 充电站管理页: 站列表(在线率) + 点击行查看站内电桩明细 + 新增电站
 class StationManagePage : public QWidget
 {
     Q_OBJECT
 
 public:
     explicit StationManagePage(QWidget *parent = nullptr);
+
+private slots:
+    void refresh();
+    void onAddStation();
+    void onStationSelected();
+
+private:
+    void loadPileDetail(int stationId, const QString &stationName);
+
+    QTableWidget *m_stationTable;
+    QTableWidget *m_pileTable;
+    QLabel *m_detailTitle;
+    int m_selectedStationId = -1;
 };
 
 #endif // STATIONMANAGEPAGE_H

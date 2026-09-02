@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>东软电动汽车充电桩管理平台 - 大数据可视化大屏</title>
+<script src="echarts.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden;
+               background: #0B1728; color: #D8E4F0;
+               font-family: "Microsoft YaHei", "PingFang SC", sans-serif; }
+  #screen { display: flex; flex-direction: column; width: 100%; height: 100%; padding: 14px 18px; }
+
+  #header { height: 64px; display: flex; align-items: center; justify-content: space-between;
+            background: linear-gradient(90deg, #10263E, #14324F, #10263E);
+            border: 1px solid #1E4266; border-radius: 8px; padding: 0 24px; }
+  #header h1 { font-size: 26px; letter-spacing: 4px; color: #FFFFFF; }
+  #header h1 span { color: #37C6FF; }
+  #updated { font-size: 13px; color: #7FA3C4; }
+
+  #metrics { display: flex; gap: 16px; margin: 12px 0; }
+  .metric { flex: 1; height: 96px; background: #10263E; border: 1px solid #1E4266;
+            border-radius: 8px; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; }
+  .metric .label { font-size: 14px; color: #7FA3C4; margin-bottom: 8px; }
+  .metric .value { font-size: 32px; font-weight: bold; color: #37C6FF; }
+  .metric.green .value { color: #2EE6A8; }
+  .metric.orange .value { color: #FFB020; }
+
+  #charts { flex: 1; display: grid; grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr; gap: 14px; min-height: 0; }
+  .panel { background: #10263E; border: 1px solid #1E4266; border-radius: 8px;
+           display: flex; flex-direction: column; padding: 10px 14px; min-height: 0; }
+  .panel h3 { font-size: 15px; color: #BBD4EC; margin: 2px 0 6px; }
+  .chart { flex: 1; min-height: 0; }
+</style>
+</head>
+<body>
+<div id="screen">
+  <div id="header">
+    <h1>⚡ 东软电动汽车充电桩 <span>大数据可视化大屏</span></h1>
+    <div id="updated">等待数据...</div>
+  </div>
+
+  <div id="metrics">
+    <div class="metric"><div class="label">今日营收 (元)</div><div class="value" id="mToday">--</div></div>
+    <div class="metric green"><div class="label">本月营收 (元)</div><div class="value" id="mMonth">--</div></div>
+    <div class="metric orange"><div class="label">总营收 (元)</div><div class="value" id="mTotal">--</div></div>
+    <div class="metric"><div class="label">预计高峰时段</div><div class="value" id="mPeak">--</div></div>
+  </div>
+
+  <div id="charts">
+    <div class="panel"><h3>近7日营收趋势 (元)</h3><div class="chart" id="chartTrend"></div></div>
+    <div class="panel"><h3>电桩状态分布</h3><div class="chart" id="chartPile"></div></div>
+    <div class="panel"><h3>各充电站累计营收 (元)</h3><div class="chart" id="chartStation"></div></div>
+    <div class="panel"><h3>未来24小时充电负荷预测 (kWh) —— 机器学习子系统</h3><div class="chart" id="chartPredict"></div></div>
+  </div>
+</div>
+
+<script>
+const charts = {};
+function initCharts() {
+  charts.trend = echarts.init(document.getElementById('chartTrend'));
+  charts.pile = echarts.init(document.getElementById('chartPile'));
+  charts.station = echarts.init(document.getElementById('chartStation'));
+  charts.predict = echarts.init(document.getElementById('chartPredict'));
+}
+
+function render(data) {
+  document.getElementById('updated').textContent =
+      '数据更新时间: ' + data.updated + '  (每10秒自动刷新)';
+  document.getElementById('mToday').textContent = data.metrics.today.toFixed(2);
+  document.getElementById('mMonth').textContent = data.metrics.month.toFixed(2);
+  document.getElementById('mTotal').textContent = data.metrics.total.toFixed(2);
+  document.getElementById('mPeak').textContent = data.predict.peakHour + ' 时';
+
+  charts.trend.setOption({
+    tooltip: { trigger: 'axis' },
+    grid: { left: 50, right: 20, top: 20, bottom: 28 },
+    xAxis: { type: 'category', data: data.daily7.dates,
+             axisLine: { lineStyle: { color: '#3E5F80' } }, axisLabel: { color: '#7FA3C4' } },
+    yAxis: { type: 'value', axisLabel: { color: '#7FA3C4' },
+             splitLine: { lineStyle: { color: '#1B3A5A' } } },
+    series: [{ type: 'line', smooth: true, data: data.daily7.values,
+               areaStyle: { color: 'rgba(55,198,255,0.15)' },
+               lineStyle: { color: '#37C6FF', width: 2 },
+               itemStyle: { color: '#37C6FF' } }]
+  });
+
+  charts.pile.setOption({
+    tooltip: { trigger: 'item', formatter: '{b}: {c} 台 ({d}%)' },
+    legend: { bottom: 0, textStyle: { color: '#7FA3C4' } },
+    series: [{ type: 'pie', radius: ['38%', '62%'], center: ['50%', '46%'],
+               label: { color: '#BBD4EC' },
+               data: [
+                 { value: data.pileStatus.idle, name: '闲置', itemStyle: { color: '#2EE6A8' } },
+                 { value: data.pileStatus.inUse, name: '在用', itemStyle: { color: '#37C6FF' } },
+                 { value: data.pileStatus.fault, name: '故障', itemStyle: { color: '#FF6B6B' } }
+               ] }]
+  });
+
+  charts.station.setOption({
+    tooltip: { trigger: 'axis' },
+    grid: { left: 50, right: 20, top: 20, bottom: 28 },
+    xAxis: { type: 'category', data: data.stationRevenue.names,
+             axisLine: { lineStyle: { color: '#3E5F80' } }, axisLabel: { color: '#7FA3C4' } },
+    yAxis: { type: 'value', axisLabel: { color: '#7FA3C4' },
+             splitLine: { lineStyle: { color: '#1B3A5A' } } },
+    series: [{ type: 'bar', barWidth: '45%', data: data.stationRevenue.values,
+               itemStyle: { color: '#FFB020', borderRadius: [4, 4, 0, 0] } }]
+  });
+
+  charts.predict.setOption({
+    tooltip: { trigger: 'axis' },
+    grid: { left: 50, right: 20, top: 20, bottom: 28 },
+    xAxis: { type: 'category', data: data.predict.hours, boundaryGap: false,
+             axisLine: { lineStyle: { color: '#3E5F80' } },
+             axisLabel: { color: '#7FA3C4', interval: 3 } },
+    yAxis: { type: 'value', axisLabel: { color: '#7FA3C4' },
+             splitLine: { lineStyle: { color: '#1B3A5A' } } },
+    series: [{ type: 'line', smooth: true, data: data.predict.loads,
+               areaStyle: { color: 'rgba(46,230,168,0.12)' },
+               lineStyle: { color: '#2EE6A8', width: 2 },
+               itemStyle: { color: '#2EE6A8' },
+               markPoint: { data: [{ type: 'max', name: '高峰' }],
+                            itemStyle: { color: '#FF6B6B' } } }]
+  });
+}
+
+function resizeAll() {
+  Object.values(charts).forEach(c => c.resize());
+}
+
+async function poll() {
+  try {
+    const resp = await fetch('data.json?t=' + Date.now());
+    if (resp.ok) render(await resp.json());
+  } catch (e) {
+    document.getElementById('updated').textContent =
+        '等待服务端数据... (请确认 ChargingServer 正在运行, 且以 http 方式打开本页)';
+  }
+}
+
+initCharts();
+poll();
+setInterval(poll, 5000);
+window.addEventListener('resize', resizeAll);
+</script>
+</body>
+</html>

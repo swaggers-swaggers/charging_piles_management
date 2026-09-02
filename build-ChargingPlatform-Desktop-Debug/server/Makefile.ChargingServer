@@ -14,10 +14,10 @@ EQ            = =
 
 CC            = gcc
 CXX           = g++
-DEFINES       = -DQT_DEPRECATED_WARNINGS -DQT_QML_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_SQL_LIB -DQT_NETWORK_LIB -DQT_CORE_LIB
+DEFINES       = -DHAVE_QTCHARTS -DQT_DEPRECATED_WARNINGS -DQT_QML_DEBUG -DQT_CHARTS_LIB -DQT_OPENGLWIDGETS_LIB -DQT_WIDGETS_LIB -DQT_OPENGL_LIB -DQT_GUI_LIB -DQT_SQL_LIB -DQT_NETWORK_LIB -DQT_CORE_LIB
 CFLAGS        = -pipe -g -Wall -Wextra -D_REENTRANT -fPIC $(DEFINES)
 CXXFLAGS      = -pipe -g -std=gnu++1z -Wall -Wextra -D_REENTRANT -fPIC $(DEFINES)
-INCPATH       = -I../../code/server -I. -I../../code/server -I../../code/server/pages -I../../code/server/network -I../../code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++
+INCPATH       = -I../../code/server -I. -I../../code/server -I../../code/server/pages -I../../code/server/network -I../../code/server/dao -I../../code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtCharts -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++
 QMAKE         = /usr/bin/qmake6
 DEL_FILE      = rm -f
 CHK_DIR_EXISTS= test -d
@@ -40,7 +40,7 @@ DISTNAME      = ChargingServer1.0.0
 DISTDIR = /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/.tmp/ChargingServer1.0.0
 LINK          = g++
 LFLAGS        = -Wl,-rpath-link,/usr/lib/x86_64-linux-gnu
-LIBS          = $(SUBLIBS) /usr/lib/x86_64-linux-gnu/libQt6Widgets.so /usr/lib/x86_64-linux-gnu/libQt6Gui.so /usr/lib/x86_64-linux-gnu/libGLX.so /usr/lib/x86_64-linux-gnu/libOpenGL.so /usr/lib/x86_64-linux-gnu/libQt6Sql.so /usr/lib/x86_64-linux-gnu/libQt6Network.so /usr/lib/x86_64-linux-gnu/libQt6Core.so -lpthread -lGLX -lOpenGL   
+LIBS          = $(SUBLIBS) /usr/lib/x86_64-linux-gnu/libQt6Charts.so /usr/lib/x86_64-linux-gnu/libGL.so /usr/lib/x86_64-linux-gnu/libQt6OpenGLWidgets.so /usr/lib/x86_64-linux-gnu/libQt6Widgets.so /usr/lib/x86_64-linux-gnu/libQt6OpenGL.so /usr/lib/x86_64-linux-gnu/libQt6Gui.so /usr/lib/x86_64-linux-gnu/libGLX.so /usr/lib/x86_64-linux-gnu/libOpenGL.so /usr/lib/x86_64-linux-gnu/libQt6Sql.so /usr/lib/x86_64-linux-gnu/libQt6Network.so /usr/lib/x86_64-linux-gnu/libQt6Core.so -lpthread -lGLX -lOpenGL   
 AR            = ar cqs
 RANLIB        = 
 SED           = sed
@@ -57,6 +57,13 @@ SOURCES       = ../../code/server/main.cpp \
 		../../code/server/ServerSession.cpp \
 		../../code/server/AdminLoginDialog.cpp \
 		../../code/server/AdminMainWindow.cpp \
+		../../code/server/Predictor.cpp \
+		../../code/server/DataExporter.cpp \
+		../../code/server/dao/UserDao.cpp \
+		../../code/server/dao/StationDao.cpp \
+		../../code/server/dao/PileDao.cpp \
+		../../code/server/dao/OrderDao.cpp \
+		../../code/server/dao/LogDao.cpp \
 		../../code/server/pages/SalesPage.cpp \
 		../../code/server/pages/PileStatusPage.cpp \
 		../../code/server/pages/PileManagePage.cpp \
@@ -66,6 +73,7 @@ SOURCES       = ../../code/server/main.cpp \
 		../../code/server/network/ClientHandler.cpp qrc_res.cpp \
 		moc_AdminLoginDialog.cpp \
 		moc_AdminMainWindow.cpp \
+		moc_DataExporter.cpp \
 		moc_SalesPage.cpp \
 		moc_PileStatusPage.cpp \
 		moc_PileManagePage.cpp \
@@ -78,6 +86,13 @@ OBJECTS       = main.o \
 		ServerSession.o \
 		AdminLoginDialog.o \
 		AdminMainWindow.o \
+		Predictor.o \
+		DataExporter.o \
+		UserDao.o \
+		StationDao.o \
+		PileDao.o \
+		OrderDao.o \
+		LogDao.o \
 		SalesPage.o \
 		PileStatusPage.o \
 		PileManagePage.o \
@@ -88,6 +103,7 @@ OBJECTS       = main.o \
 		qrc_res.o \
 		moc_AdminLoginDialog.o \
 		moc_AdminMainWindow.o \
+		moc_DataExporter.o \
 		moc_SalesPage.o \
 		moc_PileStatusPage.o \
 		moc_PileManagePage.o \
@@ -104,6 +120,8 @@ DIST          = /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/spec_pre.prf \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/common/g++-base.conf \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/common/g++-unix.conf \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/qconfig.pri \
+		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_charts.pri \
+		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_chartsqml.pri \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_concurrent.pri \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_concurrent_private.pri \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_core.pri \
@@ -192,10 +210,18 @@ DIST          = /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/spec_pre.prf \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/lex.prf \
 		../../code/server/ChargingServer.pro ../../code/common/protocol.h \
 		../../code/common/types.h \
+		../../code/common/GeoUtil.h \
 		../../code/server/DatabaseManager.h \
 		../../code/server/ServerSession.h \
 		../../code/server/AdminLoginDialog.h \
 		../../code/server/AdminMainWindow.h \
+		../../code/server/Predictor.h \
+		../../code/server/DataExporter.h \
+		../../code/server/dao/UserDao.h \
+		../../code/server/dao/StationDao.h \
+		../../code/server/dao/PileDao.h \
+		../../code/server/dao/OrderDao.h \
+		../../code/server/dao/LogDao.h \
 		../../code/server/pages/SalesPage.h \
 		../../code/server/pages/PileStatusPage.h \
 		../../code/server/pages/PileManagePage.h \
@@ -207,6 +233,13 @@ DIST          = /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/spec_pre.prf \
 		../../code/server/ServerSession.cpp \
 		../../code/server/AdminLoginDialog.cpp \
 		../../code/server/AdminMainWindow.cpp \
+		../../code/server/Predictor.cpp \
+		../../code/server/DataExporter.cpp \
+		../../code/server/dao/UserDao.cpp \
+		../../code/server/dao/StationDao.cpp \
+		../../code/server/dao/PileDao.cpp \
+		../../code/server/dao/OrderDao.cpp \
+		../../code/server/dao/LogDao.cpp \
 		../../code/server/pages/SalesPage.cpp \
 		../../code/server/pages/PileStatusPage.cpp \
 		../../code/server/pages/PileManagePage.cpp \
@@ -234,6 +267,8 @@ Makefile.ChargingServer: ../../code/server/ChargingServer.pro /usr/lib/x86_64-li
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/common/g++-base.conf \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/common/g++-unix.conf \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/qconfig.pri \
+		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_charts.pri \
+		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_chartsqml.pri \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_concurrent.pri \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_concurrent_private.pri \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_core.pri \
@@ -322,7 +357,10 @@ Makefile.ChargingServer: ../../code/server/ChargingServer.pro /usr/lib/x86_64-li
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/lex.prf \
 		../../code/server/ChargingServer.pro \
 		../../code/resources/res.qrc \
+		/usr/lib/x86_64-linux-gnu/libQt6Charts.prl \
+		/usr/lib/x86_64-linux-gnu/libQt6OpenGLWidgets.prl \
 		/usr/lib/x86_64-linux-gnu/libQt6Widgets.prl \
+		/usr/lib/x86_64-linux-gnu/libQt6OpenGL.prl \
 		/usr/lib/x86_64-linux-gnu/libQt6Gui.prl \
 		/usr/lib/x86_64-linux-gnu/libQt6Sql.prl \
 		/usr/lib/x86_64-linux-gnu/libQt6Network.prl \
@@ -337,6 +375,8 @@ Makefile.ChargingServer: ../../code/server/ChargingServer.pro /usr/lib/x86_64-li
 /usr/lib/x86_64-linux-gnu/qt6/mkspecs/common/g++-base.conf:
 /usr/lib/x86_64-linux-gnu/qt6/mkspecs/common/g++-unix.conf:
 /usr/lib/x86_64-linux-gnu/qt6/mkspecs/qconfig.pri:
+/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_charts.pri:
+/usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_chartsqml.pri:
 /usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_concurrent.pri:
 /usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_concurrent_private.pri:
 /usr/lib/x86_64-linux-gnu/qt6/mkspecs/modules/qt_lib_core.pri:
@@ -425,7 +465,10 @@ Makefile.ChargingServer: ../../code/server/ChargingServer.pro /usr/lib/x86_64-li
 /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/lex.prf:
 ../../code/server/ChargingServer.pro:
 ../../code/resources/res.qrc:
+/usr/lib/x86_64-linux-gnu/libQt6Charts.prl:
+/usr/lib/x86_64-linux-gnu/libQt6OpenGLWidgets.prl:
 /usr/lib/x86_64-linux-gnu/libQt6Widgets.prl:
+/usr/lib/x86_64-linux-gnu/libQt6OpenGL.prl:
 /usr/lib/x86_64-linux-gnu/libQt6Gui.prl:
 /usr/lib/x86_64-linux-gnu/libQt6Sql.prl:
 /usr/lib/x86_64-linux-gnu/libQt6Network.prl:
@@ -446,8 +489,8 @@ distdir: FORCE
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
 	$(COPY_FILE) --parents ../../code/resources/res.qrc $(DISTDIR)/
 	$(COPY_FILE) --parents /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/data/dummy.cpp $(DISTDIR)/
-	$(COPY_FILE) --parents ../../code/common/protocol.h ../../code/common/types.h ../../code/server/DatabaseManager.h ../../code/server/ServerSession.h ../../code/server/AdminLoginDialog.h ../../code/server/AdminMainWindow.h ../../code/server/pages/SalesPage.h ../../code/server/pages/PileStatusPage.h ../../code/server/pages/PileManagePage.h ../../code/server/pages/StationManagePage.h ../../code/server/pages/UserManagePage.h ../../code/server/network/TcpServer.h ../../code/server/network/ClientHandler.h $(DISTDIR)/
-	$(COPY_FILE) --parents ../../code/server/main.cpp ../../code/server/DatabaseManager.cpp ../../code/server/ServerSession.cpp ../../code/server/AdminLoginDialog.cpp ../../code/server/AdminMainWindow.cpp ../../code/server/pages/SalesPage.cpp ../../code/server/pages/PileStatusPage.cpp ../../code/server/pages/PileManagePage.cpp ../../code/server/pages/StationManagePage.cpp ../../code/server/pages/UserManagePage.cpp ../../code/server/network/TcpServer.cpp ../../code/server/network/ClientHandler.cpp $(DISTDIR)/
+	$(COPY_FILE) --parents ../../code/common/protocol.h ../../code/common/types.h ../../code/common/GeoUtil.h ../../code/server/DatabaseManager.h ../../code/server/ServerSession.h ../../code/server/AdminLoginDialog.h ../../code/server/AdminMainWindow.h ../../code/server/Predictor.h ../../code/server/DataExporter.h ../../code/server/dao/UserDao.h ../../code/server/dao/StationDao.h ../../code/server/dao/PileDao.h ../../code/server/dao/OrderDao.h ../../code/server/dao/LogDao.h ../../code/server/pages/SalesPage.h ../../code/server/pages/PileStatusPage.h ../../code/server/pages/PileManagePage.h ../../code/server/pages/StationManagePage.h ../../code/server/pages/UserManagePage.h ../../code/server/network/TcpServer.h ../../code/server/network/ClientHandler.h $(DISTDIR)/
+	$(COPY_FILE) --parents ../../code/server/main.cpp ../../code/server/DatabaseManager.cpp ../../code/server/ServerSession.cpp ../../code/server/AdminLoginDialog.cpp ../../code/server/AdminMainWindow.cpp ../../code/server/Predictor.cpp ../../code/server/DataExporter.cpp ../../code/server/dao/UserDao.cpp ../../code/server/dao/StationDao.cpp ../../code/server/dao/PileDao.cpp ../../code/server/dao/OrderDao.cpp ../../code/server/dao/LogDao.cpp ../../code/server/pages/SalesPage.cpp ../../code/server/pages/PileStatusPage.cpp ../../code/server/pages/PileManagePage.cpp ../../code/server/pages/StationManagePage.cpp ../../code/server/pages/UserManagePage.cpp ../../code/server/network/TcpServer.cpp ../../code/server/network/ClientHandler.cpp $(DISTDIR)/
 
 
 clean: compiler_clean 
@@ -483,53 +526,58 @@ compiler_moc_predefs_clean:
 moc_predefs.h: /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/data/dummy.cpp
 	g++ -pipe -g -std=gnu++1z -Wall -Wextra -dM -E -o moc_predefs.h /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/data/dummy.cpp
 
-compiler_moc_header_make_all: moc_AdminLoginDialog.cpp moc_AdminMainWindow.cpp moc_SalesPage.cpp moc_PileStatusPage.cpp moc_PileManagePage.cpp moc_StationManagePage.cpp moc_UserManagePage.cpp moc_TcpServer.cpp moc_ClientHandler.cpp
+compiler_moc_header_make_all: moc_AdminLoginDialog.cpp moc_AdminMainWindow.cpp moc_DataExporter.cpp moc_SalesPage.cpp moc_PileStatusPage.cpp moc_PileManagePage.cpp moc_StationManagePage.cpp moc_UserManagePage.cpp moc_TcpServer.cpp moc_ClientHandler.cpp
 compiler_moc_header_clean:
-	-$(DEL_FILE) moc_AdminLoginDialog.cpp moc_AdminMainWindow.cpp moc_SalesPage.cpp moc_PileStatusPage.cpp moc_PileManagePage.cpp moc_StationManagePage.cpp moc_UserManagePage.cpp moc_TcpServer.cpp moc_ClientHandler.cpp
+	-$(DEL_FILE) moc_AdminLoginDialog.cpp moc_AdminMainWindow.cpp moc_DataExporter.cpp moc_SalesPage.cpp moc_PileStatusPage.cpp moc_PileManagePage.cpp moc_StationManagePage.cpp moc_UserManagePage.cpp moc_TcpServer.cpp moc_ClientHandler.cpp
 moc_AdminLoginDialog.cpp: ../../code/server/AdminLoginDialog.h \
 		moc_predefs.h \
 		/usr/lib/qt6/libexec/moc
-	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/AdminLoginDialog.h -o moc_AdminLoginDialog.cpp
+	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/server/dao -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtCharts -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/AdminLoginDialog.h -o moc_AdminLoginDialog.cpp
 
 moc_AdminMainWindow.cpp: ../../code/server/AdminMainWindow.h \
 		moc_predefs.h \
 		/usr/lib/qt6/libexec/moc
-	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/AdminMainWindow.h -o moc_AdminMainWindow.cpp
+	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/server/dao -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtCharts -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/AdminMainWindow.h -o moc_AdminMainWindow.cpp
+
+moc_DataExporter.cpp: ../../code/server/DataExporter.h \
+		moc_predefs.h \
+		/usr/lib/qt6/libexec/moc
+	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/server/dao -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtCharts -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/DataExporter.h -o moc_DataExporter.cpp
 
 moc_SalesPage.cpp: ../../code/server/pages/SalesPage.h \
 		moc_predefs.h \
 		/usr/lib/qt6/libexec/moc
-	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/pages/SalesPage.h -o moc_SalesPage.cpp
+	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/server/dao -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtCharts -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/pages/SalesPage.h -o moc_SalesPage.cpp
 
 moc_PileStatusPage.cpp: ../../code/server/pages/PileStatusPage.h \
 		moc_predefs.h \
 		/usr/lib/qt6/libexec/moc
-	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/pages/PileStatusPage.h -o moc_PileStatusPage.cpp
+	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/server/dao -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtCharts -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/pages/PileStatusPage.h -o moc_PileStatusPage.cpp
 
 moc_PileManagePage.cpp: ../../code/server/pages/PileManagePage.h \
 		moc_predefs.h \
 		/usr/lib/qt6/libexec/moc
-	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/pages/PileManagePage.h -o moc_PileManagePage.cpp
+	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/server/dao -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtCharts -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/pages/PileManagePage.h -o moc_PileManagePage.cpp
 
 moc_StationManagePage.cpp: ../../code/server/pages/StationManagePage.h \
 		moc_predefs.h \
 		/usr/lib/qt6/libexec/moc
-	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/pages/StationManagePage.h -o moc_StationManagePage.cpp
+	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/server/dao -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtCharts -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/pages/StationManagePage.h -o moc_StationManagePage.cpp
 
 moc_UserManagePage.cpp: ../../code/server/pages/UserManagePage.h \
 		moc_predefs.h \
 		/usr/lib/qt6/libexec/moc
-	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/pages/UserManagePage.h -o moc_UserManagePage.cpp
+	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/server/dao -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtCharts -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/pages/UserManagePage.h -o moc_UserManagePage.cpp
 
 moc_TcpServer.cpp: ../../code/server/network/TcpServer.h \
 		moc_predefs.h \
 		/usr/lib/qt6/libexec/moc
-	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/network/TcpServer.h -o moc_TcpServer.cpp
+	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/server/dao -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtCharts -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/network/TcpServer.h -o moc_TcpServer.cpp
 
 moc_ClientHandler.cpp: ../../code/server/network/ClientHandler.h \
 		moc_predefs.h \
 		/usr/lib/qt6/libexec/moc
-	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/network/ClientHandler.h -o moc_ClientHandler.cpp
+	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/server/dao -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtCharts -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/network/ClientHandler.h -o moc_ClientHandler.cpp
 
 compiler_moc_objc_header_make_all:
 compiler_moc_objc_header_clean:
@@ -549,6 +597,7 @@ compiler_clean: compiler_rcc_clean compiler_moc_predefs_clean compiler_moc_heade
 
 main.o: ../../code/server/main.cpp ../../code/server/AdminLoginDialog.h \
 		../../code/server/AdminMainWindow.h \
+		../../code/server/DataExporter.h \
 		../../code/server/DatabaseManager.h \
 		../../code/common/types.h \
 		../../code/server/network/TcpServer.h \
@@ -579,19 +628,65 @@ AdminMainWindow.o: ../../code/server/AdminMainWindow.cpp ../../code/server/Admin
 		../../code/server/pages/UserManagePage.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o AdminMainWindow.o ../../code/server/AdminMainWindow.cpp
 
-SalesPage.o: ../../code/server/pages/SalesPage.cpp ../../code/server/pages/SalesPage.h
+Predictor.o: ../../code/server/Predictor.cpp ../../code/server/Predictor.h \
+		../../code/server/dao/PileDao.h \
+		../../code/common/types.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o Predictor.o ../../code/server/Predictor.cpp
+
+DataExporter.o: ../../code/server/DataExporter.cpp ../../code/server/DataExporter.h \
+		../../code/server/dao/OrderDao.h \
+		../../code/common/types.h \
+		../../code/server/dao/PileDao.h \
+		../../code/server/Predictor.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o DataExporter.o ../../code/server/DataExporter.cpp
+
+UserDao.o: ../../code/server/dao/UserDao.cpp ../../code/server/dao/UserDao.h \
+		../../code/common/types.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o UserDao.o ../../code/server/dao/UserDao.cpp
+
+StationDao.o: ../../code/server/dao/StationDao.cpp ../../code/server/dao/StationDao.h \
+		../../code/common/types.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o StationDao.o ../../code/server/dao/StationDao.cpp
+
+PileDao.o: ../../code/server/dao/PileDao.cpp ../../code/server/dao/PileDao.h \
+		../../code/common/types.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o PileDao.o ../../code/server/dao/PileDao.cpp
+
+OrderDao.o: ../../code/server/dao/OrderDao.cpp ../../code/server/dao/OrderDao.h \
+		../../code/common/types.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o OrderDao.o ../../code/server/dao/OrderDao.cpp
+
+LogDao.o: ../../code/server/dao/LogDao.cpp ../../code/server/dao/LogDao.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o LogDao.o ../../code/server/dao/LogDao.cpp
+
+SalesPage.o: ../../code/server/pages/SalesPage.cpp ../../code/server/pages/SalesPage.h \
+		../../code/server/dao/OrderDao.h \
+		../../code/common/types.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o SalesPage.o ../../code/server/pages/SalesPage.cpp
 
-PileStatusPage.o: ../../code/server/pages/PileStatusPage.cpp ../../code/server/pages/PileStatusPage.h
+PileStatusPage.o: ../../code/server/pages/PileStatusPage.cpp ../../code/server/pages/PileStatusPage.h \
+		../../code/server/dao/PileDao.h \
+		../../code/common/types.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o PileStatusPage.o ../../code/server/pages/PileStatusPage.cpp
 
-PileManagePage.o: ../../code/server/pages/PileManagePage.cpp ../../code/server/pages/PileManagePage.h
+PileManagePage.o: ../../code/server/pages/PileManagePage.cpp ../../code/server/pages/PileManagePage.h \
+		../../code/server/dao/LogDao.h \
+		../../code/server/dao/PileDao.h \
+		../../code/common/types.h \
+		../../code/server/ServerSession.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o PileManagePage.o ../../code/server/pages/PileManagePage.cpp
 
-StationManagePage.o: ../../code/server/pages/StationManagePage.cpp ../../code/server/pages/StationManagePage.h
+StationManagePage.o: ../../code/server/pages/StationManagePage.cpp ../../code/server/pages/StationManagePage.h \
+		../../code/server/dao/PileDao.h \
+		../../code/common/types.h \
+		../../code/server/dao/StationDao.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o StationManagePage.o ../../code/server/pages/StationManagePage.cpp
 
-UserManagePage.o: ../../code/server/pages/UserManagePage.cpp ../../code/server/pages/UserManagePage.h
+UserManagePage.o: ../../code/server/pages/UserManagePage.cpp ../../code/server/pages/UserManagePage.h \
+		../../code/server/dao/LogDao.h \
+		../../code/server/ServerSession.h \
+		../../code/server/dao/UserDao.h \
+		../../code/common/types.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o UserManagePage.o ../../code/server/pages/UserManagePage.cpp
 
 TcpServer.o: ../../code/server/network/TcpServer.cpp ../../code/server/network/TcpServer.h \
@@ -601,7 +696,13 @@ TcpServer.o: ../../code/server/network/TcpServer.cpp ../../code/server/network/T
 ClientHandler.o: ../../code/server/network/ClientHandler.cpp ../../code/server/network/ClientHandler.h \
 		../../code/server/DatabaseManager.h \
 		../../code/common/types.h \
-		../../code/common/protocol.h
+		../../code/server/Predictor.h \
+		../../code/server/dao/OrderDao.h \
+		../../code/server/dao/PileDao.h \
+		../../code/server/dao/StationDao.h \
+		../../code/server/dao/UserDao.h \
+		../../code/common/protocol.h \
+		../../code/common/GeoUtil.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o ClientHandler.o ../../code/server/network/ClientHandler.cpp
 
 qrc_res.o: qrc_res.cpp 
@@ -612,6 +713,9 @@ moc_AdminLoginDialog.o: moc_AdminLoginDialog.cpp
 
 moc_AdminMainWindow.o: moc_AdminMainWindow.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_AdminMainWindow.o moc_AdminMainWindow.cpp
+
+moc_DataExporter.o: moc_DataExporter.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_DataExporter.o moc_DataExporter.cpp
 
 moc_SalesPage.o: moc_SalesPage.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_SalesPage.o moc_SalesPage.cpp

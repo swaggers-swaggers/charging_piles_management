@@ -1,6 +1,7 @@
 #include "DatabaseManager.h"
 
 #include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QDebug>
 #include <QFile>
 #include <QFileInfo>
@@ -133,6 +134,13 @@ bool DatabaseManager::createTables(const QString &connName, QString *errMsg)
         " FOREIGN KEY(pile_id) REFERENCES pile(id),"
         " FOREIGN KEY(station_id) REFERENCES station(id))",
 
+        "CREATE TABLE IF NOT EXISTS op_log ("
+        " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " op_time TEXT DEFAULT (datetime('now','localtime')),"
+        " op_user TEXT DEFAULT '',"
+        " action TEXT DEFAULT '',"
+        " detail TEXT DEFAULT '')",
+
         "CREATE INDEX IF NOT EXISTS idx_pile_station ON pile(station_id)",
         "CREATE INDEX IF NOT EXISTS idx_order_user ON charge_order(user_id)",
     };
@@ -153,10 +161,12 @@ void DatabaseManager::seedDefaultData()
     QSqlQuery query;
 
     // 默认管理员 admin / 123456 (项目说明书: 账号密码存储在数据库管理员表中)
-    // 密码目前明文存储, 与文档保持一致; 阶段 6 升级为摘要存储
+    // 密码以 MD5 摘要存储; verifyAdmin 兼容历史明文记录并自动升级
+    const QString md5Pwd = QString::fromLatin1(
+        QCryptographicHash::hash("123456", QCryptographicHash::Md5).toHex());
     query.prepare("INSERT OR IGNORE INTO admin (username, password) VALUES (:u, :p)");
     query.bindValue(":u", "admin");
-    query.bindValue(":p", "123456");
+    query.bindValue(":p", md5Pwd);
     query.exec();
 
     // 固定种子数据: 充电站/电桩分布(仅表为空时写入, 多次运行完全一致)
@@ -214,9 +224,8 @@ bool DatabaseManager::verifyAdmin(const QString &username, const QString &passwo
                                   int *adminId, QString *errMsg, const QString &connName)
 {
     QSqlQuery query(QSqlDatabase::database(connName));
-    query.prepare("SELECT id FROM admin WHERE username = :u AND password = :p");
+    query.prepare("SELECT id, password FROM admin WHERE username = :u");
     query.bindValue(":u", username);
-    query.bindValue(":p", password);
 
     if (!query.exec()) {
         if (errMsg)
@@ -224,15 +233,34 @@ bool DatabaseManager::verifyAdmin(const QString &username, const QString &passwo
         return false;
     }
 
-    if (query.next()) {
-        if (adminId)
-            *adminId = query.value(0).toInt();
-        return true;
+    if (!query.next()) {
+        if (errMsg)
+            *errMsg = "用户名或密码错误!";
+        return false;
     }
 
-    if (errMsg)
-        *errMsg = "用户名或密码错误!";
-    return false;
+    const int id = query.value(0).toInt();
+    const QString stored = query.value(1).toString();
+    const QString hashed = QString::fromLatin1(
+        QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Md5).toHex());
+
+    if (stored != hashed) {
+        // 兼容历史明文记录: 校验通过后自动升级为摘要存储
+        if (stored != password) {
+            if (errMsg)
+                *errMsg = "用户名或密码错误!";
+            return false;
+        }
+        QSqlQuery upgrade(QSqlDatabase::database(connName));
+        upgrade.prepare("UPDATE admin SET password = :p WHERE id = :id");
+        upgrade.bindValue(":p", hashed);
+        upgrade.bindValue(":id", id);
+        upgrade.exec();
+    }
+
+    if (adminId)
+        *adminId = id;
+    return true;
 }
 
 bool DatabaseManager::loginOrRegisterUser(const QString &phone, UserInfo *info,

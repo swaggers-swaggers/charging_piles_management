@@ -81,6 +81,25 @@ QStatusBar {
     border-top: 1px solid #E3E8EF;
 }
 
+/* ---------- 销售业绩指标卡 ---------- */
+
+QFrame#metricCard {
+    background: #FFFFFF;
+    border: 1px solid #E3E8EF;
+    border-radius: 8px;
+}
+#metricTitle {
+    color: #7A8899;
+    font-size: 13px;
+    background: transparent;
+}
+#metricValue {
+    color: #22303E;
+    font-size: 26px;
+    font-weight: bold;
+    background: transparent;
+}
+
 /* ---------- 后续模块可直接使用的通用控件样式 ---------- */
 
 QPushButton {
