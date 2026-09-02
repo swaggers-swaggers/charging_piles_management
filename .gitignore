@@ -1,2 +1,60 @@
-code/build
-code/ChargingPlatform.pro.user
+# ======================================================
+# 东软电动汽车充电桩应用管理平台 - 本地忽略清单
+# 原则: 编译产物、运行生成数据、本地电脑相关配置一律不上传
+# ======================================================
+
+# ---------- Qt 编译产物 ----------
+# Qt Creator 构建目录(内含 .o / 可执行文件 / Makefile / moc / ui / qrc 等)
+build-*/
+build/
+# 目标文件 / 库 / 可执行文件
+*.o
+*.obj
+*.a
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+ChargingClient
+ChargingServer
+ChargingPlatform
+# qmake / make 生成文件
+Makefile
+Makefile.*
+*.qmake.stash
+*.qmake.cache
+*.qmake.local
+moc_*.cpp
+moc_*.h
+moc_predefs.h
+ui_*.h
+qrc_*.cpp
+*.moc
+*.prl
+*.pc
+
+# ---------- Qt Creator 本地配置(含本机绝对路径, 勿上传) ----------
+*.pro.user
+*.user
+*.pro.user.*
+.cache/
+
+# ---------- 本地运行数据(勿上传) ----------
+# SQLite 数据库及其 WAL/SHM 日志
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+# Web 大屏导出数据(服务端运行时生成, 含本机统计数据)
+web/data.json
+data.json
+
+# ---------- 日志 / 临时文件 ----------
+*.log
+*.tmp
+*.swp
+*~
+.DS_Store
+Thumbs.db
