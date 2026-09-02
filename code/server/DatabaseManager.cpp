@@ -233,10 +233,14 @@ void DatabaseManager::seedDefaultData()
 
 void DatabaseManager::seedDemoOrders()
 {
-    // 近30天内已有任何订单则跳过(不打扰真实数据), 否则自动生成演示数据
+    // 只看演示用户: 近30天演示订单不足30笔(完整演示数据约90~240笔, 每天3~8笔)就重建,
+    // 这样库里哪怕有别人的历史订单, 演示数据也一定完整覆盖近30天
     QSqlQuery query;
-    if (query.exec("SELECT COUNT(*) FROM charge_order WHERE start_time >= datetime('now','-30 days','localtime')")
-        && query.next() && query.value(0).toInt() > 0)
+    query.prepare("SELECT COUNT(*) FROM charge_order WHERE user_id ="
+                  " (SELECT id FROM user WHERE phone = :p)"
+                  " AND start_time >= datetime('now','-30 days','localtime')");
+    query.bindValue(":p", hashPhone("13800000001"));
+    if (query.exec() && query.next() && query.value(0).toInt() >= 30)
         return;
 
     QString err;

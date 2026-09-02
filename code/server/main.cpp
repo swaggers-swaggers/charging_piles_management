@@ -53,6 +53,7 @@ int main(int argc, char *argv[])
     // 浏览器访问 http://本机IP:8080 即可看到大屏(不要再双击 index.html, file:// 下浏览器会拦截数据请求)
     HttpServer http;
     http.setRoot(DataExporter::exportDir());
+    http.setExporter(&exporter);   // /data.json 实时从数据库聚合, 不依赖落盘文件
     bool portOk = false;
     quint16 webPort = static_cast<quint16>(
         qEnvironmentVariable("CHARGING_WEB_PORT").toUShort(&portOk));

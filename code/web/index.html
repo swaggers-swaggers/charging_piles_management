@@ -3,6 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <title>东软电动汽车充电桩管理平台 - 大数据可视化大屏</title>
+<script>
+// 防呆: 检测是否以"文件方式"(file://, 即双击 index.html)打开 —— 这种方式浏览器会拦截数据请求
+if (window.location.protocol === 'file:') {
+  document.write(
+    '<div style="position:fixed;inset:0;background:#7A1F1F;color:#fff;display:flex;' +
+    'flex-direction:column;align-items:center;justify-content:center;' +
+    'font-family:sans-serif;text-align:center;padding:40px;z-index:99999;">' +
+    '<h1 style="font-size:34px;margin-bottom:20px;">❌ 当前是【双击文件】方式打开的，不会有数据</h1>' +
+    '<p style="font-size:20px;line-height:1.9;">请<b style="color:#FFD76A;">先启动服务端 ChargingServer</b>，' +
+    '然后在浏览器地址栏输入：</p>' +
+    '<p style="font-size:28px;font-weight:bold;background:#00000055;padding:12px 30px;border-radius:8px;margin:16px 0;">' +
+    'http://localhost:8080</p>' +
+    '<p style="font-size:17px;color:#FFD0D0;">（或把 localhost 换成服务器的 IP，例如 http://192.168.x.x:8080）</p>' +
+    '</div>');
+}
+</script>
 <script src="echarts.min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }

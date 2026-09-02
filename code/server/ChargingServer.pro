@@ -71,4 +71,4 @@ HEADERS += \
 FORMS += \
     AdminLoginDialog.ui
 
-RESOURCES += ../resources/res.qrc
+RESOURCES += ../resources/res.qrc server_web.qrc

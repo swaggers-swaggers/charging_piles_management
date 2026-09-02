@@ -15,6 +15,9 @@ public:
     // 导出目录: 环境变量 CHARGING_WEB_DIR > 工作目录 web/ > 可执行文件目录 web/
     static QString exportDir();
 
+    // 实时从数据库聚合大屏 JSON(供 HTTP 服务直接返回, 不依赖落盘文件)
+    QByteArray buildJson() const;
+
 public slots:
     void exportNow();
 

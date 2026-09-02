@@ -30,8 +30,10 @@ DataExporter::DataExporter(QObject *parent)
 QString DataExporter::exportDir()
 {
     const QString envDir = qEnvironmentVariable("CHARGING_WEB_DIR");
-    if (!envDir.isEmpty())
+    if (!envDir.isEmpty()) {
+        QDir().mkpath(envDir);
         return envDir;
+    }
 
     const QString appDir = QCoreApplication::applicationDirPath();
     // 覆盖常见布局: 直接源码运行 / Qt Creator 构建目录(debug/release 在构建根的下两级)
@@ -41,6 +43,11 @@ QString DataExporter::exportDir()
         QFileInfo("web").absoluteFilePath(),
         QFileInfo(appDir + "/web").absoluteFilePath(),
     };
+    // 优先找"含 index.html 的 web 目录"(源码大屏页面所在), 保证 HTTP 服务能出页面
+    for (const QString &c : candidates) {
+        if (QFileInfo(c + "/index.html").exists())
+            return c;
+    }
     for (const QString &c : candidates) {
         if (QDir(c).exists())
             return c;
@@ -48,10 +55,12 @@ QString DataExporter::exportDir()
     // 都不存在则使用 appDir 下的 web 并自动创建
     const QString fallback = QFileInfo(appDir + "/web").absoluteFilePath();
     QDir().mkpath(fallback);
+    qWarning() << "[DataExporter] 未找到含 index.html 的 web 目录, 导出到:" << fallback
+               << "(大屏页面将不可用; 可通过环境变量 CHARGING_WEB_DIR 指向源码 web/ 目录)";
     return fallback;
 }
 
-void DataExporter::exportNow()
+QByteArray DataExporter::buildJson() const
 {
     // ---- 营收指标 ----
     double today = 0, month = 0, total = 0;
@@ -126,12 +135,18 @@ void DataExporter::exportNow()
     predict.insert("peakLoad", qRound(peakLoad * 100) / 100.0);
     root.insert("predict", predict);
 
+    return QJsonDocument(root).toJson(QJsonDocument::Indented);
+}
+
+void DataExporter::exportNow()
+{
     // ---- 写文件(先写临时文件再替换, 避免大屏读到半截 JSON) ----
+    const QByteArray json = buildJson();
     const QString finalPath = exportDir() + "/data.json";
     const QString tmpPath = finalPath + ".tmp";
     QFile file(tmpPath);
     if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+        file.write(json);
         file.close();
         QFile::remove(finalPath);
         QFile::rename(tmpPath, finalPath);

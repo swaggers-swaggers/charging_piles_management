@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="web/index.html">../web/index.html</file>
+        <file alias="web/echarts.min.js">../web/echarts.min.js</file>
+    </qresource>
+</RCC>
