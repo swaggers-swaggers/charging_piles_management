@@ -1,0 +1,120 @@
+/* 全局样式: 管理端 / 用户端主窗口 */
+
+QMainWindow, QDialog {
+    background: #F2F4F7;
+}
+
+/* ---------- 侧边导航 ---------- */
+
+QWidget#sidebar {
+    background: #26323F;
+}
+
+#logoLabel {
+    color: #FFFFFF;
+    font-size: 15px;
+    font-weight: bold;
+    padding: 6px;
+}
+
+QListWidget#navList {
+    background: transparent;
+    color: #B7C3CF;
+    border: none;
+    font-size: 14px;
+    outline: 0;
+}
+QListWidget#navList::item {
+    padding: 12px 18px;
+    border: none;
+}
+QListWidget#navList::item:hover {
+    background: rgba(255, 255, 255, 28);
+}
+QListWidget#navList::item:selected {
+    background: #2F80ED;
+    color: #FFFFFF;
+}
+
+QPushButton#logoutBtn {
+    background: transparent;
+    border: none;
+    color: #B7C3CF;
+    padding: 10px;
+    font-size: 13px;
+}
+QPushButton#logoutBtn:hover {
+    color: #FF7A7A;
+}
+
+/* ---------- 页头 ---------- */
+
+QWidget#headerBar {
+    background: #FFFFFF;
+    border-bottom: 1px solid #E3E8EF;
+}
+#headerTitle {
+    font-size: 18px;
+    font-weight: bold;
+    color: #22303E;
+}
+#headerUser {
+    font-size: 13px;
+    color: #7A8899;
+}
+
+/* ---------- 功能页面通用 ---------- */
+
+#pageTitle {
+    font-size: 20px;
+    font-weight: bold;
+    color: #2B3A4A;
+}
+#pageHint {
+    font-size: 14px;
+    color: #98A4B3;
+}
+
+QStatusBar {
+    background: #FFFFFF;
+    color: #7A8899;
+    border-top: 1px solid #E3E8EF;
+}
+
+/* ---------- 后续模块可直接使用的通用控件样式 ---------- */
+
+QPushButton {
+    background: #EDF1F6;
+    border: 1px solid #D8E0EA;
+    border-radius: 4px;
+    padding: 6px 14px;
+    color: #33414F;
+}
+QPushButton:hover  { background: #E2E9F1; }
+QPushButton:pressed { background: #D6DEE8; }
+
+QTableView {
+    background: #FFFFFF;
+    border: 1px solid #E3E8EF;
+    gridline-color: #EEF1F5;
+    selection-background-color: #2F80ED;
+    selection-color: #FFFFFF;
+}
+QHeaderView::section {
+    background: #F5F7FA;
+    color: #55636F;
+    border: none;
+    border-bottom: 1px solid #E3E8EF;
+    padding: 6px;
+}
+
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {
+    background: #FFFFFF;
+    border: 1px solid #D8E0EA;
+    border-radius: 4px;
+    padding: 6px 10px;
+    color: #2B3A4A;
+}
+QLineEdit:focus, QComboBox:focus {
+    border: 1px solid #2F80ED;
+}

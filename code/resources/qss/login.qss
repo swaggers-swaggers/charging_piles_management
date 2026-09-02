@@ -1,0 +1,109 @@
+/* 登录对话框样式(仅作用于 LoginDialog 及其子控件) */
+
+#loginDialog {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                stop:0 #1D976C, stop:1 #2F80ED);
+}
+
+#titleLabel {
+    color: #FFFFFF;
+    font-size: 24px;
+    font-weight: bold;
+    background: transparent;
+}
+
+#subtitleLabel {
+    color: rgba(255, 255, 255, 220);
+    font-size: 15px;
+    background: transparent;
+}
+
+#hintLabel {
+    color: rgba(255, 255, 255, 180);
+    font-size: 12px;
+    background: transparent;
+}
+
+#exitBtn {
+    color: rgba(255, 255, 255, 190);
+    background: transparent;
+    border: none;
+    font-size: 12px;
+    padding: 4px 10px;
+}
+#exitBtn:hover { color: #FFFFFF; }
+
+QTabWidget {
+    background: transparent;
+}
+QTabWidget::pane {
+    border: none;
+    background: #FFFFFF;
+    border-radius: 12px;
+    top: 2px;
+}
+QTabBar {
+    background: transparent;
+}
+QTabBar::tab {
+    background: rgba(255, 255, 255, 60);
+    color: #EAF3FF;
+    padding: 8px 28px;
+    margin-right: 6px;
+    font-size: 14px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+QTabBar::tab:selected {
+    background: #FFFFFF;
+    color: #2F80ED;
+    font-weight: bold;
+}
+
+QLineEdit {
+    background: #F7FAFC;
+    border: 1px solid #DCE4EE;
+    border-radius: 6px;
+    padding: 9px 12px;
+    font-size: 14px;
+    color: #2B3A4A;
+}
+QLineEdit:focus {
+    border: 1px solid #2F80ED;
+    background: #FFFFFF;
+}
+
+QPushButton#userLoginBtn, QPushButton#adminLoginBtn {
+    background: #2F80ED;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 16px;
+    font-size: 15px;
+    font-weight: bold;
+}
+QPushButton#userLoginBtn:hover, QPushButton#adminLoginBtn:hover { background: #1B6BC0; }
+QPushButton#userLoginBtn:pressed, QPushButton#adminLoginBtn:pressed { background: #155A9E; }
+
+#tipLabel {
+    color: #8A97A6;
+    font-size: 12px;
+    background: transparent;
+}
+
+QCheckBox {
+    color: #5A6B7E;
+    font-size: 13px;
+    background: transparent;
+}
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #C4CFDB;
+    border-radius: 3px;
+    background: #FFFFFF;
+}
+QCheckBox::indicator:checked {
+    background: #2F80ED;
+    border: 1px solid #2F80ED;
+}

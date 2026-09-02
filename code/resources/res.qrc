@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>qss/global.qss</file>
+        <file>qss/login.qss</file>
+    </qresource>
+</RCC>
