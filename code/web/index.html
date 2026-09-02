@@ -76,13 +76,24 @@ if (window.location.protocol === 'file:') {
 <script>
 const charts = {};
 function initCharts() {
+  if (typeof echarts === 'undefined') {
+    document.getElementById('updated').textContent =
+        'ECharts 加载失败, 请检查 echarts.min.js 是否可访问';
+    return false;
+  }
   charts.trend = echarts.init(document.getElementById('chartTrend'));
   charts.pile = echarts.init(document.getElementById('chartPile'));
   charts.station = echarts.init(document.getElementById('chartStation'));
   charts.predict = echarts.init(document.getElementById('chartPredict'));
+  return true;
 }
 
 function render(data) {
+  if (!data || !data.metrics || !data.daily7 || !data.pileStatus ||
+      !data.stationRevenue || !data.predict) {
+    document.getElementById('updated').textContent = '数据格式异常, 请检查服务端 data.json';
+    return;
+  }
   document.getElementById('updated').textContent =
       '数据更新时间: ' + data.updated + '  (每10秒自动刷新)';
   document.getElementById('mToday').textContent = data.metrics.today.toFixed(2);
@@ -150,16 +161,22 @@ function resizeAll() {
 async function poll() {
   try {
     const resp = await fetch('data.json?t=' + Date.now());
-    if (resp.ok) render(await resp.json());
+    if (resp.ok) {
+      render(await resp.json());
+    } else {
+      document.getElementById('updated').textContent = '服务端返回 HTTP ' + resp.status;
+    }
   } catch (e) {
     document.getElementById('updated').textContent =
         '等待服务端数据... (请确认 ChargingServer 正在运行, 且以 http 方式打开本页)';
+  } finally {
+    setTimeout(poll, 5000);
   }
 }
 
-initCharts();
-poll();
-setInterval(poll, 5000);
+if (initCharts()) {
+  poll();
+}
 window.addEventListener('resize', resizeAll);
 </script>
 </body>

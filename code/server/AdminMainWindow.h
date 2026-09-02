@@ -16,17 +16,21 @@ class AdminMainWindow : public QMainWindow
 
 public:
     // serverInfo: 服务端口监听状态等展示在状态栏的信息
+    // webUrl: Web 大屏地址(如 http://localhost:8080), 为空表示 HTTP 服务未启动
     explicit AdminMainWindow(const QString &serverInfo = QString(),
+                             const QString &webUrl = QString(),
                              QWidget *parent = nullptr);
 
 private slots:
     void onNavChanged(int row);
     void onLogoutClicked();
+    void onOpenWebClicked();
 
 private:
     void initUi();
 
     QString m_serverInfo;
+    QString m_webUrl;
     QListWidget *m_navList;
     QStackedWidget *m_stack;
     QLabel *m_headerTitle;

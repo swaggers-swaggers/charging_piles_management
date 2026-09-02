@@ -8,6 +8,7 @@
 #include "StationManagePage.h"
 #include "UserManagePage.h"
 
+#include <QDesktopServices>
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -17,12 +18,14 @@
 #include <QScreen>
 #include <QStackedWidget>
 #include <QStatusBar>
+#include <QUrl>
 #include <QVBoxLayout>
 #include <QWidget>
 
-AdminMainWindow::AdminMainWindow(const QString &serverInfo, QWidget *parent)
+AdminMainWindow::AdminMainWindow(const QString &serverInfo, const QString &webUrl, QWidget *parent)
     : QMainWindow(parent)
     , m_serverInfo(serverInfo)
+    , m_webUrl(webUrl)
 {
     setWindowTitle("东软电动汽车充电桩应用管理平台 - 服务端");
     // 尺寸自适应屏幕, 避免在分辨率较小的虚拟机窗口上超出屏幕看不到
@@ -99,8 +102,13 @@ void AdminMainWindow::initUi()
     m_headerUser = new QLabel("管理员: " + ServerSession::instance().adminName, header);
     m_headerUser->setObjectName("headerUser");
 
+    QPushButton *openWebBtn = new QPushButton("打开大屏", header);
+    openWebBtn->setObjectName("openWebBtn");
+    openWebBtn->setCursor(Qt::PointingHandCursor);
+
     headerLayout->addWidget(m_headerTitle);
     headerLayout->addStretch();
+    headerLayout->addWidget(openWebBtn);
     headerLayout->addWidget(m_headerUser);
 
     m_stack = new QStackedWidget(rightArea);
@@ -120,6 +128,8 @@ void AdminMainWindow::initUi()
             this, &AdminMainWindow::onNavChanged);
     connect(logoutBtn, &QPushButton::clicked,
             this, &AdminMainWindow::onLogoutClicked);
+    connect(openWebBtn, &QPushButton::clicked,
+            this, &AdminMainWindow::onOpenWebClicked);
 }
 
 void AdminMainWindow::onNavChanged(int row)
@@ -136,4 +146,14 @@ void AdminMainWindow::onLogoutClicked()
         ServerSession::instance().reset();
         close();
     }
+}
+
+void AdminMainWindow::onOpenWebClicked()
+{
+    if (m_webUrl.isEmpty()) {
+        QMessageBox::warning(this, "提示", "Web 大屏服务未启动, 请检查端口是否被占用");
+        return;
+    }
+    if (!QDesktopServices::openUrl(QUrl(m_webUrl)))
+        QMessageBox::warning(this, "提示", "无法自动打开浏览器, 请手动访问: " + m_webUrl);
 }

@@ -1,6 +1,5 @@
 #include "SalesPage.h"
 
-#include "DatabaseManager.h"
 #include "OrderDao.h"
 
 #include <QComboBox>
@@ -9,11 +8,9 @@
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QMessageBox>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPen>
-#include <QPushButton>
 #include <QVBoxLayout>
 #include <QtGlobal>
 
@@ -229,27 +226,10 @@ SalesPage::SalesPage(QWidget *parent)
     // 时间维度切换 + 图表区
     QHBoxLayout *chartHead = new QHBoxLayout();
     chartHead->addStretch();
-    QPushButton *demoBtn = new QPushButton("生成演示数据", this);
-    demoBtn->setCursor(Qt::PointingHandCursor);
-    demoBtn->setToolTip("自动生成近30天固定演示订单(会重建演示用户的订单, 供图表/大屏展示)");
-    chartHead->addWidget(demoBtn);
     m_rangeCombo = new QComboBox(this);
     m_rangeCombo->addItem("近7日");
     m_rangeCombo->addItem("近30日");
     chartHead->addWidget(m_rangeCombo);
-
-    connect(demoBtn, &QPushButton::clicked, this, [this]() {
-        QString err;
-        DatabaseManager::instance().generateDemoData(&err);
-        if (!err.isEmpty()) {
-            QMessageBox::warning(this, "生成失败", err);
-            return;
-        }
-        QMessageBox::information(this, "提示",
-                                 "已生成近30天固定演示订单数据, 图表已刷新\n"
-                                 "(服务端将自动导出到 Web 大屏 data.json)");
-        refresh();
-    });
 
     QWidget *chartHost = new QWidget(this);
     m_chartLayout = new QHBoxLayout(chartHost);

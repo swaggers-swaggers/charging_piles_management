@@ -59,17 +59,20 @@ int main(int argc, char *argv[])
         qEnvironmentVariable("CHARGING_WEB_PORT").toUShort(&portOk));
     if (!portOk || webPort == 0)
         webPort = 8080;
-    if (http.listen(QHostAddress::AnyIPv4, webPort))
-        serverInfo += QString("    |    大屏访问: http://localhost:%1").arg(http.serverPort());
-    else
+    QString webUrl;
+    if (http.listen(QHostAddress::AnyIPv4, webPort)) {
+        webUrl = QString("http://localhost:%1").arg(http.serverPort());
+        serverInfo += QString("    |    大屏访问: %1").arg(webUrl);
+    } else {
         serverInfo += QString("    |    大屏 HTTP 服务启动失败: %1").arg(http.errorString());
+    }
 
     // 管理员登录 → 管理后台
     AdminLoginDialog dlg;
     if (dlg.exec() != QDialog::Accepted)
         return 0;
 
-    AdminMainWindow w(serverInfo);
+    AdminMainWindow w(serverInfo, webUrl);
     w.show();
     return a.exec();
 }

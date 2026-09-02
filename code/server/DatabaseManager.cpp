@@ -233,14 +233,15 @@ void DatabaseManager::seedDefaultData()
 
 void DatabaseManager::seedDemoOrders()
 {
-    // 只看演示用户: 近30天演示订单不足30笔(完整演示数据约90~240笔, 每天3~8笔)就重建,
-    // 这样库里哪怕有别人的历史订单, 演示数据也一定完整覆盖近30天
+    // 滚动 + 持久化: 演示数据始终覆盖到今天(今日/本月/近7日都有数据可看),
+    // 但同一天内只生成一次(今天已有演示订单就不再重建), 结果稳定可复现。
+    // 跨天首次运行会重建并滚动到今天; 随机种子固定, 金额/电量分布保持一致。
     QSqlQuery query;
     query.prepare("SELECT COUNT(*) FROM charge_order WHERE user_id ="
                   " (SELECT id FROM user WHERE phone = :p)"
-                  " AND start_time >= datetime('now','-30 days','localtime')");
+                  " AND date(start_time) = date('now','localtime')");
     query.bindValue(":p", hashPhone("13800000001"));
-    if (query.exec() && query.next() && query.value(0).toInt() >= 30)
+    if (query.exec() && query.next() && query.value(0).toInt() > 0)
         return;
 
     QString err;

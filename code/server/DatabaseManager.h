@@ -36,8 +36,8 @@ public:
     static QString hashPhone(const QString &phone);
     static QString maskPhone(const QString &phone);
 
-    // 生成/重建近30天固定演示订单(销售业绩与大屏数据用)
-    // 自动清理演示用户的旧订单后重建, 可重复调用; 管理端"生成演示数据"按钮调用
+    // 生成/重建近30天演示订单(销售业绩与大屏数据用)
+    // 由 seedDemoOrders 在"今天尚无演示订单"时调用, 滚动到今天; 同一天内只生成一次
     void generateDemoData(QString *errMsg = nullptr);
 
 private:
