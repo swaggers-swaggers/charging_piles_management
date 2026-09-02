@@ -33,6 +33,12 @@
 }
 #exitBtn:hover { color: #FFFFFF; }
 
+/* 白色卡片容器(管理员登录等无页签界面使用) */
+#card {
+    background: #FFFFFF;
+    border-radius: 12px;
+}
+
 QTabWidget {
     background: transparent;
 }
