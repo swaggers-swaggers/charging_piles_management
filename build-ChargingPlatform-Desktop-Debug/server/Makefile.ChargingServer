@@ -59,6 +59,7 @@ SOURCES       = ../../code/server/main.cpp \
 		../../code/server/AdminMainWindow.cpp \
 		../../code/server/Predictor.cpp \
 		../../code/server/DataExporter.cpp \
+		../../code/server/HttpServer.cpp \
 		../../code/server/dao/UserDao.cpp \
 		../../code/server/dao/StationDao.cpp \
 		../../code/server/dao/PileDao.cpp \
@@ -74,6 +75,7 @@ SOURCES       = ../../code/server/main.cpp \
 		moc_AdminLoginDialog.cpp \
 		moc_AdminMainWindow.cpp \
 		moc_DataExporter.cpp \
+		moc_HttpServer.cpp \
 		moc_SalesPage.cpp \
 		moc_PileStatusPage.cpp \
 		moc_PileManagePage.cpp \
@@ -88,6 +90,7 @@ OBJECTS       = main.o \
 		AdminMainWindow.o \
 		Predictor.o \
 		DataExporter.o \
+		HttpServer.o \
 		UserDao.o \
 		StationDao.o \
 		PileDao.o \
@@ -104,6 +107,7 @@ OBJECTS       = main.o \
 		moc_AdminLoginDialog.o \
 		moc_AdminMainWindow.o \
 		moc_DataExporter.o \
+		moc_HttpServer.o \
 		moc_SalesPage.o \
 		moc_PileStatusPage.o \
 		moc_PileManagePage.o \
@@ -217,6 +221,7 @@ DIST          = /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/spec_pre.prf \
 		../../code/server/AdminMainWindow.h \
 		../../code/server/Predictor.h \
 		../../code/server/DataExporter.h \
+		../../code/server/HttpServer.h \
 		../../code/server/dao/UserDao.h \
 		../../code/server/dao/StationDao.h \
 		../../code/server/dao/PileDao.h \
@@ -235,6 +240,7 @@ DIST          = /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/spec_pre.prf \
 		../../code/server/AdminMainWindow.cpp \
 		../../code/server/Predictor.cpp \
 		../../code/server/DataExporter.cpp \
+		../../code/server/HttpServer.cpp \
 		../../code/server/dao/UserDao.cpp \
 		../../code/server/dao/StationDao.cpp \
 		../../code/server/dao/PileDao.cpp \
@@ -489,8 +495,8 @@ distdir: FORCE
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
 	$(COPY_FILE) --parents ../../code/resources/res.qrc $(DISTDIR)/
 	$(COPY_FILE) --parents /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/data/dummy.cpp $(DISTDIR)/
-	$(COPY_FILE) --parents ../../code/common/protocol.h ../../code/common/types.h ../../code/common/GeoUtil.h ../../code/server/DatabaseManager.h ../../code/server/ServerSession.h ../../code/server/AdminLoginDialog.h ../../code/server/AdminMainWindow.h ../../code/server/Predictor.h ../../code/server/DataExporter.h ../../code/server/dao/UserDao.h ../../code/server/dao/StationDao.h ../../code/server/dao/PileDao.h ../../code/server/dao/OrderDao.h ../../code/server/dao/LogDao.h ../../code/server/pages/SalesPage.h ../../code/server/pages/PileStatusPage.h ../../code/server/pages/PileManagePage.h ../../code/server/pages/StationManagePage.h ../../code/server/pages/UserManagePage.h ../../code/server/network/TcpServer.h ../../code/server/network/ClientHandler.h $(DISTDIR)/
-	$(COPY_FILE) --parents ../../code/server/main.cpp ../../code/server/DatabaseManager.cpp ../../code/server/ServerSession.cpp ../../code/server/AdminLoginDialog.cpp ../../code/server/AdminMainWindow.cpp ../../code/server/Predictor.cpp ../../code/server/DataExporter.cpp ../../code/server/dao/UserDao.cpp ../../code/server/dao/StationDao.cpp ../../code/server/dao/PileDao.cpp ../../code/server/dao/OrderDao.cpp ../../code/server/dao/LogDao.cpp ../../code/server/pages/SalesPage.cpp ../../code/server/pages/PileStatusPage.cpp ../../code/server/pages/PileManagePage.cpp ../../code/server/pages/StationManagePage.cpp ../../code/server/pages/UserManagePage.cpp ../../code/server/network/TcpServer.cpp ../../code/server/network/ClientHandler.cpp $(DISTDIR)/
+	$(COPY_FILE) --parents ../../code/common/protocol.h ../../code/common/types.h ../../code/common/GeoUtil.h ../../code/server/DatabaseManager.h ../../code/server/ServerSession.h ../../code/server/AdminLoginDialog.h ../../code/server/AdminMainWindow.h ../../code/server/Predictor.h ../../code/server/DataExporter.h ../../code/server/HttpServer.h ../../code/server/dao/UserDao.h ../../code/server/dao/StationDao.h ../../code/server/dao/PileDao.h ../../code/server/dao/OrderDao.h ../../code/server/dao/LogDao.h ../../code/server/pages/SalesPage.h ../../code/server/pages/PileStatusPage.h ../../code/server/pages/PileManagePage.h ../../code/server/pages/StationManagePage.h ../../code/server/pages/UserManagePage.h ../../code/server/network/TcpServer.h ../../code/server/network/ClientHandler.h $(DISTDIR)/
+	$(COPY_FILE) --parents ../../code/server/main.cpp ../../code/server/DatabaseManager.cpp ../../code/server/ServerSession.cpp ../../code/server/AdminLoginDialog.cpp ../../code/server/AdminMainWindow.cpp ../../code/server/Predictor.cpp ../../code/server/DataExporter.cpp ../../code/server/HttpServer.cpp ../../code/server/dao/UserDao.cpp ../../code/server/dao/StationDao.cpp ../../code/server/dao/PileDao.cpp ../../code/server/dao/OrderDao.cpp ../../code/server/dao/LogDao.cpp ../../code/server/pages/SalesPage.cpp ../../code/server/pages/PileStatusPage.cpp ../../code/server/pages/PileManagePage.cpp ../../code/server/pages/StationManagePage.cpp ../../code/server/pages/UserManagePage.cpp ../../code/server/network/TcpServer.cpp ../../code/server/network/ClientHandler.cpp $(DISTDIR)/
 	$(COPY_FILE) --parents ../../code/server/AdminLoginDialog.ui $(DISTDIR)/
 
 
@@ -527,9 +533,9 @@ compiler_moc_predefs_clean:
 moc_predefs.h: /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/data/dummy.cpp
 	g++ -pipe -g -std=gnu++1z -Wall -Wextra -dM -E -o moc_predefs.h /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/data/dummy.cpp
 
-compiler_moc_header_make_all: moc_AdminLoginDialog.cpp moc_AdminMainWindow.cpp moc_DataExporter.cpp moc_SalesPage.cpp moc_PileStatusPage.cpp moc_PileManagePage.cpp moc_StationManagePage.cpp moc_UserManagePage.cpp moc_TcpServer.cpp moc_ClientHandler.cpp
+compiler_moc_header_make_all: moc_AdminLoginDialog.cpp moc_AdminMainWindow.cpp moc_DataExporter.cpp moc_HttpServer.cpp moc_SalesPage.cpp moc_PileStatusPage.cpp moc_PileManagePage.cpp moc_StationManagePage.cpp moc_UserManagePage.cpp moc_TcpServer.cpp moc_ClientHandler.cpp
 compiler_moc_header_clean:
-	-$(DEL_FILE) moc_AdminLoginDialog.cpp moc_AdminMainWindow.cpp moc_DataExporter.cpp moc_SalesPage.cpp moc_PileStatusPage.cpp moc_PileManagePage.cpp moc_StationManagePage.cpp moc_UserManagePage.cpp moc_TcpServer.cpp moc_ClientHandler.cpp
+	-$(DEL_FILE) moc_AdminLoginDialog.cpp moc_AdminMainWindow.cpp moc_DataExporter.cpp moc_HttpServer.cpp moc_SalesPage.cpp moc_PileStatusPage.cpp moc_PileManagePage.cpp moc_StationManagePage.cpp moc_UserManagePage.cpp moc_TcpServer.cpp moc_ClientHandler.cpp
 moc_AdminLoginDialog.cpp: ../../code/server/AdminLoginDialog.h \
 		moc_predefs.h \
 		/usr/lib/qt6/libexec/moc
@@ -544,6 +550,11 @@ moc_DataExporter.cpp: ../../code/server/DataExporter.h \
 		moc_predefs.h \
 		/usr/lib/qt6/libexec/moc
 	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/server/dao -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtCharts -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/DataExporter.h -o moc_DataExporter.cpp
+
+moc_HttpServer.cpp: ../../code/server/HttpServer.h \
+		moc_predefs.h \
+		/usr/lib/qt6/libexec/moc
+	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/bit/shared/共享文件夹/Projects/build-ChargingPlatform-Desktop-Debug/server/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server -I/home/bit/shared/共享文件夹/Projects/code/server/pages -I/home/bit/shared/共享文件夹/Projects/code/server/network -I/home/bit/shared/共享文件夹/Projects/code/server/dao -I/home/bit/shared/共享文件夹/Projects/code/common -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtCharts -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtSql -I/usr/include/x86_64-linux-gnu/qt6/QtNetwork -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../code/server/HttpServer.h -o moc_HttpServer.cpp
 
 moc_SalesPage.cpp: ../../code/server/pages/SalesPage.h \
 		moc_predefs.h \
@@ -606,6 +617,7 @@ main.o: ../../code/server/main.cpp ../../code/server/AdminLoginDialog.h \
 		../../code/server/DataExporter.h \
 		../../code/server/DatabaseManager.h \
 		../../code/common/types.h \
+		../../code/server/HttpServer.h \
 		../../code/server/network/TcpServer.h \
 		../../code/common/protocol.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o ../../code/server/main.cpp
@@ -646,6 +658,9 @@ DataExporter.o: ../../code/server/DataExporter.cpp ../../code/server/DataExporte
 		../../code/server/dao/PileDao.h \
 		../../code/server/Predictor.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o DataExporter.o ../../code/server/DataExporter.cpp
+
+HttpServer.o: ../../code/server/HttpServer.cpp ../../code/server/HttpServer.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o HttpServer.o ../../code/server/HttpServer.cpp
 
 UserDao.o: ../../code/server/dao/UserDao.cpp ../../code/server/dao/UserDao.h \
 		../../code/common/types.h
@@ -723,6 +738,9 @@ moc_AdminMainWindow.o: moc_AdminMainWindow.cpp
 
 moc_DataExporter.o: moc_DataExporter.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_DataExporter.o moc_DataExporter.cpp
+
+moc_HttpServer.o: moc_HttpServer.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_HttpServer.o moc_HttpServer.cpp
 
 moc_SalesPage.o: moc_SalesPage.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_SalesPage.o moc_SalesPage.cpp

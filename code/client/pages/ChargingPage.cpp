@@ -117,6 +117,10 @@ void ChargingPage::showEvent(QShowEvent *event)
         Protocol::ReqUnfinishedOrder,
         QJsonObject{{"userId", ClientSession::instance().userId}});
     if (!reply.value("ok").toBool()) {
+        // 查询失败(如服务端暂不可达)时不能留白, 回退到充电站选择视图并提示
+        m_hasOrder = false;
+        enterSelectView();
+        refreshStations();
         QMessageBox::warning(this, "提示", reply.value("error").toString());
         return;
     }
@@ -269,14 +273,12 @@ void ChargingPage::enterChargingView(const OrderInfo &order)
     m_amountLabel->setText(QString("当前费用: %1 元").arg(order.amount, 0, 'f', 2));
     m_minutesLabel->setText("等待服务端推送充电进度...");
 
-    m_selectView->hide();
-    m_chargingView->show();
+    m_stack->setCurrentIndex(1);   // 统一由 QStackedWidget 切换
 }
 
 void ChargingPage::enterSelectView()
 {
-    m_chargingView->hide();
-    m_selectView->show();
+    m_stack->setCurrentIndex(0);
 }
 
 void ChargingPage::showSettlement(const QJsonObject &reply)

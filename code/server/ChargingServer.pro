@@ -33,6 +33,7 @@ SOURCES += \
     AdminMainWindow.cpp \
     Predictor.cpp \
     DataExporter.cpp \
+    HttpServer.cpp \
     dao/UserDao.cpp \
     dao/StationDao.cpp \
     dao/PileDao.cpp \
@@ -53,6 +54,7 @@ HEADERS += \
     AdminMainWindow.h \
     Predictor.h \
     DataExporter.h \
+    HttpServer.h \
     dao/UserDao.h \
     dao/StationDao.h \
     dao/PileDao.h \

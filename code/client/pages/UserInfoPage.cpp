@@ -14,6 +14,7 @@
 #include <QMessageBox>
 #include <QPixmap>
 #include <QPushButton>
+#include <QTimer>
 #include <QVBoxLayout>
 
 namespace {
@@ -103,7 +104,8 @@ UserInfoPage::UserInfoPage(QWidget *parent)
 void UserInfoPage::showEvent(QShowEvent *event)
 {
     QWidget::showEvent(event);
-    onRefresh();
+    // 延迟到界面显示完成后再请求, 避免同步网络请求阻塞主窗口切换
+    QTimer::singleShot(0, this, &UserInfoPage::onRefresh);
 }
 
 void UserInfoPage::onRefresh()

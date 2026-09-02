@@ -8,6 +8,7 @@
 #include "AdminMainWindow.h"
 #include "DataExporter.h"
 #include "DatabaseManager.h"
+#include "HttpServer.h"
 #include "network/TcpServer.h"
 #include "protocol.h"
 
@@ -47,6 +48,20 @@ int main(int argc, char *argv[])
     // 大屏数据定时导出(web/data.json)
     DataExporter exporter;
     serverInfo += QString("    |    大屏数据: %1/data.json").arg(DataExporter::exportDir());
+
+    // 内置 HTTP 服务: 为 Web 大数据可视化大屏提供页面与数据
+    // 浏览器访问 http://本机IP:8080 即可看到大屏(不要再双击 index.html, file:// 下浏览器会拦截数据请求)
+    HttpServer http;
+    http.setRoot(DataExporter::exportDir());
+    bool portOk = false;
+    quint16 webPort = static_cast<quint16>(
+        qEnvironmentVariable("CHARGING_WEB_PORT").toUShort(&portOk));
+    if (!portOk || webPort == 0)
+        webPort = 8080;
+    if (http.listen(QHostAddress::AnyIPv4, webPort))
+        serverInfo += QString("    |    大屏访问: http://localhost:%1").arg(http.serverPort());
+    else
+        serverInfo += QString("    |    大屏 HTTP 服务启动失败: %1").arg(http.errorString());
 
     // 管理员登录 → 管理后台
     AdminLoginDialog dlg;

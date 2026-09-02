@@ -36,6 +36,10 @@ public:
     static QString hashPhone(const QString &phone);
     static QString maskPhone(const QString &phone);
 
+    // 生成/重建近30天固定演示订单(销售业绩与大屏数据用)
+    // 自动清理演示用户的旧订单后重建, 可重复调用; 管理端"生成演示数据"按钮调用
+    void generateDemoData(QString *errMsg = nullptr);
+
 private:
     DatabaseManager() = default;
 
@@ -43,6 +47,8 @@ private:
     QString resolveDatabaseFile() const;
     bool createTables(const QString &connName, QString *errMsg);
     void seedDefaultData();
+    // 演示数据: 近30天固定订单(确定性伪随机, 表空时填充一次), 让营收/趋势/大屏有数据可看
+    void seedDemoOrders();
     // 兼容旧库: 把 user.phone 明文迁移为哈希, 并回填 phone_masked 脱敏列
     void migratePhoneEncryption();
 

@@ -34,11 +34,21 @@ QString DataExporter::exportDir()
         return envDir;
 
     const QString appDir = QCoreApplication::applicationDirPath();
-    if (QDir(appDir + "/../web").exists())
-        return QFileInfo(appDir + "/../web").absoluteFilePath();
-    if (QDir("web").exists())
-        return QFileInfo("web").absoluteFilePath();
-    return QFileInfo(appDir + "/web").absoluteFilePath();
+    // 覆盖常见布局: 直接源码运行 / Qt Creator 构建目录(debug/release 在构建根的下两级)
+    const QStringList candidates = {
+        QFileInfo(appDir + "/../web").absoluteFilePath(),    // 源码 code/server -> code/web
+        QFileInfo(appDir + "/../../web").absoluteFilePath(), // build/debug -> build/../../web
+        QFileInfo("web").absoluteFilePath(),
+        QFileInfo(appDir + "/web").absoluteFilePath(),
+    };
+    for (const QString &c : candidates) {
+        if (QDir(c).exists())
+            return c;
+    }
+    // 都不存在则使用 appDir 下的 web 并自动创建
+    const QString fallback = QFileInfo(appDir + "/web").absoluteFilePath();
+    QDir().mkpath(fallback);
+    return fallback;
 }
 
 void DataExporter::exportNow()

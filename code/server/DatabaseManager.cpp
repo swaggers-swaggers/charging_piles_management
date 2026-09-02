@@ -2,9 +2,12 @@
 
 #include <QCoreApplication>
 #include <QCryptographicHash>
+#include <QDate>
+#include <QDateTime>
 #include <QDebug>
 #include <QFile>
 #include <QFileInfo>
+#include <QMap>
 #include <QPair>
 #include <QSqlDatabase>
 #include <QSqlError>
@@ -43,6 +46,9 @@ bool DatabaseManager::init(QString *errMsg)
         return false;
 
     seedDefaultData();
+
+    // 演示数据: 近30天固定订单(让销售业绩/大屏趋势有数据可看)
+    seedDemoOrders();
 
     // 旧库升级: 把明文手机号迁移为哈希存储(隐私保护)
     migratePhoneEncryption();
@@ -221,6 +227,123 @@ void DatabaseManager::seedDefaultData()
             query.addBindValue(status);
             query.exec();
             ++codeSeq;
+        }
+    }
+}
+
+void DatabaseManager::seedDemoOrders()
+{
+    // 近30天内已有任何订单则跳过(不打扰真实数据), 否则自动生成演示数据
+    QSqlQuery query;
+    if (query.exec("SELECT COUNT(*) FROM charge_order WHERE start_time >= datetime('now','-30 days','localtime')")
+        && query.next() && query.value(0).toInt() > 0)
+        return;
+
+    QString err;
+    generateDemoData(&err);
+    if (err.isEmpty())
+        qDebug() << "[Database] 已生成近30天固定演示订单数据";
+    else
+        qWarning() << "[Database] 生成演示数据失败:" << err;
+}
+
+void DatabaseManager::generateDemoData(QString *errMsg)
+{
+    QSqlQuery query;
+
+    // 确保演示用户存在(手机号仅存哈希 + 脱敏, 不落明文)
+    const QString demoPhone = "13800000001";
+    const QString demoHash = hashPhone(demoPhone);
+    int userId = -1;
+    query.prepare("SELECT id FROM user WHERE phone = :p");
+    query.bindValue(":p", demoHash);
+    if (query.exec() && query.next()) {
+        userId = query.value(0).toInt();
+    } else {
+        query.prepare("INSERT INTO user (phone, phone_masked, nickname, balance, register_time) "
+                      "VALUES (:p, :m, :n, :b, :r)");
+        query.bindValue(":p", demoHash);
+        query.bindValue(":m", maskPhone(demoPhone));
+        query.bindValue(":n", "演示用户");
+        query.bindValue(":b", 500.0);
+        query.bindValue(":r", QDate::currentDate().addDays(-30).toString("yyyy-MM-dd hh:mm:ss"));
+        if (query.exec()) {
+            userId = query.lastInsertId().toInt();
+        } else {
+            if (errMsg)
+                *errMsg = "创建演示用户失败: " + query.lastError().text();
+            return;
+        }
+    }
+    if (userId < 0) {
+        if (errMsg)
+            *errMsg = "无法创建演示用户";
+        return;
+    }
+
+    // 清理演示用户的旧演示订单(避免重复点击累积)
+    query.prepare("DELETE FROM charge_order WHERE user_id = ?");
+    query.addBindValue(userId);
+    query.exec();
+
+    // 充电站价格 + 电桩(station_id)
+    QMap<int, double> stationPrice;
+    query.exec("SELECT id, price FROM station");
+    while (query.next())
+        stationPrice.insert(query.value(0).toInt(), query.value(1).toDouble());
+
+    QList<QPair<int, int>> piles;   // (pile_id, station_id)
+    query.exec("SELECT id, station_id FROM pile");
+    while (query.next())
+        piles.append(qMakePair(query.value(0).toInt(), query.value(1).toInt()));
+    if (piles.isEmpty() || stationPrice.isEmpty()) {
+        if (errMsg)
+            *errMsg = "缺少充电站/电桩数据";
+        return;
+    }
+
+    // 确定性伪随机: 固定种子, 多次运行生成的演示数据完全一致("固定下来")
+    quint32 seed = 20260901u;
+    auto rnd = [&seed]() -> quint32 {
+        seed = seed * 1103515245u + 12345u;
+        return (seed >> 16) & 0x7fff;
+    };
+
+    const QDate today = QDate::currentDate();
+    for (int day = 29; day >= 0; --day) {
+        const QDate d = today.addDays(-day);
+        const int nOrders = 3 + static_cast<int>(rnd() % 6);   // 每天 3~8 笔
+        for (int i = 0; i < nOrders; ++i) {
+            const int idx = static_cast<int>(rnd() % piles.size());
+            const int pileId = piles[idx].first;
+            const int stationId = piles[idx].second;
+            const double price = stationPrice.value(stationId, 1.0);
+            const int hour = 7 + static_cast<int>(rnd() % 16);   // 07~22 点
+            const int minute = static_cast<int>(rnd() % 60);
+            const double energy = 8.0 + static_cast<double>(rnd() % 51);   // 8~58 kWh
+            const double amount = qRound(energy * price * 100.0) / 100.0;
+            const double duration = 0.5 + static_cast<double>(rnd() % 20) / 10.0;   // 0.5~2.4h
+
+            const QString startStr = QString("%1 %2:%3:00")
+                .arg(d.toString("yyyy-MM-dd"))
+                .arg(hour, 2, 10, QLatin1Char('0'))
+                .arg(minute, 2, 10, QLatin1Char('0'));
+            const QDateTime endDt =
+                QDateTime::fromString(startStr, "yyyy-MM-dd hh:mm:ss")
+                    .addSecs(qint64(duration * 3600));
+            const QString endStr = endDt.toString("yyyy-MM-dd hh:mm:ss");
+
+            query.prepare("INSERT INTO charge_order "
+                          "(user_id, pile_id, station_id, start_time, end_time, energy, amount, status) "
+                          "VALUES (?, ?, ?, ?, ?, ?, ?, 1)");
+            query.addBindValue(userId);
+            query.addBindValue(pileId);
+            query.addBindValue(stationId);
+            query.addBindValue(startStr);
+            query.addBindValue(endStr);
+            query.addBindValue(energy);
+            query.addBindValue(amount);
+            query.exec();
         }
     }
 }
