@@ -24,6 +24,7 @@ SOURCES += \
     ClientSession.cpp \
     LoginDialog.cpp \
     UserMainWindow.cpp \
+    TencentGeo.cpp \
     pages/NearbyStationsPage.cpp \
     pages/NavigationPage.cpp \
     pages/UserInfoPage.cpp \
@@ -35,6 +36,8 @@ HEADERS += \
     ClientSession.h \
     LoginDialog.h \
     UserMainWindow.h \
+    TencentGeo.h \
+    mapconfig.h \
     pages/NearbyStationsPage.h \
     pages/NavigationPage.h \
     pages/UserInfoPage.h \

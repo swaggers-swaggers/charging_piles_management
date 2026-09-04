@@ -102,7 +102,7 @@ ChargingPage::ChargingPage(QWidget *parent)
     m_stack->addWidget(m_chargingView);
 
     connect(refreshBtn, &QPushButton::clicked, this, &ChargingPage::refreshStations);
-    connect(m_stationCombo, &QComboBox::currentIndexChanged, this, &ChargingPage::onStationPicked);
+    connect(m_stationCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, &ChargingPage::onStationPicked);
     connect(m_pileTable, &QTableWidget::cellDoubleClicked, this, &ChargingPage::onStartCharge);
     connect(stopBtn, &QPushButton::clicked, this, &ChargingPage::onStopCharge);
     connect(&TcpClient::instance(), &TcpClient::pushReceived,

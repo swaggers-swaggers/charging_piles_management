@@ -1,6 +1,7 @@
 #include "NearbyStationsPage.h"
 
 #include "ClientSession.h"
+#include "TencentGeo.h"
 #include "protocol.h"
 #include "network/TcpClient.h"
 
@@ -114,7 +115,7 @@ NearbyStationsPage::NearbyStationsPage(QWidget *parent)
     connect(refreshBtn, &QPushButton::clicked, this, &NearbyStationsPage::refresh);
     connect(locateBtn, &QPushButton::clicked, this, &NearbyStationsPage::onLocate);
     connect(m_addrEdit, &QLineEdit::returnPressed, this, &NearbyStationsPage::onLocate);
-    connect(m_regionCombo, &QComboBox::currentIndexChanged, this, &NearbyStationsPage::refresh);
+    connect(m_regionCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, &NearbyStationsPage::refresh);
     connect(m_table, &QTableWidget::cellDoubleClicked, this, &NearbyStationsPage::showPileDetail);
 }
 
@@ -134,7 +135,28 @@ void NearbyStationsPage::onLocate()
         return;
     }
 
-    // 模拟腾讯地图 Web API 地理编码: 关键词匹配内置地址库
+    // 真实调用腾讯地图 Web API 地理编码(地址 -> 经纬度)
+    QString geoErr;
+    if (TencentGeo::geocode(addr, m_lon, m_lat, geoErr)) {
+        // 成功后仍尝试同步城区下拉框(命中则联动刷新)
+        for (int i = 0; i < int(sizeof(kRegions) / sizeof(kRegions[0])); ++i) {
+            QString regionName = QString::fromUtf8(kRegions[i].name);
+            const int paren = regionName.indexOf('(');
+            if (paren > 0)
+                regionName = regionName.left(paren);
+            if (!regionName.isEmpty() && addr.contains(regionName)) {
+                m_regionCombo->setCurrentIndex(i);
+                return;
+            }
+        }
+        QMessageBox::information(this, "定位成功",
+                                 QString("已定位到: %1  (经度 %.4f, 纬度 %.4f)")
+                                     .arg(addr).arg(m_lon, 0, 'f', 4).arg(m_lat, 0, 'f', 4));
+        refresh();
+        return;
+    }
+
+    // 兜底: 腾讯地图调用失败(未配置 key / 无网络 / 无结果)时, 退回内置地标匹配
     bool found = false;
     for (const RegionCoord &l : kLandmarks) {
         if (addr.contains(QString::fromUtf8(l.name))) {
@@ -146,8 +168,8 @@ void NearbyStationsPage::onLocate()
     }
     if (!found) {
         QMessageBox::warning(this, "定位失败",
-                             QString("未识别地址: %1\n已保持当前位置, 可尝试输入: 五道口 / 国贸 / 鸟巢 / 北京站 等")
-                                 .arg(addr));
+                             QString("腾讯地图定位失败: %1\n且本地未识别地址: %2\n可尝试输入: 五道口 / 国贸 / 鸟巢 / 北京站 等")
+                                 .arg(geoErr, addr));
         return;
     }
 

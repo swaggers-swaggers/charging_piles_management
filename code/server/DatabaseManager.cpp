@@ -78,13 +78,15 @@ QString DatabaseManager::resolveDatabaseFile() const
         return envPath;
 
     const QString appDir = QCoreApplication::applicationDirPath();
+
+    // 优先沿用已存在的 test.db(兼容旧数据), 顺序: 可执行文件目录附近 > 工作目录
     const QStringList candidates = {
-        "test.db",
         appDir + "/test.db",
         appDir + "/../test.db",
         appDir + "/../../test.db",
         appDir + "/../database/test.db",
         appDir + "/../../database/test.db",
+        "test.db",
         "database/test.db",
     };
 
@@ -93,7 +95,8 @@ QString DatabaseManager::resolveDatabaseFile() const
             return path;
     }
 
-    return "test.db";
+    // 兜底: 固定在可执行文件目录, 不随工作目录变化, 避免换目录启动导致"数据丢失"
+    return appDir + "/test.db";
 }
 
 bool DatabaseManager::createTables(const QString &connName, QString *errMsg)
