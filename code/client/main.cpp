@@ -1,5 +1,6 @@
 #include <QApplication>
 #include <QFile>
+#include <QNetworkProxyFactory>
 #include <QtGlobal>
 
 #include "ClientSession.h"
@@ -16,6 +17,10 @@ int main(int argc, char *argv[])
     a.setOrganizationName("Neusoft");
     a.setApplicationName("ChargingClient");
     QApplication::setStyle("Fusion");
+
+    // 使 QNetworkAccessManager 跟随 Linux 桌面/环境的系统代理设置。
+    // v2rayN 开启时地图与路线请求走代理，关闭时自动直连。
+    QNetworkProxyFactory::setUseSystemConfiguration(true);
 
     // 全局样式表
     QFile globalQss(":/qss/global.qss");

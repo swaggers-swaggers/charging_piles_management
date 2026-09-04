@@ -1,7 +1,6 @@
 #include "NearbyStationsPage.h"
 
 #include "ClientSession.h"
-#include "TencentGeo.h"
 #include "protocol.h"
 #include "network/TcpClient.h"
 
@@ -36,8 +35,8 @@ const RegionCoord kRegions[] = {
     { "通州区",        116.6560, 39.9100 },
 };
 
-// 地址关键词 → 坐标(模拟腾讯地图 Web API 地理编码;
-//   真实项目应调用 https://apis.map.qq.com/ws/geocoder/v1 换取经纬度)
+// 地址关键词 → 演示坐标。课程项目不在每次输入时调用商业地理编码服务，
+// 避免 Key 泄露、额度耗尽和答辩环境网络不稳定。
 const RegionCoord kLandmarks[] = {
     { "五道口",    116.3391, 39.9911 },
     { "中关村",    116.3160, 39.9830 },
@@ -82,7 +81,7 @@ NearbyStationsPage::NearbyStationsPage(QWidget *parent)
     QLabel *addrLabel = new QLabel("或输入地址:", this);
     m_addrEdit = new QLineEdit(this);
     m_addrEdit->setObjectName("addrEdit");
-    m_addrEdit->setPlaceholderText("如: 五道口 / 国贸 / 鸟巢 (模拟腾讯地图定位)");
+    m_addrEdit->setPlaceholderText("演示地标：五道口 / 国贸 / 鸟巢 / 北京站");
     m_addrEdit->setClearButtonEnabled(true);
     QPushButton *locateBtn = new QPushButton("定位", this);
     locateBtn->setObjectName("primaryBtn");
@@ -115,7 +114,8 @@ NearbyStationsPage::NearbyStationsPage(QWidget *parent)
     connect(refreshBtn, &QPushButton::clicked, this, &NearbyStationsPage::refresh);
     connect(locateBtn, &QPushButton::clicked, this, &NearbyStationsPage::onLocate);
     connect(m_addrEdit, &QLineEdit::returnPressed, this, &NearbyStationsPage::onLocate);
-    connect(m_regionCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, &NearbyStationsPage::refresh);
+    connect(m_regionCombo, qOverload<int>(&QComboBox::currentIndexChanged),
+            this, &NearbyStationsPage::onRegionChanged);
     connect(m_table, &QTableWidget::cellDoubleClicked, this, &NearbyStationsPage::showPileDetail);
 }
 
@@ -135,28 +135,6 @@ void NearbyStationsPage::onLocate()
         return;
     }
 
-    // 真实调用腾讯地图 Web API 地理编码(地址 -> 经纬度)
-    QString geoErr;
-    if (TencentGeo::geocode(addr, m_lon, m_lat, geoErr)) {
-        // 成功后仍尝试同步城区下拉框(命中则联动刷新)
-        for (int i = 0; i < int(sizeof(kRegions) / sizeof(kRegions[0])); ++i) {
-            QString regionName = QString::fromUtf8(kRegions[i].name);
-            const int paren = regionName.indexOf('(');
-            if (paren > 0)
-                regionName = regionName.left(paren);
-            if (!regionName.isEmpty() && addr.contains(regionName)) {
-                m_regionCombo->setCurrentIndex(i);
-                return;
-            }
-        }
-        QMessageBox::information(this, "定位成功",
-                                 QString("已定位到: %1  (经度 %.4f, 纬度 %.4f)")
-                                     .arg(addr).arg(m_lon, 0, 'f', 4).arg(m_lat, 0, 'f', 4));
-        refresh();
-        return;
-    }
-
-    // 兜底: 腾讯地图调用失败(未配置 key / 无网络 / 无结果)时, 退回内置地标匹配
     bool found = false;
     for (const RegionCoord &l : kLandmarks) {
         if (addr.contains(QString::fromUtf8(l.name))) {
@@ -168,35 +146,34 @@ void NearbyStationsPage::onLocate()
     }
     if (!found) {
         QMessageBox::warning(this, "定位失败",
-                             QString("腾讯地图定位失败: %1\n且本地未识别地址: %2\n可尝试输入: 五道口 / 国贸 / 鸟巢 / 北京站 等")
-                                 .arg(geoErr, addr));
+                             QString("本地未识别地址：%1\n可使用城区下拉框，或输入：五道口 / 国贸 / 鸟巢 / 北京站 等")
+                                 .arg(addr));
         return;
     }
 
-    // 若命中某个城区, 同步下拉框(会联动触发 refresh)
+    // 若地址中带有城区名, 只同步下拉框显示；
+    // 不触发 onRegionChanged，否则会把精确地标覆盖成城区中心坐标。
     for (int i = 0; i < int(sizeof(kRegions) / sizeof(kRegions[0])); ++i) {
         QString regionName = QString::fromUtf8(kRegions[i].name);
         const int paren = regionName.indexOf('(');
         if (paren > 0)
             regionName = regionName.left(paren);
         if (!regionName.isEmpty() && addr.contains(regionName)) {
+            m_regionCombo->blockSignals(true);
             m_regionCombo->setCurrentIndex(i);
-            return;
+            m_regionCombo->blockSignals(false);
+            break;
         }
     }
 
     QMessageBox::information(this, "定位成功",
-                             QString("已定位到: %1  (经度 %.4f, 纬度 %.4f)")
+                             QString("已定位到: %1  (经度 %2, 纬度 %3)")
                                  .arg(addr).arg(m_lon, 0, 'f', 4).arg(m_lat, 0, 'f', 4));
     refresh();
 }
 
 void NearbyStationsPage::refresh()
 {
-    const RegionCoord &region = kRegions[m_regionCombo->currentIndex()];
-    m_lon = region.lon;
-    m_lat = region.lat;
-
     const QJsonObject reply = TcpClient::instance().request(
         Protocol::ReqStationList, QJsonObject{{"lon", m_lon}, {"lat", m_lat}});
     if (!reply.value("ok").toBool()) {
@@ -235,6 +212,15 @@ void NearbyStationsPage::refresh()
                                      .arg(qRound(s.predictIdle * 100)));
     }
     m_table->resizeColumnsToContents();
+}
+
+void NearbyStationsPage::onRegionChanged(int index)
+{
+    if (index < 0 || index >= int(sizeof(kRegions) / sizeof(kRegions[0])))
+        return;
+    m_lon = kRegions[index].lon;
+    m_lat = kRegions[index].lat;
+    refresh();
 }
 
 void NearbyStationsPage::onStationSelected()

@@ -8,7 +8,14 @@ QT       += core gui network
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
-# 阶段 2 视需要启用: QT += webenginewidgets
+# 安装 Qt WebEngine 后自动启用 MapLibre/OpenFreeMap 真实底图；
+# 未安装时仍可编译，并回退到原生自绘地图。
+qtHaveModule(webenginewidgets) {
+    QT += webenginewidgets
+    DEFINES += CHARGING_HAS_WEBENGINE
+} else {
+    message("Qt WebEngine 未安装：导航页将使用降级画布，高德外部导航仍可用")
+}
 
 TARGET   = ChargingClient
 TEMPLATE = app
@@ -24,7 +31,6 @@ SOURCES += \
     ClientSession.cpp \
     LoginDialog.cpp \
     UserMainWindow.cpp \
-    TencentGeo.cpp \
     pages/NearbyStationsPage.cpp \
     pages/NavigationPage.cpp \
     pages/UserInfoPage.cpp \
@@ -36,8 +42,6 @@ HEADERS += \
     ClientSession.h \
     LoginDialog.h \
     UserMainWindow.h \
-    TencentGeo.h \
-    mapconfig.h \
     pages/NearbyStationsPage.h \
     pages/NavigationPage.h \
     pages/UserInfoPage.h \

@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>充电站开放地图</title>
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css">
+    <script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+    <style>
+        html, body, #map { width: 100%; height: 100%; margin: 0; }
+        body { overflow: hidden; background: #e9edf2; font-family: "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; }
+        #map { position: absolute; inset: 0; }
+        #status {
+            display: none; position: absolute; z-index: 5; left: 16px; right: 16px; top: 14px;
+            padding: 10px 14px; color: #72572c; background: rgba(255, 249, 235, .96);
+            border: 1px solid #e7d6ae; border-radius: 7px; box-shadow: 0 3px 12px rgba(24, 38, 61, .12);
+        }
+        .station-marker, .current-marker {
+            width: 20px; height: 20px; border-radius: 50%; box-sizing: border-box;
+            border: 3px solid #fff; box-shadow: 0 2px 7px rgba(24, 38, 61, .42); cursor: pointer;
+        }
+        .station-marker { background: #1f9d67; }
+        .station-marker.selected { width: 25px; height: 25px; background: #c5525a; }
+        .current-marker { width: 24px; height: 24px; background: #a9864f; }
+        .current-marker::after {
+            content: ""; position: absolute; inset: -9px; border: 2px solid rgba(169, 134, 79, .45);
+            border-radius: 50%;
+        }
+        .popup-title { color: #18263d; font-size: 14px; font-weight: 700; margin-bottom: 5px; }
+        .popup-row { color: #526176; line-height: 1.6; max-width: 250px; }
+        .popup-idle { color: #1f8058; font-weight: 700; }
+        .maplibregl-popup-content { border-radius: 8px; padding: 12px 14px; }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<div id="status">在线底图暂时无法加载；站点查询和“开始导航”仍可使用。</div>
+<script>
+    let map = null;
+    let mapReady = false;
+    let pendingData = null;
+    let markerObjects = [];
+
+    function showStatus() {
+        document.getElementById('status').style.display = 'block';
+    }
+
+    function makeTextRow(text, className) {
+        const row = document.createElement('div');
+        row.className = className || 'popup-row';
+        row.textContent = text;
+        return row;
+    }
+
+    function stationPopup(station) {
+        const box = document.createElement('div');
+        box.appendChild(makeTextRow(station.name, 'popup-title'));
+        box.appendChild(makeTextRow(station.address || '暂无地址'));
+        box.appendChild(makeTextRow(`电价：${Number(station.price).toFixed(2)} 元/度`));
+        box.appendChild(makeTextRow(`空闲：${station.idlePiles} / ${station.totalPiles}`, 'popup-row popup-idle'));
+        box.appendChild(makeTextRow(`距离：${Number(station.distance).toFixed(1)} km`));
+        return box;
+    }
+
+    function clearMarkers() {
+        markerObjects.forEach(marker => marker.remove());
+        markerObjects = [];
+    }
+
+    function renderData(data) {
+        if (!mapReady) {
+            pendingData = data;
+            return;
+        }
+
+        clearMarkers();
+        const currentEl = document.createElement('div');
+        currentEl.className = 'current-marker';
+        currentEl.title = '当前演示位置';
+        markerObjects.push(new maplibregl.Marker({element: currentEl})
+            .setLngLat([data.current.lon, data.current.lat])
+            .setPopup(new maplibregl.Popup({offset: 18}).setDOMContent(makeTextRow('当前演示位置', 'popup-title')))
+            .addTo(map));
+
+        data.stations.forEach((station, index) => {
+            const element = document.createElement('div');
+            element.className = 'station-marker' + (index === data.destinationIndex ? ' selected' : '');
+            element.title = station.name;
+            markerObjects.push(new maplibregl.Marker({element})
+                .setLngLat([station.lon, station.lat])
+                .setPopup(new maplibregl.Popup({offset: 18}).setDOMContent(stationPopup(station)))
+                .addTo(map));
+        });
+
+        let lineCoordinates = data.route || [];
+        const hasRoadRoute = lineCoordinates.length >= 2;
+        if (!hasRoadRoute && data.destinationIndex >= 0 && data.destinationIndex < data.stations.length) {
+            const destination = data.stations[data.destinationIndex];
+            lineCoordinates = [
+                [data.current.lon, data.current.lat],
+                [destination.lon, destination.lat]
+            ];
+        }
+
+        const routeGeoJson = {
+            type: 'Feature', properties: {},
+            geometry: {type: 'LineString', coordinates: lineCoordinates}
+        };
+        if (!map.getSource('route')) {
+            map.addSource('route', {type: 'geojson', data: routeGeoJson});
+            map.addLayer({
+                id: 'route-shadow', type: 'line', source: 'route',
+                layout: {'line-cap': 'round', 'line-join': 'round'},
+                paint: {'line-color': '#ffffff', 'line-width': 8, 'line-opacity': .9}
+            });
+            map.addLayer({
+                id: 'route-line', type: 'line', source: 'route',
+                layout: {'line-cap': 'round', 'line-join': 'round'},
+                paint: {'line-color': '#a9864f', 'line-width': 5}
+            });
+        } else {
+            map.getSource('route').setData(routeGeoJson);
+        }
+        map.setPaintProperty('route-line', 'line-dasharray', hasRoadRoute ? [1, 0] : [2, 2]);
+
+        if (data.fitView) {
+            const bounds = new maplibregl.LngLatBounds();
+            const fitCoordinates = hasRoadRoute
+                ? lineCoordinates
+                : [[data.current.lon, data.current.lat], ...data.stations.map(s => [s.lon, s.lat])];
+            fitCoordinates.forEach(point => bounds.extend(point));
+            if (!bounds.isEmpty())
+                map.fitBounds(bounds, {padding: 55, maxZoom: 14, duration: 500});
+        }
+    }
+
+    window.setChargingMapData = function(data) {
+        pendingData = data;
+        renderData(data);
+    };
+    window.addEventListener('message', event => {
+        if (event.data && event.data.type === 'charging-map-data')
+            window.setChargingMapData(event.data.payload);
+    });
+    window.chargingMapZoomIn = function() { if (mapReady) map.zoomIn(); };
+    window.chargingMapZoomOut = function() { if (mapReady) map.zoomOut(); };
+
+    try {
+        map = new maplibregl.Map({
+            container: 'map',
+            style: 'https://tiles.openfreemap.org/styles/liberty',
+            center: [116.31, 39.96],
+            zoom: 10,
+            attributionControl: false
+        });
+        map.addControl(new maplibregl.AttributionControl({
+            compact: true,
+            customAttribution: '<a href="https://routing.openstreetmap.de/about.html">路线：FOSSGIS / OSRM</a> · <a href="https://www.openstreetmap.org/fixthemap">报告地图问题</a>'
+        }));
+        map.addControl(new maplibregl.NavigationControl({showCompass: false}), 'top-right');
+        map.on('load', () => {
+            mapReady = true;
+            if (pendingData) renderData(pendingData);
+        });
+        setTimeout(() => { if (!mapReady) showStatus(); }, 10000);
+    } catch (error) {
+        showStatus();
+    }
+</script>
+</body>
+</html>

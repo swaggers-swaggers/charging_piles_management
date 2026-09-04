@@ -11,7 +11,7 @@ class QLineEdit;
 class QTableWidget;
 
 // 附近充电站查询页(项目说明书):
-//   定位: 下拉选择区域 或 手动输入地址(软件层面模拟 GPS + 腾讯地图 Web API 地址转坐标)
+//   定位: 下拉选择区域 或输入内置演示地标，不依赖第三方地图 Key
 //   列表: 按距离由近及远展示, 点击查看该站所有电桩的详细信息
 class NearbyStationsPage : public QWidget
 {
@@ -30,7 +30,8 @@ protected:
 
 private slots:
     void refresh();
-    void onLocate();            // 手动输入地址 → 模拟腾讯地图 Web API 解析坐标
+    void onRegionChanged(int index);
+    void onLocate();            // 手动输入地址 → 本地演示地标匹配
     void onStationSelected();
     void showPileDetail();
 
@@ -40,8 +41,8 @@ private:
     QTableWidget *m_table;
 
     QList<StationInfo> m_stations;
-    double m_lon = 123.4500;
-    double m_lat = 41.7000;
+    double m_lon = 116.3100;
+    double m_lat = 39.9600;
 };
 
 #endif // NEARBYSTATIONSPAGE_H

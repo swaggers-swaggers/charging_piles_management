@@ -1,4 +1,4 @@
-# 东软电动汽车充电桩应用管理平台 — Qt5 双程序工程
+# 东软电动汽车充电桩应用管理平台 — Qt5/Qt6 双程序工程
 
 按《开发计划书》（见 `docs/开发计划书.md`）拆分为 **服务端 + 用户客户端 + Web 大屏**：
 
@@ -13,6 +13,7 @@
 - 开发工具：Qt Creator 6.2 及以上
 - Qt 版本：Qt 5.15 与 Qt 6 均可编译（代码做了双版本兼容；Ubuntu 22.04 默认源下 `qt6-base-dev` / `qt5-default` 装哪个就用哪个 Kit）
 - 数据库：SQLite（QSQLITE 驱动随 Qt 自带，无需服务端进程）
+- 地图：安装 Qt WebEngine 后使用 MapLibre + OpenFreeMap；未安装时自动使用降级画布
 
 ## 编译运行
 
@@ -28,6 +29,8 @@ qmake && make            # 根工程会同时构建两个子项目
 ```
 
 > **Qt Charts 说明**：销售业绩页的营收折线图优先使用 QChart（需 `sudo apt install libqt5charts5-dev` 或 `libqt6charts6-dev`）；未安装该组件时工程会自动降级为自绘折线图，两种情况下都能正常编译运行（详见 `docs/开发计划书.md` 风险应对）。
+
+> **真实地图说明**：Qt5 安装 `sudo apt install qtwebengine5-dev`，Qt6 安装 `sudo apt install qt6-webengine-dev`，然后重新运行 qmake。工程会自动检测该模块；未安装时仍能编译和使用高德外部导航，但应用内只显示降级画布。
 
 **运行顺序**：客户端登录时才需要服务端在线，但演示请先启动服务端。默认服务器地址 `127.0.0.1:9527`（同机），可用环境变量覆盖：
 
@@ -47,6 +50,15 @@ http://服务器IP:8080
 ```
 
 即可看到 4 块图表的大屏（营收趋势 / 电桩状态 / 各站营收 / 24h 负荷预测），每 5 秒自动刷新。请**不要**双击 `web/index.html` 打开——`file://` 协议下浏览器会拦截数据请求导致空白。
+
+### 开放地图与导航
+
+- 应用内地图：MapLibre GL JS + OpenFreeMap 矢量底图，不需要地图 Key；显示充电站、空闲桩、价格、当前演示位置和路线折线。
+- 路线预览：仅在点击按钮时调用 FOSSGIS/OSRM 公共演示服务，客户端限制为每秒最多一次并设置 10 秒超时；服务不可用时不影响站点查询和外部导航。
+- 开始导航：通过高德 URI API 打开驾车/步行路线，不使用高德 WebService Key。
+- 坐标：数据库中的腾讯来源坐标按 GCJ-02 保存；显示到 OpenStreetMap、请求 OSRM 前在客户端转换为 WGS-84，高德导航继续使用原始 GCJ-02。
+- 定位：桌面演示环境没有真实 GPS，改为用户显式选择演示起点；附近站点页支持城区和内置地标，不再自动消耗 IP 定位或地理编码额度。
+- 合规：地图页面保留 OpenFreeMap、OpenMapTiles、OpenStreetMap、FOSSGIS/OSRM 署名和“报告地图问题”链接。公共服务只适合课程演示，正式上线应换成自托管或有 SLA 的服务。
 
 ## 测试账号
 
@@ -119,5 +131,7 @@ TCP 长连接，UTF-8 单行 JSON，`\n` 分帧；请求/应答回显相同 `typ
 - **登录报"无法打开数据库"**：查看服务端状态栏路径；必要时 `export CHARGING_DB=/path/test.db`。
 - **大屏打不开 / 空白**：用 `http://IP:8080` 访问（不要双击 index.html）；确认服务端已启动且状态栏显示"大屏访问: http://localhost:8080"；端口被占用可用 `CHARGING_WEB_PORT` 换。
 - **销售业绩 / 大屏没数据**：确认服务端启动日志出现"已生成近30天固定演示订单数据"；若数据被改动，删除 `test.db` 后重启服务端即可重新生成演示数据。
+- **导航页仍是网格画布**：没有安装 Qt WebEngine；安装对应版本的开发包后重新运行 qmake 并全量构建。
+- **真实地图空白 / 路线预览超时**：检查能否访问 `unpkg.com`、`tiles.openfreemap.org` 和 `routing.openstreetmap.de`；外部网络失败时仍可使用站点列表和“开始导航”。
 - **提示 QSQLITE driver not loaded**：确认 .pro 有 `QT += sql` 并重新 qmake。
 - **中文乱码**：确认源文件为 UTF-8 编码。

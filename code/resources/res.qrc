@@ -2,5 +2,6 @@
     <qresource prefix="/">
         <file>qss/global.qss</file>
         <file>qss/login.qss</file>
+        <file>map/map.html</file>
     </qresource>
 </RCC>

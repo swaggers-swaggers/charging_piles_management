@@ -9,9 +9,15 @@
 
 class QComboBox;
 class QLabel;
+class QNetworkAccessManager;
+class QNetworkReply;
+class QPushButton;
+#ifdef CHARGING_HAS_WEBENGINE
+class QWebEngineView;
+#endif
 
-// 一键导航页: 自绘模拟地图(站点散点 + 当前位置 + 路线) + 驾车/步行方式 + 预计时长距离
-// 不依赖外网, 坐标与站点数据来自服务端; 当前位置可用腾讯 IP 定位获取(无 GPS 时的近似方案)
+// 一键导航页: 应用内开放地图预览 + 高德 URI 外部导航。
+// 不再申请地图 Key；当前地点由用户选择，避免把桌面端 IP 定位误当成 GPS。
 class MapCanvas;
 
 class NavigationPage : public QWidget
@@ -26,25 +32,33 @@ protected:
 
 private slots:
     void refresh();
+    void onStartChanged(int index);
     void onPlanChanged();
-    void onNavigate();
-    void onLocate();
+    void onPreviewRoute();
+    void onOpenExternalNavigation();
+    void onRouteReplyFinished();
 
 private:
+    QComboBox *m_startCombo;
     QComboBox *m_destCombo;
     QComboBox *m_modeCombo;
     QLabel *m_resultLabel;
+    QPushButton *m_previewButton;
+    QPushButton *m_externalButton;
     MapCanvas *m_canvas;
+    QNetworkAccessManager *m_networkManager;
+    QNetworkReply *m_routeReply = nullptr;
+    qint64 m_lastRouteRequestAt = 0;
 
     QList<StationInfo> m_stations;
-    double m_lon = 116.3100;   // 默认北京海淀区(与附近充电站页一致)
+    double m_lon = 116.3100;
     double m_lat = 39.9600;
     int m_destIndex = -1;
-    bool m_autoLocated = false;
-    QList<QPair<double, double>> m_routePolyline;   // (纬度, 经度) 真实路线折线
+    QList<QPair<double, double>> m_routePolyline;   // WGS-84，(纬度, 经度)
 };
 
-// 自绘地图控件: 经纬度按边界映射到画布坐标, 支持滚轮/按钮缩放
+// 有 Qt WebEngine 时显示 MapLibre/OpenFreeMap；缺少模块时保留自绘降级画布，
+// 使服务端和客户端其他功能仍可构建运行。
 class MapCanvas : public QWidget
 {
     Q_OBJECT
@@ -69,8 +83,16 @@ private:
     QList<StationInfo> m_stations;
     double m_curLon = 0, m_curLat = 0;
     int m_destIndex = -1;
-    QList<QPair<double, double>> m_route;   // (纬度, 经度)
+    QList<QPair<double, double>> m_route;   // WGS-84，(纬度, 经度)
 
+#ifdef CHARGING_HAS_WEBENGINE
+    QWebEngineView *m_webView = nullptr;
+    bool m_webReady = false;
+    QString m_pendingScript;
+    void updateWebMap(bool fitView);
+#endif
+
+    // 以下状态仅供无 WebEngine 时的降级画布使用。
     double m_zoom = 1.0;                          // 缩放倍率, 1.0 = 全览
     double m_centerLon = 0, m_centerLat = 0;      // 当前视野中心(缩放时可移动)
     double m_baseCenterLon = 0, m_baseCenterLat = 0;  // 全览时的中心
