@@ -9,6 +9,7 @@
 #include <QFileInfo>
 #include <QMap>
 #include <QPair>
+#include <QVector>
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -193,9 +194,18 @@ void DatabaseManager::seedDefaultData()
         double price;   // 元/度
         int pileCount;
     } seeds[] = {
-        { "东软软件园充电站", "沈阳市浑南区创新路399号",  123.4572, 41.6562, 0.98, 6 },
-        { "奥体中心充电站",   "沈阳市浑南区浑南中路16号", 123.4401, 41.7373, 1.20, 8 },
-        { "桃仙机场充电站",   "沈阳市浑南区桃仙大街88号", 123.4830, 41.6398, 1.35, 4 },
+        { "特来电五道口充电站",       "北京市海淀区成府路28号五道口购物中心停车场",    116.339065, 39.991117, 1.35, 8 },
+        { "开迈斯国家体育馆充电站",   "北京市朝阳区天辰东路9号奥林匹克公园P3停车场",    116.387746, 39.997471, 1.60, 12 },
+        { "中石化奥林匹克P2充电站",   "北京市朝阳区天辰西路水立方停车场",               116.387679, 39.993433, 1.20, 6 },
+        { "昆仑网电望京南充电站",     "北京市朝阳区望京南加油站",                       116.482330, 40.013817, 1.25, 8 },
+        { "国家电网大兴机场充电站",   "北京市大兴区天兴一街与航兴路交叉口南侧停车场",   116.420394, 39.529542, 1.50, 10 },
+        { "小桔充电望京文化产业园站", "北京市朝阳区望京西路48-6号",                     116.479208, 39.994492, 1.10, 6 },
+        { "普天望京凯德Mall充电站",   "北京市朝阳区广顺北大街33号凯德Mall停车场",       116.468897, 39.992102, 1.15, 4 },
+        { "国家电网北京坊充电站",     "北京市西城区大栅栏煤市街北京坊B3停车场",         116.396702, 39.898266, 1.30, 6 },
+        { "昆仑网电工体西门充电站",   "北京市东城区新中街东直门城市生态岛旁",           116.439840, 39.931522, 1.45, 8 },
+        { "比亚迪通州科创充电站",     "北京市通州区科创东五街1号",                       116.551189, 39.813862, 1.05, 10 },
+        { "小桔充电亚林西充电站",     "北京市丰台区南苑亚林西",                          116.350235, 39.854170, 0.95, 6 },
+        { "高陆通成铭大厦充电站",     "北京市西城区西直门南大街2号成铭大厦B4停车场",    116.350637, 39.938143, 1.20, 4 },
     };
 
     int codeSeq = 1;
@@ -231,23 +241,41 @@ void DatabaseManager::seedDefaultData()
     }
 }
 
+// 演示用户(手机号仅存哈希+脱敏); 第一个用户作为"每日演示订单已生成"的哨兵
+static const struct DemoUserSeed {
+    const char *phone;
+    const char *nickname;
+    double balance;
+    int regDaysAgo;   // 注册时间距今天数
+} kDemoUsers[] = {
+    { "13800000001", "演示用户A", 500.0, 90 },
+    { "13911112222", "演示用户B", 260.0, 75 },
+    { "13733334444", "演示用户C", 320.0, 60 },
+    { "13655556666", "演示用户D", 150.0, 45 },
+    { "13577778888", "演示用户E", 88.5, 30 },
+    { "15899990001", "演示用户F", 410.0, 80 },
+    { "15911112222", "演示用户G", 60.0, 20 },
+    { "18633334444", "演示用户H", 200.0, 55 },
+    { "18855556666", "演示用户I", 700.0, 100 },
+    { "18577778888", "演示用户J", 35.0, 10 },
+};
+
 void DatabaseManager::seedDemoOrders()
 {
     // 滚动 + 持久化: 演示数据始终覆盖到今天(今日/本月/近7日都有数据可看),
-    // 但同一天内只生成一次(今天已有演示订单就不再重建), 结果稳定可复现。
-    // 跨天首次运行会重建并滚动到今天; 随机种子固定, 金额/电量分布保持一致。
+    // 但同一天内只生成一次(以第一个演示用户"今天是否有订单"为哨兵), 结果稳定可复现。
     QSqlQuery query;
     query.prepare("SELECT COUNT(*) FROM charge_order WHERE user_id ="
                   " (SELECT id FROM user WHERE phone = :p)"
                   " AND date(start_time) = date('now','localtime')");
-    query.bindValue(":p", hashPhone("13800000001"));
+    query.bindValue(":p", hashPhone(QString::fromUtf8(kDemoUsers[0].phone)));
     if (query.exec() && query.next() && query.value(0).toInt() > 0)
         return;
 
     QString err;
     generateDemoData(&err);
     if (err.isEmpty())
-        qDebug() << "[Database] 已生成近30天固定演示订单数据";
+        qDebug() << "[Database] 已生成近30天北京演示订单数据";
     else
         qWarning() << "[Database] 生成演示数据失败:" << err;
 }
@@ -256,78 +284,120 @@ void DatabaseManager::generateDemoData(QString *errMsg)
 {
     QSqlQuery query;
 
-    // 确保演示用户存在(手机号仅存哈希 + 脱敏, 不落明文)
-    const QString demoPhone = "13800000001";
-    const QString demoHash = hashPhone(demoPhone);
-    int userId = -1;
-    query.prepare("SELECT id FROM user WHERE phone = :p");
-    query.bindValue(":p", demoHash);
-    if (query.exec() && query.next()) {
-        userId = query.value(0).toInt();
-    } else {
-        query.prepare("INSERT INTO user (phone, phone_masked, nickname, balance, register_time) "
-                      "VALUES (:p, :m, :n, :b, :r)");
-        query.bindValue(":p", demoHash);
-        query.bindValue(":m", maskPhone(demoPhone));
-        query.bindValue(":n", "演示用户");
-        query.bindValue(":b", 500.0);
-        query.bindValue(":r", QDate::currentDate().addDays(-30).toString("yyyy-MM-dd hh:mm:ss"));
-        if (query.exec()) {
-            userId = query.lastInsertId().toInt();
+    // 1. 确保演示用户存在(手机号仅存哈希 + 脱敏, 不落明文)
+    QVector<int> userIds;
+    for (const DemoUserSeed &u : kDemoUsers) {
+        const QString phone = QString::fromUtf8(u.phone);
+        const QString ph = hashPhone(phone);
+        int uid = -1;
+        query.prepare("SELECT id FROM user WHERE phone = :p");
+        query.bindValue(":p", ph);
+        if (query.exec() && query.next()) {
+            uid = query.value(0).toInt();
         } else {
-            if (errMsg)
-                *errMsg = "创建演示用户失败: " + query.lastError().text();
-            return;
+            query.prepare("INSERT INTO user (phone, phone_masked, nickname, balance, register_time) "
+                          "VALUES (:p, :m, :n, :b, :r)");
+            query.bindValue(":p", ph);
+            query.bindValue(":m", maskPhone(phone));
+            query.bindValue(":n", QString::fromUtf8(u.nickname));
+            query.bindValue(":b", u.balance);
+            query.bindValue(":r", QDate::currentDate().addDays(-u.regDaysAgo)
+                            .toString("yyyy-MM-dd hh:mm:ss"));
+            if (query.exec()) {
+                uid = query.lastInsertId().toInt();
+            } else {
+                if (errMsg)
+                    *errMsg = "创建演示用户失败: " + query.lastError().text();
+                return;
+            }
         }
+        if (uid > 0)
+            userIds.append(uid);
     }
-    if (userId < 0) {
+    if (userIds.isEmpty()) {
         if (errMsg)
             *errMsg = "无法创建演示用户";
         return;
     }
 
-    // 清理演示用户的旧演示订单(避免重复点击累积)
-    query.prepare("DELETE FROM charge_order WHERE user_id = ?");
-    query.addBindValue(userId);
-    query.exec();
+    // 2. 清理演示用户的旧演示订单(避免重复运行累积)
+    for (int uid : userIds) {
+        query.prepare("DELETE FROM charge_order WHERE user_id = ?");
+        query.addBindValue(uid);
+        query.exec();
+    }
 
-    // 充电站价格 + 电桩(station_id)
+    // 3. 充电站价格 + 电桩(含类型/功率/所属站)
     QMap<int, double> stationPrice;
     query.exec("SELECT id, price FROM station");
     while (query.next())
         stationPrice.insert(query.value(0).toInt(), query.value(1).toDouble());
 
-    QList<QPair<int, int>> piles;   // (pile_id, station_id)
-    query.exec("SELECT id, station_id FROM pile");
+    struct PileRow { int id; int stationId; int type; double power; };
+    QVector<PileRow> piles;
+    query.exec("SELECT id, station_id, type, power FROM pile");
     while (query.next())
-        piles.append(qMakePair(query.value(0).toInt(), query.value(1).toInt()));
+        piles.append({ query.value(0).toInt(), query.value(1).toInt(),
+                       query.value(2).toInt(), query.value(3).toDouble() });
     if (piles.isEmpty() || stationPrice.isEmpty()) {
         if (errMsg)
             *errMsg = "缺少充电站/电桩数据";
         return;
     }
 
-    // 确定性伪随机: 固定种子, 多次运行生成的演示数据完全一致("固定下来")
-    quint32 seed = 20260901u;
+    // 4. 确定性伪随机: 固定种子, 多次运行生成结果完全一致("固定下来")
+    quint32 seed = 20260904u;
     auto rnd = [&seed]() -> quint32 {
         seed = seed * 1103515245u + 12345u;
         return (seed >> 16) & 0x7fff;
     };
 
+    // 24h 充电需求权重(接近真实: 深夜低谷, 早晚通勤双高峰, 晚高峰最高)
+    const int hourWeight[24] = {
+        1, 1, 1, 1, 2, 4,     // 0-5  深夜低谷
+        8, 12, 15, 12, 10, 10, // 6-11 早高峰(8-9)
+        9, 9, 10, 11, 13, 16,  // 12-17 午间平稳
+        18, 18, 15, 11, 7, 3   // 18-23 晚高峰(18-19)
+    };
+    int weightSum = 0;
+    for (int w : hourWeight) weightSum += w;
+
+    // 按权重抽取 0~23 点(真实分布)
+    auto pickHour = [&]() -> int {
+        int r = static_cast<int>(rnd() % weightSum);
+        for (int h = 0; h < 24; ++h) {
+            if (r < hourWeight[h]) return h;
+            r -= hourWeight[h];
+        }
+        return 18;
+    };
+
     const QDate today = QDate::currentDate();
     for (int day = 29; day >= 0; --day) {
         const QDate d = today.addDays(-day);
-        const int nOrders = 3 + static_cast<int>(rnd() % 6);   // 每天 3~8 笔
+        const bool weekend = (d.dayOfWeek() == 6 || d.dayOfWeek() == 7);
+        // 每天订单数: 工作日 18~39, 周末 22~45(出行多, 单量略高)
+        const int nOrders = weekend ? 22 + static_cast<int>(rnd() % 24)
+                                    : 18 + static_cast<int>(rnd() % 22);
         for (int i = 0; i < nOrders; ++i) {
-            const int idx = static_cast<int>(rnd() % piles.size());
-            const int pileId = piles[idx].first;
-            const int stationId = piles[idx].second;
-            const double price = stationPrice.value(stationId, 1.0);
-            const int hour = 7 + static_cast<int>(rnd() % 16);   // 07~22 点
+            // 随机用户(演示用户均匀充电)
+            const int ui = static_cast<int>(rnd() % userIds.size());
+            // 随机桩
+            const PileRow &pl = piles[static_cast<int>(rnd() % piles.size())];
+            const double price = stationPrice.value(pl.stationId, 1.0);
+            const int hour = pickHour();
             const int minute = static_cast<int>(rnd() % 60);
-            const double energy = 8.0 + static_cast<double>(rnd() % 51);   // 8~58 kWh
+
+            // 按桩类型生成接近真实的时长/电量
+            double energy = 0.0, duration = 0.0;
+            if (pl.type == PileFast) {               // 快充: 15~55 kWh, 0.4~1.5h
+                energy = 15.0 + static_cast<double>(rnd() % 41);
+                duration = 0.4 + static_cast<double>(rnd() % 12) / 10.0;
+            } else {                                 // 慢充: 10~40 kWh, 2.0~8.0h
+                energy = 10.0 + static_cast<double>(rnd() % 31);
+                duration = 2.0 + static_cast<double>(rnd() % 61) / 10.0;
+            }
             const double amount = qRound(energy * price * 100.0) / 100.0;
-            const double duration = 0.5 + static_cast<double>(rnd() % 20) / 10.0;   // 0.5~2.4h
 
             const QString startStr = QString("%1 %2:%3:00")
                 .arg(d.toString("yyyy-MM-dd"))
@@ -341,9 +411,9 @@ void DatabaseManager::generateDemoData(QString *errMsg)
             query.prepare("INSERT INTO charge_order "
                           "(user_id, pile_id, station_id, start_time, end_time, energy, amount, status) "
                           "VALUES (?, ?, ?, ?, ?, ?, ?, 1)");
-            query.addBindValue(userId);
-            query.addBindValue(pileId);
-            query.addBindValue(stationId);
+            query.addBindValue(userIds[ui]);
+            query.addBindValue(pl.id);
+            query.addBindValue(pl.stationId);
             query.addBindValue(startStr);
             query.addBindValue(endStr);
             query.addBindValue(energy);

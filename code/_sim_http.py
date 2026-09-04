@@ -23,7 +23,7 @@ class H(http.server.BaseHTTPRequestHandler):
                 "pileStatus": {"idle": 8, "inUse": 6, "fault": 4},
                 "daily7": {"dates": ["08-27","08-28","08-29","08-30","08-31","09-01","09-02"],
                            "values": [106.61,298.26,201.06,125.04,126.7,276.19,67.08]},
-                "stationRevenue": {"names": ["奥体中心","东软软件园","桃仙机场"],
+                "stationRevenue": {"names": ["开迈斯国家体育馆","特来电五道口","国家电网大兴机场"],
                                    "values": [2449.2,2228.52,1494.45]},
                 "predict": {"hours": ["1时","2时"], "loads": [12.3,15.6], "peakHour": 20, "peakLoad": 30.0},
             }
