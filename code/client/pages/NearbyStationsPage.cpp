@@ -74,16 +74,19 @@ NearbyStationsPage::NearbyStationsPage(QWidget *parent)
     QHBoxLayout *topRow = new QHBoxLayout();
     QLabel *regionLabel = new QLabel("当前位置:", this);
     m_regionCombo = new QComboBox(this);
+    m_regionCombo->setObjectName("regionCombo");
     for (const RegionCoord &r : kRegions)
         m_regionCombo->addItem(QString::fromUtf8(r.name));
 
     QLabel *addrLabel = new QLabel("或输入地址:", this);
     m_addrEdit = new QLineEdit(this);
+    m_addrEdit->setObjectName("addrEdit");
     m_addrEdit->setPlaceholderText("如: 五道口 / 国贸 / 鸟巢 (模拟腾讯地图定位)");
     m_addrEdit->setClearButtonEnabled(true);
     QPushButton *locateBtn = new QPushButton("定位", this);
     locateBtn->setObjectName("primaryBtn");
     QPushButton *refreshBtn = new QPushButton("查询", this);
+    refreshBtn->setObjectName("searchButton");
 
     topRow->addWidget(regionLabel);
     topRow->addWidget(m_regionCombo);
@@ -94,6 +97,7 @@ NearbyStationsPage::NearbyStationsPage(QWidget *parent)
     topRow->addWidget(refreshBtn);
 
     m_table = new QTableWidget(this);
+    m_table->setObjectName("stationTable");
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -194,7 +198,7 @@ void NearbyStationsPage::refresh()
         m_table->setItem(i, 2, new QTableWidgetItem(QString::number(s.price, 'f', 2)));
         m_table->setItem(i, 3, new QTableWidgetItem(QString::number(s.totalPiles)));
         auto *idleItem = new QTableWidgetItem(QString::number(s.idlePiles));
-        idleItem->setForeground(QBrush(s.idlePiles > 0 ? QColor("#1D976C") : QColor("#E5484D")));
+        idleItem->setForeground(QBrush(s.idlePiles > 0 ? QColor("#1F9D67") : QColor("#C5525A")));
         m_table->setItem(i, 4, idleItem);
         m_table->setItem(i, 5, new QTableWidgetItem(QString::number(s.distance, 'f', 1) + " km"));
 
@@ -227,18 +231,28 @@ void NearbyStationsPage::showPileDetail()
 
     QDialog dlg(this);
     dlg.setWindowTitle(QString("站内电桩详情 - %1").arg(s.name));
-    dlg.resize(520, 400);
+    dlg.setModal(true);
+    dlg.resize(560, 430);
     QVBoxLayout *layout = new QVBoxLayout(&dlg);
+    layout->setContentsMargins(24, 22, 24, 22);
+    layout->setSpacing(14);
+
+    QLabel *section = new QLabel("站内电桩列表", &dlg);
+    section->setObjectName("sectionTitle");
 
     QLabel *info = new QLabel(
         QString("地址: %1    电价: %2 元/度    电桩: %3 台 / 空闲 %4 台")
             .arg(s.address).arg(s.price, 0, 'f', 2).arg(s.totalPiles).arg(s.idlePiles),
         &dlg);
+    info->setObjectName("pageHint");
+    layout->addWidget(section);
     layout->addWidget(info);
 
     QTableWidget *table = new QTableWidget(&dlg);
+    table->setObjectName("pileTable");
     table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    table->setAlternatingRowColors(true);
     table->verticalHeader()->setVisible(false);
     table->setColumnCount(4);
     table->setHorizontalHeaderLabels({ "编号", "类型", "功率(kW)", "状态" });
@@ -254,9 +268,9 @@ void NearbyStationsPage::showPileDetail()
         QString statusText;
         QColor statusColor;
         switch (p.status) {
-        case PileIdle:  statusText = "空闲"; statusColor = QColor("#1D976C"); break;
-        case PileInUse: statusText = "充电中"; statusColor = QColor("#2F80ED"); break;
-        default:        statusText = "故障"; statusColor = QColor("#E5484D"); break;
+        case PileIdle:  statusText = "空闲"; statusColor = QColor("#1F9D67"); break;
+        case PileInUse: statusText = "充电中"; statusColor = QColor("#B0863F"); break;
+        default:        statusText = "故障"; statusColor = QColor("#C5525A"); break;
         }
         auto *statusItem = new QTableWidgetItem(statusText);
         statusItem->setForeground(QBrush(statusColor));
@@ -265,6 +279,7 @@ void NearbyStationsPage::showPileDetail()
     table->resizeColumnsToContents();
 
     QPushButton *closeBtn = new QPushButton("关闭", &dlg);
+    closeBtn->setObjectName("secondaryBtn");
     layout->addWidget(closeBtn, 0, Qt::AlignRight);
     connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
 

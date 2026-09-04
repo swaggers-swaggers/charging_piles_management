@@ -26,11 +26,15 @@ UserManagePage::UserManagePage(QWidget *parent)
 
     QHBoxLayout *topRow = new QHBoxLayout();
     m_searchEdit = new QLineEdit(this);
+    m_searchEdit->setObjectName("searchEdit");
     m_searchEdit->setPlaceholderText("按手机号/昵称模糊搜索, 留空显示全部");
     m_searchEdit->setFixedWidth(280);
     QPushButton *searchBtn = new QPushButton("搜索", this);
+    searchBtn->setObjectName("searchButton");
     QPushButton *refreshBtn = new QPushButton("刷新", this);
+    refreshBtn->setObjectName("refreshButton");
     m_freezeBtn = new QPushButton("冻结/解冻", this);
+    m_freezeBtn->setObjectName("freezeButton");
     m_freezeBtn->setEnabled(false);
     topRow->addWidget(m_searchEdit);
     topRow->addWidget(searchBtn);
@@ -39,6 +43,7 @@ UserManagePage::UserManagePage(QWidget *parent)
     topRow->addStretch();
 
     m_table = new QTableWidget(this);
+    m_table->setObjectName("userTable");
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -76,7 +81,7 @@ void UserManagePage::refresh()
         m_table->setItem(i, 4, new QTableWidgetItem(u.registerTime));
         auto *statusItem = new QTableWidgetItem(u.status == UserFrozen ? "冻结" : "正常");
         statusItem->setForeground(
-            QBrush(u.status == UserFrozen ? QColor("#E5484D") : QColor("#1D976C")));
+            QBrush(u.status == UserFrozen ? QColor("#C5525A") : QColor("#1F9D67")));
         m_table->setItem(i, 5, statusItem);
     }
     m_table->resizeColumnsToContents();

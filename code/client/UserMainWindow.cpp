@@ -40,6 +40,7 @@ UserMainWindow::UserMainWindow(QWidget *parent)
 void UserMainWindow::initUi()
 {
     QWidget *central = new QWidget(this);
+    central->setObjectName("appCentral");
     QHBoxLayout *rootLayout = new QHBoxLayout(central);
     rootLayout->setContentsMargins(0, 0, 0, 0);
     rootLayout->setSpacing(0);
@@ -107,6 +108,7 @@ void UserMainWindow::initUi()
     headerLayout->addWidget(m_headerUser);
 
     m_stack = new QStackedWidget(rightArea);
+    m_stack->setObjectName("contentStack");
     m_stack->addWidget(new NearbyStationsPage());
     m_stack->addWidget(new NavigationPage());
     m_stack->addWidget(new UserInfoPage());

@@ -29,12 +29,15 @@ NavigationPage::NavigationPage(QWidget *parent)
     QHBoxLayout *planRow = new QHBoxLayout();
     QLabel *destLabel = new QLabel("终点:", this);
     m_destCombo = new QComboBox(this);
+    m_destCombo->setObjectName("destCombo");
     m_destCombo->setMinimumWidth(220);
     QLabel *modeLabel = new QLabel("出行方式:", this);
     m_modeCombo = new QComboBox(this);
+    m_modeCombo->setObjectName("modeCombo");
     m_modeCombo->addItem("驾车");
     m_modeCombo->addItem("步行");
     QPushButton *navBtn = new QPushButton("开始导航", this);
+    navBtn->setObjectName("primaryBtn");
     planRow->addWidget(destLabel);
     planRow->addWidget(m_destCombo);
     planRow->addWidget(modeLabel);
@@ -43,10 +46,11 @@ NavigationPage::NavigationPage(QWidget *parent)
     planRow->addStretch();
 
     m_canvas = new MapCanvas(this);
+    m_canvas->setObjectName("mapCanvas");
     m_canvas->setMinimumHeight(360);
-    m_canvas->setStyleSheet("background: #EAF1F7; border-radius: 8px;");
 
     m_resultLabel = new QLabel("选择终点后点击\"开始导航\"规划路线", this);
+    m_resultLabel->setObjectName("navResult");
     m_resultLabel->setAlignment(Qt::AlignCenter);
 
     layout->addWidget(title);
@@ -171,7 +175,7 @@ void MapCanvas::paintEvent(QPaintEvent *event)
     };
 
     // 网格(模拟地图街区)
-    p.setPen(QPen(QColor("#D4E0EB"), 1));
+    p.setPen(QPen(QColor("#D8DFE8"), 1));
     for (int i = 0; i <= 8; ++i) {
         const double x = area.left() + area.width() * i / 8;
         p.drawLine(QPointF(x, area.top()), QPointF(x, area.bottom()));
@@ -184,7 +188,7 @@ void MapCanvas::paintEvent(QPaintEvent *event)
     // 路线(当前位置 → 终点, 折线)
     if (m_destIndex >= 0 && m_destIndex < m_stations.size()) {
         const StationInfo &dest = m_stations[m_destIndex];
-        QPen routePen(QColor("#2F80ED"), 3, Qt::DashLine);
+        QPen routePen(QColor("#B0863F"), 3, Qt::DashLine);
         p.setPen(routePen);
         p.drawLine(QPointF(toX(m_curLon), toY(m_curLat)),
                    QPointF(toX(dest.longitude), toY(dest.latitude)));
@@ -196,20 +200,20 @@ void MapCanvas::paintEvent(QPaintEvent *event)
         const StationInfo &s = m_stations[i];
         const QPointF pt(toX(s.longitude), toY(s.latitude));
         const bool isDest = (i == m_destIndex);
-        p.setBrush(QColor(isDest ? "#E5484D" : "#1D976C"));
+        p.setBrush(QColor(isDest ? "#C5525A" : "#1F9D67"));
         p.setPen(QPen(Qt::white, 2));
         p.drawEllipse(pt, isDest ? 9 : 7, isDest ? 9 : 7);
-        p.setPen(QColor("#33414F"));
+        p.setPen(QColor("#3A4758"));
         p.drawText(QPointF(pt.x() + 12, pt.y() + 4), s.name);
     }
 
     // 当前位置(定位圆点)
     const QPointF cur(toX(m_curLon), toY(m_curLat));
-    p.setPen(QPen(QColor("#2F80ED"), 2));
-    p.setBrush(QColor("#2F80ED"));
+    p.setPen(QPen(QColor("#B0863F"), 2));
+    p.setBrush(QColor("#B0863F"));
     p.drawEllipse(cur, 6, 6);
-    p.setBrush(QColor(47, 128, 237, 60));
+    p.setBrush(QColor(176, 134, 63, 60));
     p.drawEllipse(cur, 14, 14);
-    p.setPen(QColor("#2F80ED"));
+    p.setPen(QColor("#A9864F"));
     p.drawText(QPointF(cur.x() - 24, cur.y() - 20), "当前位置");
 }

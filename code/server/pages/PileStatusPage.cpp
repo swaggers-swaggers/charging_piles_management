@@ -57,9 +57,9 @@ protected:
         if (total > 0) {
             struct Seg { int v; QColor c; };
             const Seg segs[] = {
-                { m_inUse, QColor("#2F80ED") },
-                { m_idle,  QColor("#1D976C") },
-                { m_fault, QColor("#E5484D") },
+                { m_inUse, QColor("#B0863F") },
+                { m_idle,  QColor("#1F9D67") },
+                { m_fault, QColor("#C5525A") },
             };
             // drawPie 角度单位 = 1/16 度, 0 在 3 点方向, 顺时针
             qreal start = 90.0 * 16.0;
@@ -91,9 +91,9 @@ protected:
         // 右侧图例
         struct Legend { const char *name; int v; QColor c; };
         const Legend legs[] = {
-            { "在用", m_inUse, QColor("#2F80ED") },
-            { "闲置", m_idle,  QColor("#1D976C") },
-            { "故障", m_fault, QColor("#E5484D") },
+            { "在用", m_inUse, QColor("#B0863F") },
+            { "闲置", m_idle,  QColor("#1F9D67") },
+            { "故障", m_fault, QColor("#C5525A") },
         };
         int y = 30;
         for (const Legend &l : legs) {
@@ -133,6 +133,7 @@ PileStatusPage::PileStatusPage(QWidget *parent)
     QHBoxLayout *topRow = new QHBoxLayout();
     topRow->addStretch();
     QPushButton *refreshBtn = new QPushButton("刷新", this);
+    refreshBtn->setObjectName("refreshButton");
     topRow->addWidget(refreshBtn);
 
     // 统计卡片: 在用 / 闲置 / 故障 / 在线率
@@ -147,32 +148,32 @@ PileStatusPage::PileStatusPage(QWidget *parent)
         v->setContentsMargins(18, 12, 18, 12);
         v->setSpacing(4);
         auto *capLabel = new QLabel(cap, card);
-        capLabel->setStyleSheet("color:#64748B; font-size:13px; background:transparent;");
+        capLabel->setObjectName("metricTitle");
         auto *value = new QLabel("-", card);
-        value->setStyleSheet(QString("color:%1; font-size:24px; font-weight:bold; background:transparent;")
-                                 .arg(color.name()));
+        value->setObjectName("metricValue");
+        value->setStyleSheet(QString("color:%1;").arg(color.name()));
         v->addWidget(capLabel);
         v->addWidget(value);
         cards->addWidget(card, 1);
         *valueOut = value;
     };
-    makeCard("在用 (充电中)", QColor("#2F80ED"), &m_inUseValue);
-    makeCard("闲置 (可用)",   QColor("#1D976C"), &m_idleValue);
-    makeCard("故障 (需处理)", QColor("#E5484D"), &m_faultValue);
-    makeCard("在线率",        QColor("#F2994A"), &m_rateValue);
+    makeCard("在用 (充电中)", QColor("#B0863F"), &m_inUseValue);
+    makeCard("闲置 (可用)",   QColor("#1F9D67"), &m_idleValue);
+    makeCard("故障 (需处理)", QColor("#C5525A"), &m_faultValue);
+    makeCard("在线率",        QColor("#B0863F"), &m_rateValue);
 
     m_summaryLabel = new QLabel(this);
+    m_summaryLabel->setObjectName("summaryLabel");
     m_summaryLabel->setAlignment(Qt::AlignCenter);
-    m_summaryLabel->setStyleSheet(
-        "background:#FFFFFF; border:1px solid #E2E8F0; border-radius:10px;"
-        "padding:10px; color:#475569; font-size:13px;");
 
     // 图表 + 明细表 并排
     QWidget *chartArea = new QWidget(this);
+    chartArea->setObjectName("chartArea");
     m_chartAreaLayout = new QVBoxLayout(chartArea);
     m_chartAreaLayout->setContentsMargins(0, 0, 0, 0);
 
     m_table = new QTableWidget(this);
+    m_table->setObjectName("statusTable");
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -203,9 +204,9 @@ QWidget *PileStatusPage::buildChart(int inUse, int idle, int fault)
     QPieSlice *s1 = series->append("在用", qMax(inUse, 0));
     QPieSlice *s2 = series->append("闲置", qMax(idle, 0));
     QPieSlice *s3 = series->append("故障", qMax(fault, 0));
-    s1->setColor(QColor("#2F80ED"));
-    s2->setColor(QColor("#1D976C"));
-    s3->setColor(QColor("#E5484D"));
+    s1->setColor(QColor("#B0863F"));
+    s2->setColor(QColor("#1F9D67"));
+    s3->setColor(QColor("#C5525A"));
     for (QPieSlice *s : series->slices())
         s->setLabelVisible(false);
     series->setHoleSize(0.45);

@@ -44,6 +44,7 @@ AdminMainWindow::AdminMainWindow(const QString &serverInfo, const QString &webUr
 void AdminMainWindow::initUi()
 {
     QWidget *central = new QWidget(this);
+    central->setObjectName("appCentral");
     QHBoxLayout *rootLayout = new QHBoxLayout(central);
     rootLayout->setContentsMargins(0, 0, 0, 0);
     rootLayout->setSpacing(0);
@@ -105,6 +106,7 @@ void AdminMainWindow::initUi()
     QPushButton *openWebBtn = new QPushButton("打开大屏", header);
     openWebBtn->setObjectName("openWebBtn");
     openWebBtn->setCursor(Qt::PointingHandCursor);
+    openWebBtn->setFixedHeight(34);
 
     headerLayout->addWidget(m_headerTitle);
     headerLayout->addStretch();
@@ -112,6 +114,7 @@ void AdminMainWindow::initUi()
     headerLayout->addWidget(m_headerUser);
 
     m_stack = new QStackedWidget(rightArea);
+    m_stack->setObjectName("contentStack");
     m_stack->addWidget(new SalesPage());
     m_stack->addWidget(new PileStatusPage());
     m_stack->addWidget(new PileManagePage());

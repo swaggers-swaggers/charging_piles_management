@@ -27,9 +27,9 @@ QString pileStatusText(int status)
 QColor pileStatusColor(int status)
 {
     switch (status) {
-    case PileInUse: return QColor("#2F80ED");
-    case PileFault: return QColor("#E5484D");
-    default:        return QColor("#1D976C");
+    case PileInUse: return QColor("#B0863F");
+    case PileFault: return QColor("#C5525A");
+    default:        return QColor("#1F9D67");
     }
 }
 } // namespace
@@ -46,13 +46,16 @@ PileManagePage::PileManagePage(QWidget *parent)
 
     QHBoxLayout *btnRow = new QHBoxLayout();
     QPushButton *refreshBtn = new QPushButton("刷新", this);
+    refreshBtn->setObjectName("searchButton");
     m_restartBtn = new QPushButton("远程重启", this);
+    m_restartBtn->setObjectName("restartButton");
     m_restartBtn->setEnabled(false);
     btnRow->addWidget(refreshBtn);
     btnRow->addWidget(m_restartBtn);
     btnRow->addStretch();
 
     m_table = new QTableWidget(this);
+    m_table->setObjectName("pileManageTable");
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);

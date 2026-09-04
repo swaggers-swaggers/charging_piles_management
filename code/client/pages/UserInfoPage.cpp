@@ -22,7 +22,7 @@ namespace {
 QPixmap defaultAvatar()
 {
     QPixmap pm(96, 96);
-    pm.fill(QColor("#B9C2CC"));
+    pm.fill(QColor("#AEB6C2"));
     return pm;
 }
 } // namespace
@@ -37,12 +37,16 @@ UserInfoPage::UserInfoPage(QWidget *parent)
     QLabel *title = new QLabel("用户信息", this);
     title->setObjectName("pageTitle");
 
-    // ---- 头像与基本资料 ----
-    QHBoxLayout *profileRow = new QHBoxLayout();
-    profileRow->setSpacing(20);
+    // ---- 头像与基本资料(卡片) ----
+    QWidget *profileCard = new QWidget(this);
+    profileCard->setObjectName("profileCard");
+    QHBoxLayout *profileCardLayout = new QHBoxLayout(profileCard);
+    profileCardLayout->setContentsMargins(22, 20, 22, 20);
+    profileCardLayout->setSpacing(20);
 
-    m_avatarLabel = new QLabel(this);
-    m_avatarLabel->setFixedSize(96, 96);
+    m_avatarLabel = new QLabel(profileCard);
+    m_avatarLabel->setObjectName("avatarLabel");
+    m_avatarLabel->setFixedSize(88, 88);
     m_avatarLabel->setPixmap(defaultAvatar());
     m_avatarLabel->setScaledContents(true);
     m_avatarLabel->setCursor(Qt::PointingHandCursor);
@@ -50,27 +54,32 @@ UserInfoPage::UserInfoPage(QWidget *parent)
 
     QVBoxLayout *infoCol = new QVBoxLayout();
     infoCol->setSpacing(8);
-    m_phoneLabel = new QLabel(this);
-    m_balanceLabel = new QLabel(this);
+    m_phoneLabel = new QLabel(profileCard);
+    m_phoneLabel->setObjectName("phoneLabel");
+    m_balanceLabel = new QLabel(profileCard);
+    m_balanceLabel->setObjectName("balanceLabel");
     infoCol->addWidget(m_phoneLabel);
     infoCol->addWidget(m_balanceLabel);
     infoCol->addStretch();
 
-    QPushButton *avatarBtn = new QPushButton("更换头像", this);
+    QPushButton *avatarBtn = new QPushButton("更换头像", profileCard);
+    avatarBtn->setObjectName("secondaryBtn");
     connect(avatarBtn, &QPushButton::clicked, this, &UserInfoPage::onChangeAvatar);
     infoCol->addWidget(avatarBtn);
 
-    profileRow->addWidget(m_avatarLabel);
-    profileRow->addLayout(infoCol);
-    profileRow->addStretch();
+    profileCardLayout->addWidget(m_avatarLabel);
+    profileCardLayout->addLayout(infoCol);
+    profileCardLayout->addStretch();
 
     // ---- 昵称修改 ----
     QHBoxLayout *nickRow = new QHBoxLayout();
     QLabel *nickLabel = new QLabel("昵称:", this);
     m_nickEdit = new QLineEdit(this);
+    m_nickEdit->setObjectName("nickEdit");
     m_nickEdit->setMaxLength(20);
     m_nickEdit->setFixedWidth(240);
     m_saveNickBtn = new QPushButton("保存昵称", this);
+    m_saveNickBtn->setObjectName("primaryBtn");
     nickRow->addWidget(nickLabel);
     nickRow->addWidget(m_nickEdit);
     nickRow->addWidget(m_saveNickBtn);
@@ -80,18 +89,20 @@ UserInfoPage::UserInfoPage(QWidget *parent)
     QHBoxLayout *rechargeRow = new QHBoxLayout();
     QLabel *rechargeLabel = new QLabel("充值金额:", this);
     m_rechargeSpin = new QDoubleSpinBox(this);
+    m_rechargeSpin->setObjectName("rechargeSpin");
     m_rechargeSpin->setRange(1.0, 10000.0);
     m_rechargeSpin->setDecimals(2);
     m_rechargeSpin->setSingleStep(10.0);
     m_rechargeSpin->setSuffix(" 元");
     m_rechargeBtn = new QPushButton("充值(模拟支付)", this);
+    m_rechargeBtn->setObjectName("successBtn");
     rechargeRow->addWidget(rechargeLabel);
     rechargeRow->addWidget(m_rechargeSpin);
     rechargeRow->addWidget(m_rechargeBtn);
     rechargeRow->addStretch();
 
     layout->addWidget(title);
-    layout->addLayout(profileRow);
+    layout->addWidget(profileCard);
     layout->addSpacing(8);
     layout->addLayout(nickRow);
     layout->addLayout(rechargeRow);

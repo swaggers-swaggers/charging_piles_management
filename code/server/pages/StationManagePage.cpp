@@ -4,6 +4,8 @@
 #include "StationDao.h"
 
 #include <QDialog>
+#include <QBrush>
+#include <QColor>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QFrame>
@@ -42,15 +44,19 @@ StationManagePage::StationManagePage(QWidget *parent)
 
     QHBoxLayout *btnRow = new QHBoxLayout();
     QPushButton *refreshBtn = new QPushButton("刷新", this);
+    refreshBtn->setObjectName("refreshButton");
     QPushButton *addBtn = new QPushButton("新增电站", this);
+    addBtn->setObjectName("addButton");
     btnRow->addWidget(refreshBtn);
     btnRow->addWidget(addBtn);
     btnRow->addStretch();
 
     m_stationTable = new QTableWidget(this);
+    m_stationTable->setObjectName("stationTable");
     m_stationTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_stationTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_stationTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_stationTable->setAlternatingRowColors(true);
     m_stationTable->verticalHeader()->setVisible(false);
     m_stationTable->setColumnCount(8);
     m_stationTable->setHorizontalHeaderLabels(
@@ -58,17 +64,17 @@ StationManagePage::StationManagePage(QWidget *parent)
 
     // 右侧: 选中电站的电桩明细
     QWidget *detailPanel = new QWidget(this);
+    detailPanel->setObjectName("detailPanel");
     QVBoxLayout *detailLayout = new QVBoxLayout(detailPanel);
-    detailLayout->setContentsMargins(0, 0, 0, 0);
+    detailLayout->setContentsMargins(14, 12, 14, 12);
     detailLayout->setSpacing(8);
     m_detailTitle = new QLabel("站内电桩明细(点击左侧电站行查看)", detailPanel);
-    m_detailTitle->setObjectName("pageTitle");
-    QFont detailFont = m_detailTitle->font();
-    detailFont.setPointSize(detailFont.pointSize() - 4);
-    m_detailTitle->setFont(detailFont);
+    m_detailTitle->setObjectName("sectionTitle");
     m_pileTable = new QTableWidget(detailPanel);
+    m_pileTable->setObjectName("pileTable");
     m_pileTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_pileTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_pileTable->setAlternatingRowColors(true);
     m_pileTable->verticalHeader()->setVisible(false);
     m_pileTable->setColumnCount(6);
     m_pileTable->setHorizontalHeaderLabels(
@@ -149,7 +155,15 @@ void StationManagePage::loadPileDetail(int stationId, const QString &stationName
         m_pileTable->setItem(i, 0, new QTableWidgetItem(p.code));
         m_pileTable->setItem(i, 1, new QTableWidgetItem(p.type == PileFast ? "快充" : "慢充"));
         m_pileTable->setItem(i, 2, new QTableWidgetItem(QString::number(p.power, 'f', 1)));
-        m_pileTable->setItem(i, 3, new QTableWidgetItem(pileStatusText(p.status)));
+        auto *statusItem = new QTableWidgetItem(pileStatusText(p.status));
+        QColor statusColor;
+        switch (p.status) {
+        case PileInUse: statusColor = QColor("#B0863F"); break;
+        case PileFault: statusColor = QColor("#C5525A"); break;
+        default:        statusColor = QColor("#1F9D67"); break;
+        }
+        statusItem->setForeground(QBrush(statusColor));
+        m_pileTable->setItem(i, 3, statusItem);
         m_pileTable->setItem(i, 4, new QTableWidgetItem(QString::number(p.totalCount)));
         m_pileTable->setItem(i, 5,
                              new QTableWidgetItem(QString::number(p.totalDuration / 60.0, 'f', 1)));
@@ -199,7 +213,9 @@ void StationManagePage::onAddStation()
 
     QHBoxLayout *btnRow = new QHBoxLayout();
     QPushButton *okBtn = new QPushButton("确定", &dlg);
+    okBtn->setObjectName("primaryBtn");
     QPushButton *cancelBtn = new QPushButton("取消", &dlg);
+    cancelBtn->setObjectName("secondaryBtn");
     btnRow->addStretch();
     btnRow->addWidget(okBtn);
     btnRow->addWidget(cancelBtn);

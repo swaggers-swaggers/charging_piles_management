@@ -40,14 +40,17 @@ ChargingPage::ChargingPage(QWidget *parent)
     QHBoxLayout *stationRow = new QHBoxLayout();
     QLabel *stationLabel = new QLabel("充电站:", m_selectView);
     m_stationCombo = new QComboBox(m_selectView);
+    m_stationCombo->setObjectName("stationCombo");
     m_stationCombo->setMinimumWidth(260);
     QPushButton *refreshBtn = new QPushButton("刷新", m_selectView);
+    refreshBtn->setObjectName("searchButton");
     stationRow->addWidget(stationLabel);
     stationRow->addWidget(m_stationCombo);
     stationRow->addWidget(refreshBtn);
     stationRow->addStretch();
 
     m_pileTable = new QTableWidget(m_selectView);
+    m_pileTable->setObjectName("pileTable");
     m_pileTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_pileTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_pileTable->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -70,21 +73,19 @@ ChargingPage::ChargingPage(QWidget *parent)
     chgTitle->setObjectName("pageTitle");
 
     m_orderLabel = new QLabel(m_chargingView);
+    m_orderLabel->setObjectName("orderLabel");
     m_energyLabel = new QLabel(m_chargingView);
+    m_energyLabel->setObjectName("chargingValue");
     m_amountLabel = new QLabel(m_chargingView);
+    m_amountLabel->setObjectName("chargingValue");
     m_minutesLabel = new QLabel(m_chargingView);
-
-    QFont bigFont = m_energyLabel->font();
-    bigFont.setPointSize(bigFont.pointSize() + 4);
-    bigFont.setBold(true);
-    m_energyLabel->setFont(bigFont);
-    m_amountLabel->setFont(bigFont);
+    m_minutesLabel->setObjectName("minutesLabel");
 
     QLabel *tip = new QLabel("充电进度每几秒自动刷新(模拟计费), 点击下方按钮结束充电并结算", m_chargingView);
     tip->setObjectName("pageHint");
 
     QPushButton *stopBtn = new QPushButton("结束充电并结算", m_chargingView);
-    stopBtn->setObjectName("adminLoginBtn");
+    stopBtn->setObjectName("settleBtn");
 
     chgLayout->addWidget(chgTitle);
     chgLayout->addWidget(m_orderLabel);
@@ -189,9 +190,9 @@ void ChargingPage::onStationPicked()
         QString statusText;
         QColor statusColor;
         switch (p.status) {
-        case PileIdle:  statusText = "空闲"; statusColor = QColor("#1D976C"); break;
-        case PileInUse: statusText = "充电中"; statusColor = QColor("#2F80ED"); break;
-        default:        statusText = "故障"; statusColor = QColor("#E5484D"); break;
+        case PileIdle:  statusText = "空闲"; statusColor = QColor("#1F9D67"); break;
+        case PileInUse: statusText = "充电中"; statusColor = QColor("#B0863F"); break;
+        default:        statusText = "故障"; statusColor = QColor("#C5525A"); break;
         }
         auto *statusItem = new QTableWidgetItem(statusText);
         statusItem->setForeground(QBrush(statusColor));
