@@ -58,3 +58,5 @@ data.json
 *~
 .DS_Store
 Thumbs.db
+
+code/.vscode
