@@ -53,9 +53,6 @@ qrc_*.cpp
 web/data.json
 data.json
 
-# ---------- 密钥 / 本地配置(勿上传) ----------
-# 腾讯地图 Key(每个人本地自建, 模板见 code/client/mapconfig.h.example)
-code/client/mapconfig.h
 
 # ---------- 日志 / 临时文件 ----------
 *.log
