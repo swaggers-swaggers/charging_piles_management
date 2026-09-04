@@ -2,7 +2,10 @@
 
 #include "mapconfig.h"
 
+#include <QAbstractSocket>
 #include <QEventLoop>
+#include <QHostAddress>
+#include <QHostInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -17,12 +20,47 @@ namespace TencentGeo {
 
 namespace {
 
+// 同步解析域名, 返回第一个 IPv4 地址; 找不到返回空串
+QString resolveIpv4(const QString &host)
+{
+    QHostInfo info;
+    QEventLoop loop;
+    QTimer timer;
+    timer.setSingleShot(true);
+    QObject::connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
+    QHostInfo::lookupHost(host, &loop, [&](const QHostInfo &h) {
+        info = h;
+        loop.quit();
+    });
+    timer.start(3000);
+    loop.exec();
+
+    for (const QHostAddress &a : info.addresses()) {
+        if (a.protocol() == QAbstractSocket::IPv4Protocol)
+            return a.toString();
+    }
+    return QString();
+}
+
 // 发起一次 HTTPS GET, 返回解析后的 JSON 根对象; 失败时把原因写入 error 并返回空对象
 QJsonObject httpGetJson(const QUrl &url, QString &error)
 {
-    QNetworkRequest req(url);
+    const QString host = url.host();
+
+    // 强制 IPv4: 系统解析常把 IPv6 排前面, 而 IPv6 可能未授权/超配额;
+    // 这里直连 IPv4 地址, 同时用 Host 头 + peerVerifyName 保证 SNI 与证书校验正确
+    const QString ipv4 = resolveIpv4(host);
+    QUrl connUrl = url;
+    QNetworkRequest req(connUrl);
     req.setHeader(QNetworkRequest::UserAgentHeader,
                   QStringLiteral("ChargingClient/1.0 (Qt)"));
+    if (!ipv4.isEmpty()) {
+        connUrl.setHost(ipv4);
+        req.setUrl(connUrl);
+        req.setRawHeader("Host", host.toUtf8());
+        // 直连 IP 时, 用 setPeerVerifyName 指定 SNI 与证书校验域名
+        req.setPeerVerifyName(host);
+    }
 
     QNetworkAccessManager nam;
     QNetworkReply *reply = nam.get(req);
