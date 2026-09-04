@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <QDebug>
+#include <QHostAddress>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonParseError>

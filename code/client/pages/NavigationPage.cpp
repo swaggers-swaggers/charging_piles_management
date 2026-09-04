@@ -1,6 +1,7 @@
 #include "NavigationPage.h"
 
 #include "GeoUtil.h"
+#include "TencentGeo.h"
 #include "protocol.h"
 #include "network/TcpClient.h"
 
@@ -13,6 +14,7 @@
 #include <QPushButton>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <QVector>
 
 // ---------- NavigationPage ----------
 
@@ -38,11 +40,14 @@ NavigationPage::NavigationPage(QWidget *parent)
     m_modeCombo->addItem("步行");
     QPushButton *navBtn = new QPushButton("开始导航", this);
     navBtn->setObjectName("primaryBtn");
+    QPushButton *locateBtn = new QPushButton("获取当前位置", this);
+    locateBtn->setObjectName("secondaryBtn");
     planRow->addWidget(destLabel);
     planRow->addWidget(m_destCombo);
     planRow->addWidget(modeLabel);
     planRow->addWidget(m_modeCombo);
     planRow->addWidget(navBtn);
+    planRow->addWidget(locateBtn);
     planRow->addStretch();
 
     m_canvas = new MapCanvas(this);
@@ -59,15 +64,32 @@ NavigationPage::NavigationPage(QWidget *parent)
     layout->addWidget(m_resultLabel);
 
     connect(navBtn, &QPushButton::clicked, this, &NavigationPage::onPlanChanged);
-    connect(m_destCombo, &QComboBox::currentIndexChanged, this, &NavigationPage::onPlanChanged);
-    connect(m_modeCombo, &QComboBox::currentIndexChanged, this, &NavigationPage::onPlanChanged);
+    connect(locateBtn, &QPushButton::clicked, this, &NavigationPage::onLocate);
+    connect(m_destCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, &NavigationPage::onPlanChanged);
+    connect(m_modeCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, &NavigationPage::onPlanChanged);
 }
 
 void NavigationPage::showEvent(QShowEvent *event)
 {
     QWidget::showEvent(event);
+    // 首次进入页面时自动 IP 定位一次(失败会保留默认值, 可手动点击"获取当前位置"重试)
+    if (!m_autoLocated) {
+        m_autoLocated = true;
+        onLocate();
+        return;
+    }
     // 延迟到界面显示完成后再请求, 避免同步网络请求阻塞主窗口首次显示
     QTimer::singleShot(0, this, &NavigationPage::refresh);
+}
+
+void NavigationPage::onLocate()
+{
+    QString err;
+    if (!TencentGeo::ipLocation(m_lon, m_lat, err)) {
+        m_resultLabel->setText(QString("获取当前位置失败: %1").arg(err));
+        return;
+    }
+    refresh();
 }
 
 void NavigationPage::refresh()
@@ -100,7 +122,8 @@ void NavigationPage::refresh()
 void NavigationPage::onPlanChanged()
 {
     m_destIndex = m_destCombo->currentIndex();
-    m_canvas->setData(m_stations, m_lon, m_lat, m_destIndex);
+    m_routePolyline.clear();
+    m_canvas->setData(m_stations, m_lon, m_lat, m_destIndex, m_routePolyline);
     m_canvas->update();
 
     if (m_destIndex < 0 || m_destIndex >= m_stations.size()) {
@@ -109,23 +132,43 @@ void NavigationPage::onPlanChanged()
     }
 
     const StationInfo &dest = m_stations[m_destIndex];
-    // 距离取服务端计算值, 兜底本地 Haversine
+    const bool driving = (m_modeCombo->currentIndex() == 0);
+
+    // 优先调用腾讯路线规划获取真实道路折线/距离/时长
+    TencentGeo::RouteInfo route;
+    QString routeErr;
+    if (TencentGeo::routePlan(driving, m_lon, m_lat, dest.longitude, dest.latitude,
+                              route, routeErr)) {
+        m_routePolyline = route.polyline;
+        m_canvas->setData(m_stations, m_lon, m_lat, m_destIndex, m_routePolyline);
+        m_canvas->update();
+
+        const double km = route.distanceMeters / 1000.0;
+        const int minutes = qMax(1, qRound(route.durationMinutes));
+        m_resultLabel->setText(QString("导航规划(腾讯实时路线): → %1    |    %2    |    距离 %3 km    |    预计 %4 分%5")
+                                   .arg(dest.name,
+                                        driving ? "驾车" : "步行",
+                                        QString::number(km, 'f', 1))
+                                   .arg(minutes)
+                                   .arg(driving ? QString() : QString(" (约 %1 小时)")
+                                                    .arg(route.durationMinutes / 60.0, 0, 'f', 1)));
+        return;
+    }
+
+    // 兜底: 路线规划失败(无网络/接口异常)时, 退回直线 + Haversine 估算
     double km = dest.distance;
     if (km < 0)
         km = GeoUtil::haversineKm(m_lat, m_lon, dest.latitude, dest.longitude);
 
-    const bool driving = (m_modeCombo->currentIndex() == 0);
     const double speedKmh = driving ? 40.0 : 5.0;
     const double hours = km / speedKmh;
     const int minutes = qMax(1, qRound(hours * 60));
 
-    m_resultLabel->setText(QString("导航规划: → %1    |    %2    |    距离 %3 km    |    预计 %4 分%5")
+    m_resultLabel->setText(QString("导航规划(直线估算): → %1    |    %2    |    距离 %3 km    |    预计 %4 分")
                                .arg(dest.name,
                                     driving ? "驾车" : "步行",
                                     QString::number(km, 'f', 1))
-                               .arg(minutes)
-                               .arg(driving ? QString() : QString(" (约 %1 小时)")
-                                                .arg(hours, 0, 'f', 1)));
+                               .arg(minutes));
 }
 
 // ---------- MapCanvas ----------
@@ -136,12 +179,13 @@ MapCanvas::MapCanvas(QWidget *parent)
 }
 
 void MapCanvas::setData(const QList<StationInfo> &stations, double curLon, double curLat,
-                        int destIndex)
+                        int destIndex, const QList<QPair<double, double>> &routePolyline)
 {
     m_stations = stations;
     m_curLon = curLon;
     m_curLat = curLat;
     m_destIndex = destIndex;
+    m_route = routePolyline;
 }
 
 void MapCanvas::paintEvent(QPaintEvent *event)
@@ -185,11 +229,19 @@ void MapCanvas::paintEvent(QPaintEvent *event)
         p.drawLine(QPointF(area.left(), y), QPointF(area.right(), y));
     }
 
-    // 路线(当前位置 → 终点, 折线)
-    if (m_destIndex >= 0 && m_destIndex < m_stations.size()) {
+    // 路线: 有真实折线时画道路折线, 否则退回直线
+    QPen routePen(QColor("#B0863F"), 3);
+    p.setPen(routePen);
+    if (m_route.size() >= 2) {
+        QVector<QPointF> pts;
+        pts.reserve(m_route.size());
+        for (const QPair<double, double> &pt : m_route)
+            pts.append(QPointF(toX(pt.second), toY(pt.first)));   // (纬度, 经度) -> (lon, lat)
+        p.drawPolyline(pts.constData(), pts.size());
+    } else if (m_destIndex >= 0 && m_destIndex < m_stations.size()) {
         const StationInfo &dest = m_stations[m_destIndex];
-        QPen routePen(QColor("#B0863F"), 3, Qt::DashLine);
-        p.setPen(routePen);
+        QPen dashPen(QColor("#B0863F"), 3, Qt::DashLine);
+        p.setPen(dashPen);
         p.drawLine(QPointF(toX(m_curLon), toY(m_curLat)),
                    QPointF(toX(dest.longitude), toY(dest.latitude)));
     }

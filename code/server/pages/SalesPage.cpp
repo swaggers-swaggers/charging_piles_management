@@ -243,7 +243,7 @@ SalesPage::SalesPage(QWidget *parent)
     layout->addLayout(chartHead);
     layout->addWidget(chartHost, 1);
 
-    connect(m_rangeCombo, &QComboBox::currentIndexChanged, this, &SalesPage::refresh);
+    connect(m_rangeCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, &SalesPage::refresh);
     refresh();
 }
 
