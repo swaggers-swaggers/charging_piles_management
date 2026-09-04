@@ -37,11 +37,40 @@ QList<StationInfo> StationDao::list(const QString &connName)
 
 bool StationDao::add(StationInfo *inOut, int pileCount, QString *errMsg, const QString &connName)
 {
+    if (!inOut || inOut->name.trimmed().isEmpty() || inOut->address.trimmed().isEmpty()) {
+        if (errMsg)
+            *errMsg = "站名和详细地址不能为空";
+        return false;
+    }
+    if (pileCount <= 0 || pileCount > 50 || inOut->longitude < 0 || inOut->longitude > 180
+        || inOut->latitude < 0 || inOut->latitude > 90 || inOut->price <= 0
+        || inOut->price > 5) {
+        if (errMsg)
+            *errMsg = "新增参数不合法，请检查坐标、电价和电桩数量";
+        return false;
+    }
+
     QSqlDatabase db = QSqlDatabase::database(connName);
+    if (!db.isOpen()) {
+        if (errMsg)
+            *errMsg = "数据库未连接";
+        return false;
+    }
     if (!db.transaction()) {
-        // 事务开启失败不致命, 继续按无事务执行
+        if (errMsg)
+            *errMsg = "无法开启新增事务: " + db.lastError().text();
+        return false;
     }
     QSqlQuery query(db);
+    query.prepare("SELECT COUNT(*) FROM station WHERE name = :n");
+    query.bindValue(":n", inOut->name.trimmed());
+    if (!query.exec() || (query.next() && query.value(0).toInt() > 0)) {
+        if (errMsg)
+            *errMsg = query.lastError().isValid() ? "检查站点名称失败: " + query.lastError().text()
+                                                   : "站点名称已存在";
+        db.rollback();
+        return false;
+    }
 
     query.prepare("INSERT INTO station (name, address, longitude, latitude, price) "
                   "VALUES (:n, :a, :lon, :lat, :p)");
@@ -57,11 +86,17 @@ bool StationDao::add(StationInfo *inOut, int pileCount, QString *errMsg, const Q
     }
     const int stationId = query.lastInsertId().toInt();
 
-    // 电桩编号顺延: 取当前最大编号序号
+    // 电桩编号顺延: 按现有编号最大值递增，避免删除记录后发生重复编号。
     int seq = 0;
     QSqlQuery q2(db);
-    if (q2.exec("SELECT COUNT(*) FROM pile") && q2.next())
-        seq = q2.value(0).toInt();
+    if (!q2.exec("SELECT COALESCE(MAX(CAST(SUBSTR(code, 4) AS INTEGER)), 0) FROM pile")
+        || !q2.next()) {
+        if (errMsg)
+            *errMsg = "读取电桩编号失败: " + q2.lastError().text();
+        db.rollback();
+        return false;
+    }
+    seq = q2.value(0).toInt();
 
     for (int i = 0; i < pileCount; ++i) {
         ++seq;

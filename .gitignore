@@ -45,6 +45,8 @@ qrc_*.cpp
 *.db
 *.db-wal
 *.db-shm
+# 交付的演示数据库需持久化到仓库
+!database/test.db
 *.sqlite
 *.sqlite3
 # Web 大屏导出数据(服务端运行时生成, 含本机统计数据)

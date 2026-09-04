@@ -178,7 +178,7 @@ QJsonObject ClientHandler::processUserLogin(const QJsonObject &req)
 
 QJsonObject ClientHandler::processGetUserInfo(const QJsonObject &req)
 {
-    const int userId = req.value("userId").toInt(m_userId);
+    const int userId = m_userId;
     UserInfo u;
     QString errMsg;
     if (!UserDao::getById(userId, &u, &errMsg, m_dbConnName))
@@ -194,7 +194,7 @@ QJsonObject ClientHandler::processGetUserInfo(const QJsonObject &req)
 
 QJsonObject ClientHandler::processUpdateProfile(const QJsonObject &req)
 {
-    const int userId = req.value("userId").toInt(m_userId);
+    const int userId = m_userId;
     QString errMsg;
     if (!UserDao::updateProfile(userId,
                                 req.value("nickname").toString(),
@@ -207,7 +207,7 @@ QJsonObject ClientHandler::processUpdateProfile(const QJsonObject &req)
 
 QJsonObject ClientHandler::processRecharge(const QJsonObject &req)
 {
-    const int userId = req.value("userId").toInt(m_userId);
+    const int userId = m_userId;
     const double amount = req.value("amount").toDouble();
 
     if (amount <= 0 || amount > 10000)
@@ -232,6 +232,9 @@ QJsonObject ClientHandler::processStationList(const QJsonObject &req)
     const double lat = req.value("lat").toDouble(41.70);
 
     QList<StationInfo> stations = StationDao::list(m_dbConnName);
+    stations.erase(std::remove_if(stations.begin(), stations.end(),
+                                  [](const StationInfo &s) { return s.totalPiles <= 0; }),
+                   stations.end());
     for (StationInfo &s : stations) {
         s.distance = GeoUtil::haversineKm(lat, lon, s.latitude, s.longitude);
         // 负荷预测: 预计 1 小时后的空闲率(阶段5 加分项)
@@ -271,7 +274,7 @@ QJsonObject ClientHandler::processStationPiles(const QJsonObject &req)
 
 QJsonObject ClientHandler::processUnfinishedOrder(const QJsonObject &req)
 {
-    const int userId = req.value("userId").toInt(m_userId);
+    const int userId = m_userId;
     OrderInfo order;
     bool has = false;
     QString errMsg;
@@ -287,7 +290,7 @@ QJsonObject ClientHandler::processUnfinishedOrder(const QJsonObject &req)
 
 QJsonObject ClientHandler::processStartCharge(const QJsonObject &req)
 {
-    const int userId = req.value("userId").toInt(m_userId);
+    const int userId = m_userId;
     const int pileId = req.value("pileId").toInt();
     if (pileId <= 0)
         return Protocol::makeReply(Protocol::ReqStartCharge, false, "参数错误: 缺少pileId");
@@ -331,7 +334,7 @@ QJsonObject ClientHandler::processStartCharge(const QJsonObject &req)
 
 QJsonObject ClientHandler::processStopCharge(const QJsonObject &req)
 {
-    const int userId = req.value("userId").toInt(m_userId);
+    const int userId = m_userId;
     const int orderId = req.value("orderId").toInt();
     if (orderId <= 0)
         return Protocol::makeReply(Protocol::ReqStopCharge, false, "参数错误: 缺少orderId");
@@ -344,6 +347,12 @@ QJsonObject ClientHandler::processStopCharge(const QJsonObject &req)
         return Protocol::makeReply(Protocol::ReqStopCharge, false, "无权操作该订单");
     if (ctx.order.status != OrderCharging)
         return Protocol::makeReply(Protocol::ReqStopCharge, false, "订单已完成结算");
+
+    // 重新读取数据库中的最新累计值，避免进度定时器写入与结算使用旧快照。
+    if (!OrderDao::getContext(orderId, &ctx, &errMsg, m_dbConnName))
+        return Protocol::makeReply(Protocol::ReqStopCharge, false, errMsg);
+    if (ctx.order.userId != m_userId || ctx.order.status != OrderCharging)
+        return Protocol::makeReply(Protocol::ReqStopCharge, false, "订单状态已变化, 请刷新后重试");
 
     // 1. 余额校验与扣款
     UserInfo user;

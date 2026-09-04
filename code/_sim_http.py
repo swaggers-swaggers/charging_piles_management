@@ -3,7 +3,7 @@
 /data.json 实时生成 JSON. 证明这套 HTTP 设计在逻辑层是通的. 监听本机 18080."""
 import http.server, socketserver, json, os, datetime
 
-WEB = r"D:\共享文件夹\Projects\code\web"
+WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web')
 
 class H(http.server.BaseHTTPRequestHandler):
     def log_message(self, *a): pass

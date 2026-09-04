@@ -13,6 +13,7 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <QSqlDatabase>
+#include <QSqlQuery>
 #include <QTime>
 #include <QTimer>
 
@@ -109,7 +110,11 @@ QByteArray DataExporter::buildJson() const
     metrics.insert("today", qRound(today * 100) / 100.0);
     metrics.insert("month", qRound(month * 100) / 100.0);
     metrics.insert("total", qRound(total * 100) / 100.0);
-    metrics.insert("users", 0);   // 由客户端登录数动态补充的意义不大, 暂以 0 占位
+    int userCount = 0;
+    QSqlQuery userQuery(QSqlDatabase::database());
+    if (userQuery.exec("SELECT COUNT(*) FROM user") && userQuery.next())
+        userCount = userQuery.value(0).toInt();
+    metrics.insert("users", userCount);
     root.insert("metrics", metrics);
 
     QJsonObject piles;

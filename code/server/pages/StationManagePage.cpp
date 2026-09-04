@@ -221,16 +221,17 @@ void StationManagePage::onAddStation()
     btnRow->addWidget(cancelBtn);
     form->addRow(btnRow);
 
-    connect(okBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
+    connect(okBtn, &QPushButton::clicked, &dlg, [&dlg, nameEdit, addrEdit]() {
+        if (nameEdit->text().trimmed().isEmpty() || addrEdit->text().trimmed().isEmpty()) {
+            QMessageBox::warning(&dlg, "提示", "站名和详细地址不能为空");
+            return;
+        }
+        dlg.accept();
+    });
     connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
 
     if (dlg.exec() != QDialog::Accepted)
         return;
-
-    if (nameEdit->text().trimmed().isEmpty() || addrEdit->text().trimmed().isEmpty()) {
-        QMessageBox::warning(this, "提示", "站名和详细地址不能为空");
-        return;
-    }
 
     StationInfo s;
     s.name = nameEdit->text().trimmed();

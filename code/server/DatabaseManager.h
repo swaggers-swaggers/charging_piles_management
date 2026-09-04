@@ -31,7 +31,7 @@ public:
                              const QString &connName = QString());
 
     // 手机号安全处理(隐私保护: 数据库不存明文手机号)
-    // hashPhone: SHA-256(固定盐+手机号) → 16进制, 用于登录精确匹配与唯一存储
+    // hashPhone: SHA-256(应用盐+手机号) → 16进制, 用于登录精确匹配与唯一存储
     // maskPhone: 脱敏显示 138****5678, 用于管理端展示与模糊搜索
     static QString hashPhone(const QString &phone);
     static QString maskPhone(const QString &phone);

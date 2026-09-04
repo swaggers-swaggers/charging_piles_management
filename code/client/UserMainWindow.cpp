@@ -5,6 +5,7 @@
 #include "NavigationPage.h"
 #include "UserInfoPage.h"
 #include "ChargingPage.h"
+#include "TcpClient.h"
 #include "protocol.h"
 
 #include <QGuiApplication>
@@ -124,6 +125,10 @@ void UserMainWindow::initUi()
             this, &UserMainWindow::onNavChanged);
     connect(logoutBtn, &QPushButton::clicked,
             this, &UserMainWindow::onLogoutClicked);
+    connect(&TcpClient::instance(), &TcpClient::connectionLost, this, [this]() {
+        statusBar()->showMessage("服务端连接已断开，请重新操作以重连");
+        QMessageBox::warning(this, "连接断开", "服务端连接已断开，请检查服务端后重试。");
+    });
 }
 
 void UserMainWindow::onNavChanged(int row)

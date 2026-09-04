@@ -178,14 +178,19 @@ void NearbyStationsPage::refresh()
     const QJsonObject reply = TcpClient::instance().request(
         Protocol::ReqStationList, QJsonObject{{"lon", m_lon}, {"lat", m_lat}});
     if (!reply.value("ok").toBool()) {
+        m_stations.clear();
+        m_table->setRowCount(0);
         QMessageBox::warning(this, "查询失败", reply.value("error").toString());
         return;
     }
 
     m_stations.clear();
     const QJsonArray arr = reply.value("stations").toArray();
-    for (const QJsonValue &v : arr)
-        m_stations.append(StationInfo::fromJson(v.toObject()));
+    for (const QJsonValue &v : arr) {
+        const StationInfo station = StationInfo::fromJson(v.toObject());
+        if (station.totalPiles > 0)
+            m_stations.append(station);
+    }
 
     m_table->setRowCount(m_stations.size());
     for (int i = 0; i < m_stations.size(); ++i) {

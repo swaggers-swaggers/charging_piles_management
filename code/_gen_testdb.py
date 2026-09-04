@@ -4,11 +4,15 @@
 手机号哈希算法与 C++ 完全一致(盐 "neusoft-charging-platform-2026" + SHA-256)。
 订单 LCG 种子 20260904, 与 C++ 一致, 结果确定可复现。
 """
-import hashlib, math, sqlite3, datetime
+import hashlib, math, os, sqlite3, datetime
 
-DB_PATH = r'D:\lesson\电\code\test.db'
+# 数据库落盘路径: 相对本脚本定位到项目根 database/test.db
+# (与 C++ resolveDatabaseFile 的候选 "database/test.db" 保持一致, 可直接被服务端读取)
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+DB_PATH = os.path.join(PROJECT_ROOT, 'database', 'test.db')
 
 SALT = b'neusoft-charging-platform-2026'
+ADMIN_SALT = b'neusoft-admin-password-2026'
 
 def hash_phone(phone):
     return hashlib.sha256(SALT + phone.encode('utf-8')).hexdigest()
@@ -17,8 +21,8 @@ def mask_phone(phone):
     # 与 C++ maskPhone 一致: 前3 + **** + 后4
     return phone[:3] + '****' + phone[-4:] if len(phone) > 7 else phone[:3] + '****'
 
-def md5(s):
-    return hashlib.md5(s.encode('utf-8')).hexdigest()
+def hash_admin_password(password):
+    return hashlib.sha256(ADMIN_SALT + password.encode('utf-8')).hexdigest()
 
 # ---------------- 建表(与 C++ createTables 一致) ----------------
 SCHEMA = [
@@ -133,7 +137,7 @@ def main():
         cur.execute(s)
 
     # admin
-    cur.execute("INSERT OR IGNORE INTO admin (username, password) VALUES (?, ?)", ("admin", md5("123456")))
+    cur.execute("INSERT OR IGNORE INTO admin (username, password) VALUES (?, ?)", ("admin", hash_admin_password("123456")))
 
     # 站点 + 电桩
     piles = []  # (id, station_id, type, power)

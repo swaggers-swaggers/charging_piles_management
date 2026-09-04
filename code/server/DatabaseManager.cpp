@@ -14,6 +14,15 @@
 #include <QSqlError>
 #include <QSqlQuery>
 
+namespace {
+QString hashAdminPassword(const QString &password)
+{
+    static const QByteArray salt = "neusoft-admin-password-2026";
+    return QString::fromLatin1(QCryptographicHash::hash(
+        salt + password.toUtf8(), QCryptographicHash::Sha256).toHex());
+}
+}
+
 // 数据库文件查找优先级:
 //   1. 环境变量 CHARGING_DB 指定的路径
 //   2. 工作目录 / 可执行文件目录附近的 test.db、database/test.db
@@ -46,13 +55,12 @@ bool DatabaseManager::init(QString *errMsg)
     if (!createTables(QString(), errMsg))
         return false;
 
+    // 旧库升级必须先于演示数据匹配，避免明文用户被重复创建。
+    migratePhoneEncryption();
     seedDefaultData();
 
     // 演示数据: 近30天固定订单(让销售业绩/大屏趋势有数据可看)
     seedDemoOrders();
-
-    // 旧库升级: 把明文手机号迁移为哈希存储(隐私保护)
-    migratePhoneEncryption();
 
     qDebug() << "[Database] 已连接:" << m_dbPath;
     return true;
@@ -173,18 +181,22 @@ void DatabaseManager::seedDefaultData()
     QSqlQuery query;
 
     // 默认管理员 admin / 123456 (项目说明书: 账号密码存储在数据库管理员表中)
-    // 密码以 MD5 摘要存储; verifyAdmin 兼容历史明文记录并自动升级
-    const QString md5Pwd = QString::fromLatin1(
-        QCryptographicHash::hash("123456", QCryptographicHash::Md5).toHex());
+    // 密码以加盐 SHA-256 摘要存储; verifyAdmin 兼容历史 MD5/明文记录并自动升级
+    const QString hashedPwd = hashAdminPassword("123456");
     query.prepare("INSERT OR IGNORE INTO admin (username, password) VALUES (:u, :p)");
     query.bindValue(":u", "admin");
-    query.bindValue(":p", md5Pwd);
+    query.bindValue(":p", hashedPwd);
     query.exec();
 
     // 固定种子数据: 充电站/电桩分布(仅表为空时写入, 多次运行完全一致)
     query.exec("SELECT COUNT(*) FROM station");
-    if (query.next() && query.value(0).toInt() > 0)
+    if (query.next() && query.value(0).toInt() > 0) {
+        const int stationCount = query.value(0).toInt();
+        if (stationCount != 12)
+            qWarning() << "[Database] 现有站点数量为" << stationCount
+                       << ", 与默认种子数量 12 不一致, 保留现有业务数据";
         return;
+    }
 
     const struct StationSeed {
         QString name;
@@ -301,7 +313,7 @@ void DatabaseManager::generateDemoData(QString *errMsg)
             query.bindValue(":m", maskPhone(phone));
             query.bindValue(":n", QString::fromUtf8(u.nickname));
             query.bindValue(":b", u.balance);
-            query.bindValue(":r", QDate::currentDate().addDays(-u.regDaysAgo)
+            query.bindValue(":r", QDateTime::currentDateTime().addDays(-u.regDaysAgo)
                             .toString("yyyy-MM-dd hh:mm:ss"));
             if (query.exec()) {
                 uid = query.lastInsertId().toInt();
@@ -444,12 +456,13 @@ bool DatabaseManager::verifyAdmin(const QString &username, const QString &passwo
 
     const int id = query.value(0).toInt();
     const QString stored = query.value(1).toString();
-    const QString hashed = QString::fromLatin1(
+    const QString hashed = hashAdminPassword(password);
+    const QString legacyMd5 = QString::fromLatin1(
         QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Md5).toHex());
 
     if (stored != hashed) {
-        // 兼容历史明文记录: 校验通过后自动升级为摘要存储
-        if (stored != password) {
+        // 兼容历史 MD5/明文记录: 校验通过后自动升级为加盐 SHA-256
+        if (stored != legacyMd5 && stored != password) {
             if (errMsg)
                 *errMsg = "用户名或密码错误!";
             return false;

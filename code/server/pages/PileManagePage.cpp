@@ -111,7 +111,7 @@ void PileManagePage::onSelectionChanged()
     m_selectedId = codeItem->data(Qt::UserRole).toInt();
     m_selectedCode = codeItem->text();
     m_selectedStatus = codeItem->data(Qt::UserRole + 1).toInt();
-    m_restartBtn->setEnabled(true);
+    m_restartBtn->setEnabled(m_selectedStatus != PileInUse);
 }
 
 void PileManagePage::onRestartClicked()
