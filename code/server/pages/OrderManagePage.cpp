@@ -20,6 +20,7 @@
 #include <QPushButton>
 #include <QTableWidget>
 #include <QTabWidget>
+#include <QTimer>
 #include <QVBoxLayout>
 
 namespace {
@@ -203,6 +204,17 @@ OrderManagePage::OrderManagePage(QWidget *parent)
     });
 
     refreshOrders();
+
+    // 自动刷新: 每 3 秒刷新当前 Tab, 无需手动点刷新按钮
+    m_autoRefresh = new QTimer(this);
+    m_autoRefresh->setInterval(3000);
+    connect(m_autoRefresh, &QTimer::timeout, this, [this]() {
+        if (m_tabs->currentIndex() == 0)
+            refreshOrders();
+        else
+            refreshReservations();
+    });
+    m_autoRefresh->start();
 }
 
 void OrderManagePage::refreshOrders()

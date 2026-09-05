@@ -13,10 +13,13 @@
 
 namespace {
 // 手机号 SHA-256 哈希(登录按哈希匹配, 避免明文存储)
+// 固定应用级盐 + SHA-256: 同一手机号哈希稳定(可精确匹配), 但不可逆还原明文
+// 注意: 盐必须与历史版本一致, 否则旧库用户会因哈希不匹配被重复注册
 QString hashPhone(const QString &phone)
 {
+    static const QByteArray kSalt = "neusoft-charging-platform-2026";
     return QString::fromLatin1(
-        QCryptographicHash::hash(phone.toUtf8(), QCryptographicHash::Sha256).toHex());
+        QCryptographicHash::hash(kSalt + phone.toUtf8(), QCryptographicHash::Sha256).toHex());
 }
 
 // 手机号脱敏: 保留前 3 位与后 4 位, 中间用 **** 代替
@@ -92,6 +95,9 @@ bool DatabaseManager::init(QString *errMsg)
     seedDefaultData();
     seedDefaultFeeRules();
     seedDemoOrders();
+
+    // 修复历史数据: 哈希算法变更导致同一手机号被重复注册, 启动时自动合并
+    deduplicateUsers();
     return true;
 }
 
@@ -383,6 +389,54 @@ void DatabaseManager::migrateAdminSchema()
     }
 }
 
+void DatabaseManager::deduplicateUsers()
+{
+    // 因 hashPhone 算法历史变更, 同一手机号可能被注册为多条 user 记录
+    // (phone 哈希不同, 但 phone_masked 相同). 按 phone_masked 分组, 保留最早注册的,
+    // 把其余用户的订单/充值/预约/余额合并到保留用户后删除.
+    QSqlQuery q(m_db);
+    q.exec("SELECT phone_masked, MIN(id) AS keep_id, COUNT(*) AS cnt "
+           "FROM user WHERE phone_masked != '' "
+           "GROUP BY phone_masked HAVING cnt > 1");
+    while (q.next()) {
+        const QString masked = q.value(0).toString();
+        const int keepId = q.value(1).toInt();
+        qDebug() << "[deduplicate] 发现重复用户" << masked << "保留 id=" << keepId;
+
+        QSqlQuery q2(m_db);
+        q2.prepare("SELECT id, balance FROM user WHERE phone_masked=? AND id!=?");
+        q2.addBindValue(masked);
+        q2.addBindValue(keepId);
+        while (q2.next()) {
+            const int dupId = q2.value(0).toInt();
+            const double dupBalance = q2.value(1).toDouble();
+
+            QSqlQuery uo(m_db);
+            uo.prepare("UPDATE charge_order SET user_id=? WHERE user_id=?");
+            uo.addBindValue(keepId); uo.addBindValue(dupId); uo.exec();
+
+            QSqlQuery ur(m_db);
+            ur.prepare("UPDATE recharge_log SET user_id=? WHERE user_id=?");
+            ur.addBindValue(keepId); ur.addBindValue(dupId); ur.exec();
+
+            QSqlQuery urv(m_db);
+            urv.prepare("UPDATE charge_reservation SET user_id=? WHERE user_id=?");
+            urv.addBindValue(keepId); urv.addBindValue(dupId); urv.exec();
+
+            QSqlQuery ub(m_db);
+            ub.prepare("UPDATE user SET balance = balance + ? WHERE id=?");
+            ub.addBindValue(dupBalance); ub.addBindValue(keepId); ub.exec();
+
+            QSqlQuery del(m_db);
+            del.prepare("DELETE FROM user WHERE id=?");
+            del.addBindValue(dupId); del.exec();
+
+            qDebug() << "[deduplicate] 合并 id=" << dupId << "(余额" << dupBalance
+                     << ")到 id=" << keepId << "并删除";
+        }
+    }
+}
+
 void DatabaseManager::seedDefaultData()
 {
     QSqlQuery check(m_db);
@@ -457,11 +511,12 @@ void DatabaseManager::seedDefaultData()
         }
     }
 
-    // 演示用户: 手机号 13800000000 (免密登录直接可用), 初始余额 200
+    // 演示用户: 手机号 13800000001 (免密登录直接可用), 初始余额 200
+    // 注意: 手机号必须与历史版本一致, 否则旧库演示订单会关联到错误用户
     QSqlQuery uq(m_db);
     uq.prepare("INSERT INTO user(phone, phone_masked, nickname, balance) VALUES(?,?,?,?)");
-    uq.addBindValue(hashPhone("13800000000"));
-    uq.addBindValue(maskPhone("13800000000"));
+    uq.addBindValue(hashPhone("13800000001"));
+    uq.addBindValue(maskPhone("13800000001"));
     uq.addBindValue("演示用户");
     uq.addBindValue(200.0);
     uq.exec();

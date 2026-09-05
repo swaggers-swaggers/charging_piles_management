@@ -7,6 +7,7 @@ class QComboBox;
 class QPushButton;
 class QTableWidget;
 class QTabWidget;
+class QTimer;
 
 // 管理端: 订单管理 + 排队/预约管理
 // Tab1 订单: 状态筛选 / 强制结束 / 故障退款 / 订单详情
@@ -49,6 +50,8 @@ private:
     QPushButton *m_cancelResBtn = nullptr;
     int m_selectedResId = -1;
     int m_selectedResStatus = -1;
+
+    QTimer *m_autoRefresh = nullptr;   // 每 3 秒自动刷新当前 Tab
 };
 
 #endif // ORDERMANAGEPAGE_H
