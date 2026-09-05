@@ -35,6 +35,17 @@ TcpClient::TcpClient(QObject *parent)
     m_thread->start();
 }
 
+TcpClient::~TcpClient()
+{
+    // 程序退出时停止网络线程, 避免 "QThread: Destroyed while thread is still running"
+    if (m_thread) {
+        m_thread->quit();
+        m_thread->wait(3000);
+    }
+    delete m_worker;   // 线程已结束, worker 不再活跃, 直接释放(无 parent)
+    m_worker = nullptr;
+}
+
 bool TcpClient::ensureConnected(int timeoutMs, QString *errMsg)
 {
     if (m_connected)

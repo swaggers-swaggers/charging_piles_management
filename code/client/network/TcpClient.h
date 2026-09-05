@@ -38,6 +38,7 @@ signals:
 
 private:
     explicit TcpClient(QObject *parent = nullptr);
+    ~TcpClient() override;
 
     void onConnectResult(bool ok, const QString &error);
     void onRequestDone(int type, const QJsonObject &reply);
