@@ -14,15 +14,17 @@ QWidget#sidebar {
     border-right: 1px solid #101B2D;
 }
 
+QWidget#logoBox {
+    background: #223653;
+    border: 1px solid #324A6B;
+    border-radius: 8px;
+    margin: 10px 12px 8px;
+    padding: 10px 8px;
+}
 QLabel#logoLabel {
     color: #F4D99B;
     font-size: 16px;
     font-weight: 700;
-    padding: 14px 12px;
-    margin: 10px 12px 8px;
-    background: #223653;
-    border: 1px solid #324A6B;
-    border-radius: 8px;
 }
 
 QListWidget#navList {

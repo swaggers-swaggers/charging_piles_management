@@ -35,7 +35,7 @@
    <item>
     <widget class="QLabel" name="titleLabel">
      <property name="text">
-      <string>⚡ 充电桩管理平台</string>
+      <string>充电桩管理平台</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>

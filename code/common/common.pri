@@ -4,4 +4,5 @@ INCLUDEPATH += $$PWD
 HEADERS += \
     $$PWD/protocol.h \
     $$PWD/types.h \
-    $$PWD/GeoUtil.h
+    $$PWD/GeoUtil.h \
+    $$PWD/IconFactory.h

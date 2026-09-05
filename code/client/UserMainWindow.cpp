@@ -7,16 +7,20 @@
 #include "ChargingPage.h"
 #include "TcpClient.h"
 #include "protocol.h"
+#include "IconFactory.h"
 
 #include <QGuiApplication>
+#include <QColor>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QScreen>
+#include <QSize>
 #include <QStackedWidget>
 #include <QStatusBar>
+#include <QVector>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -55,21 +59,37 @@ void UserMainWindow::initUi()
     sideLayout->setContentsMargins(0, 20, 0, 12);
     sideLayout->setSpacing(10);
 
-    QLabel *logo = new QLabel("⚡ 东软充电", sidebar);
+    QWidget *logoBox = new QWidget(sidebar);
+    logoBox->setObjectName("logoBox");
+    logoBox->setAttribute(Qt::WA_StyledBackground, true);
+    QHBoxLayout *logoLayout = new QHBoxLayout(logoBox);
+    logoLayout->setContentsMargins(0, 0, 0, 0);
+    logoLayout->setSpacing(8);
+    QLabel *logoIcon = new QLabel(logoBox);
+    logoIcon->setPixmap(IconFactory::icon(IconFactory::IconBolt, QColor("#37C6FF")).pixmap(22, 22));
+    QLabel *logo = new QLabel("东软充电", logoBox);
     logo->setObjectName("logoLabel");
-    logo->setAlignment(Qt::AlignCenter);
+    logoLayout->addStretch();
+    logoLayout->addWidget(logoIcon);
+    logoLayout->addWidget(logo);
+    logoLayout->addStretch();
 
     m_navList = new QListWidget(sidebar);
     m_navList->setObjectName("navList");
     const QStringList navNames = {
         "附近充电站", "一键导航", "用户信息", "电动汽车充电",
     };
-    const QStringList navIcons = { "📍", "🧭", "👤", "🔌" };
+    const QVector<IconFactory::IconType> navIcons = {
+        IconFactory::IconLocation, IconFactory::IconCompass,
+        IconFactory::IconUser, IconFactory::IconBolt,
+    };
     for (int i = 0; i < navNames.size(); ++i) {
-        auto *item = new QListWidgetItem(navIcons[i] + "  " + navNames[i]);
+        auto *item = new QListWidgetItem(navNames[i]);
+        item->setIcon(IconFactory::icon(navIcons[i]));
         item->setData(Qt::UserRole, navNames[i]);   // 纯文本标题(不含图标)
         m_navList->addItem(item);
     }
+    m_navList->setIconSize(QSize(20, 20));
     m_navList->setCurrentRow(0);
     m_navList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_navList->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -78,7 +98,7 @@ void UserMainWindow::initUi()
     logoutBtn->setObjectName("logoutBtn");
     logoutBtn->setCursor(Qt::PointingHandCursor);
 
-    sideLayout->addWidget(logo);
+    sideLayout->addWidget(logoBox);
     sideLayout->addSpacing(12);
     sideLayout->addWidget(m_navList, 1);
     sideLayout->addWidget(logoutBtn);
