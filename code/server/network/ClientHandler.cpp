@@ -212,7 +212,17 @@ QJsonObject ClientHandler::processUpdateProfile(const QJsonObject &req)
                                 &errMsg, m_dbConnName))
         return Protocol::makeReply(Protocol::ReqUpdateProfile, false, errMsg);
 
-    return processGetUserInfo(req);
+    // 回显请求 type(ReqUpdateProfile), 并返回更新后的用户信息(与 ReqGetUserInfo 字段一致)
+    UserInfo u;
+    if (!UserDao::getById(userId, &u, &errMsg, m_dbConnName))
+        return Protocol::makeReply(Protocol::ReqUpdateProfile, false, errMsg);
+
+    QJsonObject reply = Protocol::makeReply(Protocol::ReqUpdateProfile, true);
+    reply.insert("nickname", u.nickname);
+    reply.insert("balance", u.balance);
+    reply.insert("avatar", u.avatar);
+    reply.insert("status", u.status);
+    return reply;
 }
 
 QJsonObject ClientHandler::processRecharge(const QJsonObject &req)

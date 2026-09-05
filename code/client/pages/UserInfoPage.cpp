@@ -165,16 +165,21 @@ void UserInfoPage::onChangeAvatar()
     buffer.open(QIODevice::WriteOnly);
     scaled.save(&buffer, "PNG");
 
+    const QString avatarBase64 = QString::fromLatin1(bytes.toBase64());
     const QJsonObject reply = TcpClient::instance().request(
         Protocol::ReqUpdateProfile,
         QJsonObject{{"userId", ClientSession::instance().userId},
-                    {"avatar", QString::fromLatin1(bytes.toBase64())}});
+                    {"avatar", avatarBase64}});
     if (!reply.value("ok").toBool()) {
         QMessageBox::warning(this, "提示", reply.value("error").toString("头像上传失败"));
         return;
     }
-    QMessageBox::information(this, "提示", "头像更新成功!");
-    onRefresh();
+
+    // 提交成功后立即更新本地会话与头像显示, 无需重新进入页面
+    ClientSession::instance().avatar = avatarBase64;
+    m_avatarLabel->setPixmap(QPixmap::fromImage(scaled));
+
+    QMessageBox::information(this, "提示", "提交成功");
 }
 
 void UserInfoPage::onSaveNickname()
