@@ -1,6 +1,7 @@
 #ifndef CHARGINGPAGE_H
 #define CHARGINGPAGE_H
 
+#include "ChargeChartWidget.h"
 #include "types.h"
 
 #include <QWidget>
@@ -86,6 +87,8 @@ private:
     QLabel *m_amountVal;
     QLabel *m_minutesVal;
     QLabel *m_priceHint;
+    ChargeChartWidget *m_chart;
+    QPushButton *m_chartModeBtn;
 
     // ---- 排队/预约等待视图 ----
     QWidget *m_waitingView;

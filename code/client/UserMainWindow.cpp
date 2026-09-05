@@ -6,6 +6,8 @@
 #include "UserInfoPage.h"
 #include "ChargingPage.h"
 #include "OrderHistoryPage.h"
+#include "pages/MessagePage.h"
+#include "MessageCenter.h"
 #include "TcpClient.h"
 #include "protocol.h"
 #include "IconFactory.h"
@@ -78,11 +80,12 @@ void UserMainWindow::initUi()
     m_navList = new QListWidget(sidebar);
     m_navList->setObjectName("navList");
     const QStringList navNames = {
-        "附近充电站", "一键导航", "用户信息", "电动汽车充电", "我的订单",
+        "附近充电站", "一键导航", "用户信息", "电动汽车充电", "我的订单", "消息中心",
     };
     const QVector<IconFactory::IconType> navIcons = {
         IconFactory::IconLocation, IconFactory::IconCompass,
         IconFactory::IconUser, IconFactory::IconBolt, IconFactory::IconChartLine,
+        IconFactory::IconChartLine,
     };
     for (int i = 0; i < navNames.size(); ++i) {
         auto *item = new QListWidgetItem(navNames[i]);
@@ -136,6 +139,19 @@ void UserMainWindow::initUi()
     m_stack->addWidget(new UserInfoPage());
     m_stack->addWidget(new ChargingPage());
     m_stack->addWidget(new OrderHistoryPage());
+    m_stack->addWidget(new MessagePage());
+
+    // 消息中心未读角标: 导航项文本后追加未读数
+    auto updateMsgBadge = [this](int unread) {
+        if (m_navList->count() <= 5) return;
+        auto *item = m_navList->item(5);
+        if (!item) return;
+        item->setText(unread > 0 ? QString("消息中心 (%1)").arg(unread)
+                                  : QString("消息中心"));
+    };
+    updateMsgBadge(MessageCenter::instance().unreadCount());
+    connect(&MessageCenter::instance(), &MessageCenter::unreadCountChanged,
+            this, updateMsgBadge);
 
     rightLayout->addWidget(header);
     rightLayout->addWidget(m_stack, 1);

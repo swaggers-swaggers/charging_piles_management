@@ -266,8 +266,10 @@ void OrderManagePage::onOrderSelectionChanged()
     m_selectedOrderAmount = idItem->data(Qt::UserRole + 2).toDouble();
     m_selectedRefunded = idItem->data(Qt::UserRole + 3).toDouble();
     m_forceBtn->setEnabled(m_selectedOrderStatus == OrderCharging);
-    m_refundBtn->setEnabled(m_selectedOrderStatus == OrderFinished
-                            || m_selectedOrderStatus == OrderAbnormal);
+    // 退款按钮: 仅已完成/异常订单, 且未全额退款(已退 < 消费-0.01)才能再退
+    m_refundBtn->setEnabled((m_selectedOrderStatus == OrderFinished
+                            || m_selectedOrderStatus == OrderAbnormal)
+                            && m_selectedRefunded < m_selectedOrderAmount - 0.01);
     m_detailBtn->setEnabled(true);
 }
 

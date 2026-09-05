@@ -29,25 +29,31 @@ include(../common/common.pri)
 SOURCES += \
     main.cpp \
     ClientSession.cpp \
+    MessageCenter.cpp \
     LoginDialog.cpp \
     UserMainWindow.cpp \
     pages/NearbyStationsPage.cpp \
     pages/NavigationPage.cpp \
     pages/UserInfoPage.cpp \
     pages/ChargingPage.cpp \
+    pages/ChargeChartWidget.cpp \
     pages/OrderHistoryPage.cpp \
+    pages/MessagePage.cpp \
     network/TcpClient.cpp \
     network/TcpClientWorker.cpp
 
 HEADERS += \
     ClientSession.h \
+    MessageCenter.h \
     LoginDialog.h \
     UserMainWindow.h \
     pages/NearbyStationsPage.h \
     pages/NavigationPage.h \
     pages/UserInfoPage.h \
     pages/ChargingPage.h \
+    pages/ChargeChartWidget.h \
     pages/OrderHistoryPage.h \
+    pages/MessagePage.h \
     network/TcpClient.h \
     network/TcpClientWorker.h
 

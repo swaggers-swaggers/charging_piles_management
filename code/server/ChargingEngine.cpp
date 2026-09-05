@@ -230,6 +230,18 @@ ChargingEngine::StartResult ChargingEngine::startCharging(int userId, int pileId
     UserInfo after;
     if (UserDao::getById(userId, &after, nullptr, connName))
         r.balanceAfter = after.balance;
+
+    // 充电开始推送(消息系统)
+    QJsonObject startEv;
+    startEv.insert("type", PushOrderEvent);
+    startEv.insert("event", 5);   // 5=充电已开始
+    startEv.insert("orderId", orderId);
+    startEv.insert("pileId", pileId);
+    startEv.insert("unitPrice", unitPrice);
+    startEv.insert("freeze", freeze);
+    startEv.insert("message", QStringLiteral("充电已开始, 预授权冻结 %1 元, 单价 %2 元/度")
+                                   .arg(freeze, 0, 'f', 2).arg(unitPrice, 0, 'f', 3));
+    ChargingEngine::instance().pushToUser(userId, startEv);
     return r;
 }
 
@@ -331,6 +343,13 @@ bool ChargingEngine::refundOrder(int orderId, double amount, QString *err,
                                          : QSqlDatabase::database(connName);
     const OrderInfo o = OrderDao::getById(orderId, nullptr, connName);
     if (o.id == 0) { if (err) *err = "订单不存在"; return false; }
+    // 防重复退款: 已退金额 + 本次退款 不得超过订单消费金额
+    if (o.refundAmount + amount > o.amount + 0.01) {
+        if (err) *err = QString("退款金额超限: 订单消费 %1 元, 已退 %2 元, 最多可退 %3 元")
+                           .arg(o.amount, 0, 'f', 2).arg(o.refundAmount, 0, 'f', 2)
+                           .arg(qMax(0.0, o.amount - o.refundAmount), 0, 'f', 2);
+        return false;
+    }
 
     if (!db.transaction()) { if (err) *err = db.lastError().text(); return false; }
     QSqlQuery rb(db);
@@ -344,6 +363,15 @@ bool ChargingEngine::refundOrder(int orderId, double amount, QString *err,
     ro.addBindValue(orderId);
     if (!ro.exec()) { db.rollback(); if (err) *err = ro.lastError().text(); return false; }
     if (!db.commit()) { db.rollback(); if (err) *err = db.lastError().text(); return false; }
+
+    // 退款成功后推送消息给用户(消息系统统一入口)
+    QJsonObject ev;
+    ev.insert("type", PushOrderEvent);
+    ev.insert("event", 8);   // 8=退款到账通知
+    ev.insert("orderId", orderId);
+    ev.insert("refundAmount", amount);
+    ev.insert("message", QStringLiteral("退款 %1 元已到账(订单 #%2)").arg(amount, 0, 'f', 2).arg(orderId));
+    ChargingEngine::instance().pushToUser(o.userId, ev);
     return true;
 }
 

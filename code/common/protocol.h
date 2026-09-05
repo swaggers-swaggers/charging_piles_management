@@ -47,10 +47,11 @@ enum MessageType {
 
     // 服务端推送
     PushOrderProgress   = 101, // {orderId, energy, amount, minutes, targetType?, targetValue?, targetProgress?}
-    PushOrderEvent      = 102, // {orderId?, reservationId?, event, message, queuePos?}
+    PushOrderEvent      = 102, // {orderId?, reservationId?, event, message, queuePos?, refundAmount?, balance?}
                                //   event: 1=排队轮到(请确认开始) 2=订单已结束(自动/管理员)
                                //          3=订单异常中断 4=排队位置变化
                                //          5=充电已开始 6=预约开始提醒 7=预约成功/已取消
+                               //          8=退款到账通知(refundAmount) 9=充值成功(balance)
 };
 
 // ---- 错误码(error 字段文本直接可展示, code 用于程序判断) ----

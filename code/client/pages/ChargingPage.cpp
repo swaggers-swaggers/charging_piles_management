@@ -507,6 +507,23 @@ void ChargingPage::buildChargingView()
     m_priceHint->setAlignment(Qt::AlignCenter);
     m_priceHint->setStyleSheet("color:#6B7280;");
 
+    // 实时充电曲线
+    auto *chartRow = new QHBoxLayout();
+    chartRow->setSpacing(8);
+    auto *chartTitle = new QLabel(QStringLiteral("实时充电曲线"), m_chargingView);
+    chartTitle->setStyleSheet("font-size:13px;font-weight:bold;color:#1A1B1C;");
+    m_chartModeBtn = new QPushButton(QStringLiteral("切换:金额"), m_chargingView);
+    m_chartModeBtn->setStyleSheet("QPushButton{background:#F0F7FF;border:1px solid #91CAFF;"
+                                   "border-radius:6px;padding:4px 12px;color:#1677FF;font-size:11px;}"
+                                   "QPushButton:hover{background:#E6F4FF;}");
+    m_chartModeBtn->setCursor(Qt::PointingHandCursor);
+    chartRow->addWidget(chartTitle);
+    chartRow->addStretch();
+    chartRow->addWidget(m_chartModeBtn);
+
+    m_chart = new ChargeChartWidget(m_chargingView);
+    m_chart->setFixedHeight(160);
+
     QPushButton *stopBtn = new QPushButton(QStringLiteral("结束充电并结算"), m_chargingView);
     stopBtn->setObjectName("settleBtn");
     stopBtn->setCursor(Qt::PointingHandCursor);
@@ -516,10 +533,22 @@ void ChargingPage::buildChargingView()
     lay->addWidget(m_ring, 0, Qt::AlignHCenter);
     lay->addLayout(cards);
     lay->addWidget(m_priceHint);
+    lay->addSpacing(4);
+    lay->addLayout(chartRow);
+    lay->addWidget(m_chart);
     lay->addStretch();
     lay->addWidget(stopBtn);
 
     connect(stopBtn, &QPushButton::clicked, this, &ChargingPage::onStopCharge);
+    connect(m_chartModeBtn, &QPushButton::clicked, this, [this]() {
+        if (m_chart->mode() == 0) {
+            m_chart->setMode(1);
+            m_chartModeBtn->setText(QStringLiteral("切换:电量"));
+        } else {
+            m_chart->setMode(0);
+            m_chartModeBtn->setText(QStringLiteral("切换:金额"));
+        }
+    });
 }
 
 void ChargingPage::buildWaitingView()
@@ -814,6 +843,11 @@ void ChargingPage::enterChargingView(const OrderInfo &order)
     m_minutesVal->setText(QString::number(order.simMinutes));
     m_ring->setCenterText(QString::number(order.energy, 'f', 1), QStringLiteral("度"));
     m_ring->setProgress(order.targetType == TargetNone ? -1 : 0);
+    if (m_chart) {
+        m_chart->clearData();
+        if (order.simMinutes > 0)
+            m_chart->addPoint(order.simMinutes, order.energy, order.amount);
+    }
     m_priceHint->setText(QStringLiteral("单价 %1 元/度 · 冻结 %2 元 · %3")
                              .arg(order.priceSnapshot, 0, 'f', 2)
                              .arg(order.freezeAmount, 0, 'f', 2)
@@ -918,6 +952,8 @@ void ChargingPage::onPushReceived(const QJsonObject &msg)
         if (msg.contains("targetProgress")) {
             m_ring->setProgress(msg.value("targetProgress").toDouble());
         }
+        if (m_chart)
+            m_chart->addPoint(m_currentOrder.simMinutes, m_currentOrder.energy, m_currentOrder.amount);
         return;
     }
 
@@ -973,6 +1009,17 @@ void ChargingPage::onPushReceived(const QJsonObject &msg)
             enterSelectView();
             refreshStations();
         }
+    } else if (event == 8) {
+        // 退款到账通知: 更新余额并提示
+        const double refundAmount = msg.value("refundAmount").toDouble();
+        const int orderId = msg.value("orderId").toInt();
+        const QJsonObject info = TcpClient::instance().request(Protocol::ReqGetUserInfo, QJsonObject{});
+        if (info.value("ok").toBool())
+            ClientSession::instance().balance = info.value("balance").toDouble();
+        QMessageBox::information(this, QStringLiteral("退款到账"),
+                                 QStringLiteral("订单 #%1 的退款 %2 元已到账\n当前余额: %3 元")
+                                     .arg(orderId).arg(refundAmount, 0, 'f', 2)
+                                     .arg(ClientSession::instance().balance, 0, 'f', 2));
     }
 }
 

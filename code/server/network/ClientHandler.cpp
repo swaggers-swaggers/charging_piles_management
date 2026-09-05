@@ -237,6 +237,16 @@ QJsonObject ClientHandler::processRecharge(const QJsonObject &req)
     log.exec();
 
     qDebug() << "[ClientHandler] 用户" << userId << "充值" << amount << "元, 余额" << newBalance;
+
+    // 充值成功推送消息(消息系统)
+    QJsonObject recEv;
+    recEv.insert("type", Protocol::PushOrderEvent);
+    recEv.insert("event", 9);   // 9=充值成功
+    recEv.insert("balance", newBalance);
+    recEv.insert("message", QStringLiteral("充值 %1 元成功, 当前余额 %2 元")
+                                 .arg(amount, 0, 'f', 2).arg(newBalance, 0, 'f', 2));
+    ChargingEngine::instance().pushToUser(userId, recEv);
+
     QJsonObject reply = Protocol::makeReply(Protocol::ReqRecharge, true);
     reply.insert("balance", newBalance);
     return reply;

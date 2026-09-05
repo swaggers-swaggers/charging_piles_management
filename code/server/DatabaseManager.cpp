@@ -394,47 +394,87 @@ void DatabaseManager::deduplicateUsers()
     // 因 hashPhone 算法历史变更, 同一手机号可能被注册为多条 user 记录
     // (phone 哈希不同, 但 phone_masked 相同). 按 phone_masked 分组, 保留最早注册的,
     // 把其余用户的订单/充值/预约/余额合并到保留用户后删除.
-    QSqlQuery q(m_db);
-    q.exec("SELECT phone_masked, MIN(id) AS keep_id, COUNT(*) AS cnt "
-           "FROM user WHERE phone_masked != '' "
-           "GROUP BY phone_masked HAVING cnt > 1");
-    while (q.next()) {
-        const QString masked = q.value(0).toString();
-        const int keepId = q.value(1).toInt();
-        qDebug() << "[deduplicate] 发现重复用户" << masked << "保留 id=" << keepId;
+    // 全程事务包裹, 任一步失败回滚并打印错误, 杜绝静默失败.
+    QSqlQuery find(m_db);
+    if (!find.exec("SELECT phone_masked, MIN(id) AS keep_id, COUNT(*) AS cnt "
+                    "FROM user WHERE phone_masked != '' "
+                    "GROUP BY phone_masked HAVING cnt > 1")) {
+        qWarning() << "[deduplicate] 查询重复用户失败:" << find.lastError().text();
+        return;
+    }
 
-        QSqlQuery q2(m_db);
-        q2.prepare("SELECT id, balance FROM user WHERE phone_masked=? AND id!=?");
-        q2.addBindValue(masked);
-        q2.addBindValue(keepId);
-        while (q2.next()) {
-            const int dupId = q2.value(0).toInt();
-            const double dupBalance = q2.value(1).toDouble();
+    int mergedCount = 0;
+    while (find.next()) {
+        const QString masked = find.value(0).toString();
+        const int keepId = find.value(1).toInt();
+        const int cnt = find.value(2).toInt();
+        qDebug() << "[deduplicate] 发现重复用户" << masked << "共" << cnt
+                 << "条, 保留 id=" << keepId;
 
+        QSqlQuery dup(m_db);
+        dup.prepare("SELECT id, balance, nickname FROM user WHERE phone_masked=? AND id!=?");
+        dup.addBindValue(masked);
+        dup.addBindValue(keepId);
+        if (!dup.exec()) {
+            qWarning() << "[deduplicate] 查询重复项失败:" << dup.lastError().text();
+            continue;
+        }
+
+        while (dup.next()) {
+            const int dupId = dup.value(0).toInt();
+            const double dupBalance = dup.value(1).toDouble();
+            const QString dupName = dup.value(2).toString();
+
+            if (!m_db.transaction()) {
+                qWarning() << "[deduplicate] 开启事务失败:" << m_db.lastError().text();
+                continue;
+            }
+
+            bool ok = true;
             QSqlQuery uo(m_db);
             uo.prepare("UPDATE charge_order SET user_id=? WHERE user_id=?");
-            uo.addBindValue(keepId); uo.addBindValue(dupId); uo.exec();
+            uo.addBindValue(keepId); uo.addBindValue(dupId);
+            if (!uo.exec()) { qWarning() << "[deduplicate] 迁移订单失败:" << uo.lastError().text(); ok = false; }
 
-            QSqlQuery ur(m_db);
-            ur.prepare("UPDATE recharge_log SET user_id=? WHERE user_id=?");
-            ur.addBindValue(keepId); ur.addBindValue(dupId); ur.exec();
+            if (ok) {
+                QSqlQuery ur(m_db);
+                ur.prepare("UPDATE recharge_log SET user_id=? WHERE user_id=?");
+                ur.addBindValue(keepId); ur.addBindValue(dupId);
+                if (!ur.exec()) { qWarning() << "[deduplicate] 迁移充值记录失败:" << ur.lastError().text(); ok = false; }
+            }
 
-            QSqlQuery urv(m_db);
-            urv.prepare("UPDATE charge_reservation SET user_id=? WHERE user_id=?");
-            urv.addBindValue(keepId); urv.addBindValue(dupId); urv.exec();
+            if (ok) {
+                QSqlQuery urv(m_db);
+                urv.prepare("UPDATE charge_reservation SET user_id=? WHERE user_id=?");
+                urv.addBindValue(keepId); urv.addBindValue(dupId);
+                if (!urv.exec()) { qWarning() << "[deduplicate] 迁移预约记录失败:" << urv.lastError().text(); ok = false; }
+            }
 
-            QSqlQuery ub(m_db);
-            ub.prepare("UPDATE user SET balance = balance + ? WHERE id=?");
-            ub.addBindValue(dupBalance); ub.addBindValue(keepId); ub.exec();
+            if (ok) {
+                QSqlQuery ub(m_db);
+                ub.prepare("UPDATE user SET balance = balance + ? WHERE id=?");
+                ub.addBindValue(dupBalance); ub.addBindValue(keepId);
+                if (!ub.exec()) { qWarning() << "[deduplicate] 合并余额失败:" << ub.lastError().text(); ok = false; }
+            }
 
-            QSqlQuery del(m_db);
-            del.prepare("DELETE FROM user WHERE id=?");
-            del.addBindValue(dupId); del.exec();
+            if (ok) {
+                QSqlQuery del(m_db);
+                del.prepare("DELETE FROM user WHERE id=?");
+                del.addBindValue(dupId);
+                if (!del.exec()) { qWarning() << "[deduplicate] 删除重复用户失败:" << del.lastError().text(); ok = false; }
+            }
 
-            qDebug() << "[deduplicate] 合并 id=" << dupId << "(余额" << dupBalance
-                     << ")到 id=" << keepId << "并删除";
+            if (ok && m_db.commit()) {
+                qDebug() << "[deduplicate] 已合并 id=" << dupId << "(" << dupName
+                         << ", 余额" << dupBalance << ")到 id=" << keepId << "并删除";
+                ++mergedCount;
+            } else {
+                qWarning() << "[deduplicate] 合并 id=" << dupId << "失败, 回滚";
+                m_db.rollback();
+            }
         }
     }
+    qDebug() << "[deduplicate] 完成, 共合并" << mergedCount << "条重复用户";
 }
 
 void DatabaseManager::seedDefaultData()

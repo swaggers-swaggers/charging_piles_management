@@ -61,6 +61,10 @@ data.json
 *~
 .DS_Store
 Thumbs.db
+# 助手排查用临时文件夹(报错截图副本/Python 排查脚本/旧库副本)
+_buildcheck/
+# 编辑器本地配置
+.zcode/
 
 code/.vscode
 
