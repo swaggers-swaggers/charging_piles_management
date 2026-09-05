@@ -6,6 +6,7 @@
 
 #include "AdminLoginDialog.h"
 #include "AdminMainWindow.h"
+#include "ChargingEngine.h"
 #include "DataExporter.h"
 #include "DatabaseManager.h"
 #include "HttpServer.h"
@@ -36,6 +37,9 @@ int main(int argc, char *argv[])
         QMessageBox::critical(nullptr, "数据库初始化失败", dbErr);
         return 1;
     }
+
+    // 启动全局充电引擎: 恢复在充订单/释放孤儿桩, 之后每 3 秒推进一次
+    ChargingEngine::instance().start();
 
     // 面向用户客户端的 TCP 服务
     TcpServer server;

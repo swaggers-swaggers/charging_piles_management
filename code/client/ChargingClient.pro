@@ -1,6 +1,6 @@
 #-------------------------------------------------
 # 用户客户端 ChargingClient
-# 手机端交互体验: 免密登录/充电站查询/导航/充电
+# 手机端交互体验: 免密登录/充电站查询/导航/充电/排队预约/订单
 # 注意: 客户端不直接访问数据库, 业务全部经 Socket 与服务端交互
 #-------------------------------------------------
 
@@ -35,6 +35,7 @@ SOURCES += \
     pages/NavigationPage.cpp \
     pages/UserInfoPage.cpp \
     pages/ChargingPage.cpp \
+    pages/OrderHistoryPage.cpp \
     network/TcpClient.cpp \
     network/TcpClientWorker.cpp
 
@@ -46,6 +47,7 @@ HEADERS += \
     pages/NavigationPage.h \
     pages/UserInfoPage.h \
     pages/ChargingPage.h \
+    pages/OrderHistoryPage.h \
     network/TcpClient.h \
     network/TcpClientWorker.h
 

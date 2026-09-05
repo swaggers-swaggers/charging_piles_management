@@ -1,11 +1,24 @@
 #include "PileDao.h"
 
-#include <QSqlDatabase>
+#include "DatabaseManager.h"
+
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QVariant>
 
-static PileInfo readPile(const QSqlQuery &q)
+namespace {
+QSqlDatabase daoDb(const QString &connName)
+{
+    return connName.isEmpty() ? DatabaseManager::instance().database()
+                              : QSqlDatabase::database(connName);
+}
+
+const QString kPileSelect =
+    QStringLiteral("SELECT p.id, p.station_id, p.code, p.type, p.power, p.status,"
+                   " p.total_count, p.total_duration, s.name"
+                   " FROM pile p JOIN station s ON p.station_id=s.id");
+
+PileInfo readPile(QSqlQuery &q)
 {
     PileInfo p;
     p.id = q.value(0).toInt();
@@ -19,94 +32,76 @@ static PileInfo readPile(const QSqlQuery &q)
     p.stationName = q.value(8).toString();
     return p;
 }
-
-static const char *kPileSelect =
-    "SELECT p.id, p.station_id, p.code, p.type, p.power, p.status, p.total_count,"
-    " p.total_duration, s.name FROM pile p JOIN station s ON s.id = p.station_id";
+} // namespace
 
 QList<PileInfo> PileDao::listAll(const QString &connName)
 {
-    QList<PileInfo> piles;
-    QSqlQuery query(QSqlDatabase::database(connName));
-    if (!query.exec(QString(kPileSelect) + " ORDER BY p.id"))
-        return piles;
-    while (query.next())
-        piles.append(readPile(query));
-    return piles;
+    QList<PileInfo> list;
+    QSqlQuery q(daoDb(connName));
+    if (!q.exec(kPileSelect + " ORDER BY p.code"))
+        return list;
+    while (q.next())
+        list.append(readPile(q));
+    return list;
 }
 
 QList<PileInfo> PileDao::listByStation(int stationId, const QString &connName)
 {
-    QList<PileInfo> piles;
-    QSqlQuery query(QSqlDatabase::database(connName));
-    query.prepare(QString(kPileSelect) + " WHERE p.station_id = :sid ORDER BY p.id");
-    query.bindValue(":sid", stationId);
-    if (!query.exec())
-        return piles;
-    while (query.next())
-        piles.append(readPile(query));
-    return piles;
+    QList<PileInfo> list;
+    QSqlQuery q(daoDb(connName));
+    q.prepare(kPileSelect + " WHERE p.station_id=? ORDER BY p.code");
+    q.addBindValue(stationId);
+    if (!q.exec())
+        return list;
+    while (q.next())
+        list.append(readPile(q));
+    return list;
 }
 
-bool PileDao::getById(int pileId, PileInfo *out, QString *errMsg, const QString &connName)
+PileInfo PileDao::getById(int id, QString *errMsg, const QString &connName)
 {
-    QSqlQuery query(QSqlDatabase::database(connName));
-    query.prepare(QString(kPileSelect) + " WHERE p.id = :id");
-    query.bindValue(":id", pileId);
-    if (!query.exec()) {
+    QSqlQuery q(daoDb(connName));
+    q.prepare(kPileSelect + " WHERE p.id=?");
+    q.addBindValue(id);
+    if (!q.exec()) {
         if (errMsg)
-            *errMsg = "查询电桩失败: " + query.lastError().text();
-        return false;
+            *errMsg = q.lastError().text();
+        return PileInfo();
     }
-    if (!query.next()) {
-        if (errMsg)
-            *errMsg = "电桩不存在";
-        return false;
-    }
-    if (out)
-        *out = readPile(query);
-    return true;
+    if (!q.next())
+        return PileInfo();
+    return readPile(q);
 }
 
-bool PileDao::setStatus(int pileId, int status, QString *errMsg, const QString &connName)
+bool PileDao::setStatus(int id, int status, QString *errMsg, const QString &connName)
 {
-    QSqlQuery query(QSqlDatabase::database(connName));
-    query.prepare("UPDATE pile SET status = :s WHERE id = :id");
-    query.bindValue(":s", status);
-    query.bindValue(":id", pileId);
-    if (!query.exec()) {
+    QSqlQuery q(daoDb(connName));
+    q.prepare("UPDATE pile SET status=? WHERE id=?");
+    q.addBindValue(status);
+    q.addBindValue(id);
+    if (!q.exec()) {
         if (errMsg)
-            *errMsg = "更新电桩状态失败: " + query.lastError().text();
+            *errMsg = q.lastError().text();
         return false;
     }
     return true;
 }
 
-bool PileDao::restart(int pileId, QString *errMsg, const QString &connName)
+bool PileDao::restart(int id, QString *errMsg, const QString &connName)
 {
-    PileInfo pile;
-    if (!getById(pileId, &pile, errMsg, connName))
-        return false;
-
-    if (pile.status == PileInUse) {
-        if (errMsg)
-            *errMsg = "电桩正在使用中, 暂不能重启";
-        return false;
-    }
-
-    return setStatus(pileId, PileIdle, errMsg, connName);
+    // 远程重启: 故障桩恢复为闲置
+    return setStatus(id, PileIdle, errMsg, connName);
 }
 
-bool PileDao::addUsage(int pileId, int durationMinutes, QString *errMsg, const QString &connName)
+bool PileDao::addUsage(int id, int addedMinutes, QString *errMsg, const QString &connName)
 {
-    QSqlQuery query(QSqlDatabase::database(connName));
-    query.prepare("UPDATE pile SET total_count = total_count + 1,"
-                  " total_duration = total_duration + :d WHERE id = :id");
-    query.bindValue(":d", durationMinutes);
-    query.bindValue(":id", pileId);
-    if (!query.exec()) {
+    QSqlQuery q(daoDb(connName));
+    q.prepare("UPDATE pile SET total_count=total_count+1, total_duration=total_duration+? WHERE id=?");
+    q.addBindValue(addedMinutes);
+    q.addBindValue(id);
+    if (!q.exec()) {
         if (errMsg)
-            *errMsg = "更新电桩统计失败: " + query.lastError().text();
+            *errMsg = q.lastError().text();
         return false;
     }
     return true;
@@ -115,27 +110,50 @@ bool PileDao::addUsage(int pileId, int durationMinutes, QString *errMsg, const Q
 bool PileDao::statusCounts(int *idle, int *inUse, int *fault, QString *errMsg,
                            const QString &connName)
 {
-    QSqlQuery query(QSqlDatabase::database(connName));
-    if (!query.exec("SELECT status, COUNT(*) FROM pile GROUP BY status")) {
+    QSqlQuery q(daoDb(connName));
+    if (!q.exec("SELECT status, COUNT(*) FROM pile GROUP BY status")) {
         if (errMsg)
-            *errMsg = "统计电桩状态失败: " + query.lastError().text();
+            *errMsg = q.lastError().text();
         return false;
     }
-    if (idle)
-        *idle = 0;
-    if (inUse)
-        *inUse = 0;
-    if (fault)
-        *fault = 0;
-    while (query.next()) {
-        const int status = query.value(0).toInt();
-        const int count = query.value(1).toInt();
-        if (status == PileIdle && idle)
-            *idle = count;
-        else if (status == PileInUse && inUse)
-            *inUse = count;
-        else if (status == PileFault && fault)
-            *fault = count;
+    if (idle) *idle = 0;
+    if (inUse) *inUse = 0;
+    if (fault) *fault = 0;
+    while (q.next()) {
+        const int status = q.value(0).toInt();
+        const int cnt = q.value(1).toInt();
+        if (status == PileIdle && idle) *idle = cnt;
+        else if (status == PileInUse && inUse) *inUse = cnt;
+        else if (status == PileFault && fault) *fault = cnt;
+    }
+    return true;
+}
+
+bool PileDao::acquire(int pileId, QString *errMsg, const QString &connName)
+{
+    QSqlQuery q(daoDb(connName));
+    q.prepare("UPDATE pile SET status=1 WHERE id=? AND status=0");
+    q.addBindValue(pileId);
+    if (!q.exec()) {
+        if (errMsg)
+            *errMsg = q.lastError().text();
+        return false;
+    }
+    return q.numRowsAffected() == 1;
+}
+
+bool PileDao::release(int pileId, int usedMinutes, QString *errMsg, const QString &connName)
+{
+    QSqlQuery q(daoDb(connName));
+    q.prepare("UPDATE pile SET status=CASE WHEN status=2 THEN 2 ELSE 0 END,"
+              " total_count=total_count+1,"
+              " total_duration=total_duration+? WHERE id=?");
+    q.addBindValue(usedMinutes);
+    q.addBindValue(pileId);
+    if (!q.exec()) {
+        if (errMsg)
+            *errMsg = q.lastError().text();
+        return false;
     }
     return true;
 }

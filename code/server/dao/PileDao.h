@@ -3,34 +3,37 @@
 
 #include "types.h"
 
+#include <QList>
 #include <QString>
 
-// 充电桩表数据访问
+// 充电桩 DAO
 class PileDao
 {
 public:
-    // 全部电桩(联表带所属电站名)
+    // 注意: list 系列保持旧签名(connName 紧随业务参数), Predictor/管理页面按此调用
     static QList<PileInfo> listAll(const QString &connName = QString());
-
-    // 某电站的全部电桩
-    static QList<PileInfo> listByStation(int stationId, const QString &connName = QString());
-
-    static bool getById(int pileId, PileInfo *out, QString *errMsg = nullptr,
-                        const QString &connName = QString());
-
-    static bool setStatus(int pileId, int status, QString *errMsg = nullptr,
+    static QList<PileInfo> listByStation(int stationId,
+                                         const QString &connName = QString());
+    static PileInfo getById(int id, QString *errMsg = nullptr,
+                            const QString &connName = QString());
+    static bool setStatus(int id, int status, QString *errMsg = nullptr,
                           const QString &connName = QString());
-
-    // 远程重启(模拟): 在用中的桩拒绝重启; 闲置/故障的桩重启后恢复闲置
-    static bool restart(int pileId, QString *errMsg = nullptr, const QString &connName = QString());
-
-    // 累计充电次数 +1, 累计时长 +durationMinutes
-    static bool addUsage(int pileId, int durationMinutes, QString *errMsg = nullptr,
+    static bool restart(int id, QString *errMsg = nullptr,
+                        const QString &connName = QString());
+    static bool addUsage(int id, int addedMinutes, QString *errMsg = nullptr,
                          const QString &connName = QString());
-
-    // 状态数量统计
-    static bool statusCounts(int *idle, int *inUse, int *fault, QString *errMsg = nullptr,
+    // 各状态桩数量(电桩状态页)
+    static bool statusCounts(int *idle, int *inUse, int *fault,
+                             QString *errMsg = nullptr,
                              const QString &connName = QString());
+
+    // v2: 原子抢占空闲桩。仅当 status=0 时置为 1(在用),
+    // 影响行数==1 才算抢到, 从数据库层面杜绝两个用户同时抢到同一桩
+    static bool acquire(int pileId, QString *errMsg = nullptr,
+                        const QString &connName = QString());
+    // v2: 释放桩为空闲并累计使用时长
+    static bool release(int pileId, int usedMinutes, QString *errMsg = nullptr,
+                        const QString &connName = QString());
 };
 
 #endif // PILEDAO_H

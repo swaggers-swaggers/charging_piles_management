@@ -8,8 +8,8 @@ class QListWidget;
 class QStackedWidget;
 
 // 服务端管理后台主窗口
-// 左侧导航 + 右侧页面栈, 五个功能页面对应项目说明书:
-//   销售业绩 / 电桩状态 / 充电桩管理 / 充电站管理 / 用户管理
+// 左侧导航 + 右侧页面栈, 六个功能页面:
+//   销售业绩 / 电桩状态 / 充电桩管理 / 订单管理 / 充电站管理 / 用户管理
 class AdminMainWindow : public QMainWindow
 {
     Q_OBJECT

@@ -28,6 +28,7 @@ include(../common/common.pri)
 SOURCES += \
     main.cpp \
     DatabaseManager.cpp \
+    ChargingEngine.cpp \
     ServerSession.cpp \
     AdminLoginDialog.cpp \
     AdminMainWindow.cpp \
@@ -38,10 +39,13 @@ SOURCES += \
     dao/StationDao.cpp \
     dao/PileDao.cpp \
     dao/OrderDao.cpp \
+    dao/PriceRuleDao.cpp \
+    dao/ReservationDao.cpp \
     dao/LogDao.cpp \
     pages/SalesPage.cpp \
     pages/PileStatusPage.cpp \
     pages/PileManagePage.cpp \
+    pages/OrderManagePage.cpp \
     pages/StationManagePage.cpp \
     pages/UserManagePage.cpp \
     network/TcpServer.cpp \
@@ -49,6 +53,7 @@ SOURCES += \
 
 HEADERS += \
     DatabaseManager.h \
+    ChargingEngine.h \
     ServerSession.h \
     AdminLoginDialog.h \
     AdminMainWindow.h \
@@ -59,10 +64,13 @@ HEADERS += \
     dao/StationDao.h \
     dao/PileDao.h \
     dao/OrderDao.h \
+    dao/PriceRuleDao.h \
+    dao/ReservationDao.h \
     dao/LogDao.h \
     pages/SalesPage.h \
     pages/PileStatusPage.h \
     pages/PileManagePage.h \
+    pages/OrderManagePage.h \
     pages/StationManagePage.h \
     pages/UserManagePage.h \
     network/TcpServer.h \

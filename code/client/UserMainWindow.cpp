@@ -5,6 +5,7 @@
 #include "NavigationPage.h"
 #include "UserInfoPage.h"
 #include "ChargingPage.h"
+#include "OrderHistoryPage.h"
 #include "TcpClient.h"
 #include "protocol.h"
 #include "IconFactory.h"
@@ -77,11 +78,11 @@ void UserMainWindow::initUi()
     m_navList = new QListWidget(sidebar);
     m_navList->setObjectName("navList");
     const QStringList navNames = {
-        "附近充电站", "一键导航", "用户信息", "电动汽车充电",
+        "附近充电站", "一键导航", "用户信息", "电动汽车充电", "我的订单",
     };
     const QVector<IconFactory::IconType> navIcons = {
         IconFactory::IconLocation, IconFactory::IconCompass,
-        IconFactory::IconUser, IconFactory::IconBolt,
+        IconFactory::IconUser, IconFactory::IconBolt, IconFactory::IconChartLine,
     };
     for (int i = 0; i < navNames.size(); ++i) {
         auto *item = new QListWidgetItem(navNames[i]);
@@ -134,6 +135,7 @@ void UserMainWindow::initUi()
     m_stack->addWidget(new NavigationPage());
     m_stack->addWidget(new UserInfoPage());
     m_stack->addWidget(new ChargingPage());
+    m_stack->addWidget(new OrderHistoryPage());
 
     rightLayout->addWidget(header);
     rightLayout->addWidget(m_stack, 1);

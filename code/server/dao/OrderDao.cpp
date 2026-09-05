@@ -1,222 +1,350 @@
 #include "OrderDao.h"
 
-#include <QDate>
-#include <QDateTime>
-#include <QSqlDatabase>
+#include "DatabaseManager.h"
+
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QVariant>
 
-static OrderInfo readOrder(const QSqlQuery &q)
+namespace {
+QSqlDatabase daoDb(const QString &connName)
 {
-    OrderInfo o;
-    o.id = q.value(0).toInt();
-    o.userId = q.value(1).toInt();
-    o.pileId = q.value(2).toInt();
-    o.stationId = q.value(3).toInt();
-    o.startTime = q.value(4).toString();
-    o.endTime = q.value(5).toString();
-    o.energy = q.value(6).toDouble();
-    o.amount = q.value(7).toDouble();
-    o.status = q.value(8).toInt();
-    o.pileCode = q.value(9).toString();
-    o.stationName = q.value(10).toString();
-    return o;
+    return connName.isEmpty() ? DatabaseManager::instance().database()
+                              : QSqlDatabase::database(connName);
 }
 
-static const char *kOrderFields =
-    "o.id, o.user_id, o.pile_id, o.station_id, o.start_time, o.end_time,"
-    " o.energy, o.amount, o.status, p.code, s.name";
-static const char *kOrderFrom =
-    " FROM charge_order o"
-    " JOIN pile p ON p.id = o.pile_id"
-    " JOIN station s ON s.id = o.station_id";
+// 联表字段(顺序固定, readOrder 按列序读取; 追加新列只能放末尾)
+const QString kOrderFields =
+    QStringLiteral("o.id, o.user_id, o.pile_id, o.station_id, o.start_time, o.end_time,"
+                   " o.energy, o.amount, o.status, p.code, s.name,"
+                   " o.freeze_amount, o.target_type, o.target_value, o.price_snapshot,"
+                   " o.finish_type, o.cancel_reason, o.refund_amount, o.sim_minutes");
 
-bool OrderDao::create(int userId, int pileId, int stationId, const QString &startTime,
-                      int *orderId, QString *errMsg, const QString &connName)
+OrderInfo readOrder(QSqlQuery &q)
 {
-    QSqlQuery query(QSqlDatabase::database(connName));
-    query.prepare("INSERT INTO charge_order (user_id, pile_id, station_id, start_time,"
-                  " energy, amount, status) VALUES (:u, :p, :s, :t, 0, 0, 0)");
-    query.bindValue(":u", userId);
-    query.bindValue(":p", pileId);
-    query.bindValue(":s", stationId);
-    query.bindValue(":t", startTime);
-    if (!query.exec()) {
+    OrderInfo r;
+    r.id = q.value(0).toInt();
+    r.userId = q.value(1).toInt();
+    r.pileId = q.value(2).toInt();
+    r.stationId = q.value(3).toInt();
+    r.startTime = q.value(4).toString();
+    r.endTime = q.value(5).toString();
+    r.energy = q.value(6).toDouble();
+    r.amount = q.value(7).toDouble();
+    r.status = q.value(8).toInt();
+    r.pileCode = q.value(9).toString();
+    r.stationName = q.value(10).toString();
+    r.freezeAmount = q.value(11).toDouble();
+    r.targetType = q.value(12).toInt();
+    r.targetValue = q.value(13).toDouble();
+    r.priceSnapshot = q.value(14).toDouble();
+    r.finishType = q.value(15).toInt();
+    r.cancelReason = q.value(16).toString();
+    r.refundAmount = q.value(17).toDouble();
+    r.simMinutes = q.value(18).toInt();
+    return r;
+}
+} // namespace
+
+int OrderDao::create(int userId, int pileId, int stationId,
+                     double priceSnapshot, double freezeAmount,
+                     int targetType, double targetValue,
+                     QString *errMsg, const QString &connName)
+{
+    QSqlQuery q(daoDb(connName));
+    q.prepare("INSERT INTO charge_order(user_id, pile_id, station_id, start_time,"
+              " price_snapshot, freeze_amount, target_type, target_value, status)"
+              " VALUES(?,?,?,datetime('now','localtime'),?,?,?,?,0)");
+    q.addBindValue(userId);
+    q.addBindValue(pileId);
+    q.addBindValue(stationId);
+    q.addBindValue(priceSnapshot);
+    q.addBindValue(freezeAmount);
+    q.addBindValue(targetType);
+    q.addBindValue(targetValue);
+    if (!q.exec()) {
         if (errMsg)
-            *errMsg = "创建订单失败: " + query.lastError().text();
+            *errMsg = q.lastError().text();
+        return -1;
+    }
+    return q.lastInsertId().toInt();
+}
+
+OrderInfo OrderDao::getById(int id, QString *errMsg, const QString &connName)
+{
+    QSqlQuery q(daoDb(connName));
+    q.prepare("SELECT " + kOrderFields +
+              " FROM charge_order o"
+              " JOIN pile p ON o.pile_id=p.id"
+              " JOIN station s ON o.station_id=s.id WHERE o.id=?");
+    q.addBindValue(id);
+    if (!q.exec()) {
+        if (errMsg)
+            *errMsg = q.lastError().text();
+        return OrderInfo();
+    }
+    if (!q.next())
+        return OrderInfo();
+    return readOrder(q);
+}
+
+OrderInfo OrderDao::getUnfinishedByUser(int userId, bool *hasOrder, QString *errMsg,
+                                        const QString &connName)
+{
+    if (hasOrder)
+        *hasOrder = false;
+    QSqlQuery q(daoDb(connName));
+    q.prepare("SELECT " + kOrderFields +
+              " FROM charge_order o"
+              " JOIN pile p ON o.pile_id=p.id"
+              " JOIN station s ON o.station_id=s.id"
+              " WHERE o.user_id=? AND o.status=0 ORDER BY o.id DESC LIMIT 1");
+    q.addBindValue(userId);
+    if (!q.exec()) {
+        if (errMsg)
+            *errMsg = q.lastError().text();
+        return OrderInfo();
+    }
+    if (!q.next())
+        return OrderInfo();
+    if (hasOrder)
+        *hasOrder = true;
+    return readOrder(q);
+}
+
+OrderDao::OrderContext OrderDao::getContext(int orderId, QString *errMsg,
+                                           const QString &connName)
+{
+    OrderContext ctx;
+    QSqlQuery q(daoDb(connName));
+    q.prepare("SELECT o.id, o.user_id, o.pile_id, p.status, p.power, s.price,"
+              " o.energy, o.amount, o.sim_minutes, o.freeze_amount,"
+              " o.target_type, o.target_value, o.price_snapshot, u.balance"
+              " FROM charge_order o"
+              " JOIN pile p ON o.pile_id=p.id"
+              " JOIN station s ON o.station_id=s.id"
+              " JOIN user u ON o.user_id=u.id"
+              " WHERE o.id=?");
+    q.addBindValue(orderId);
+    if (!q.exec()) {
+        if (errMsg)
+            *errMsg = q.lastError().text();
+        return ctx;
+    }
+    if (!q.next())
+        return ctx;
+    ctx.exists = true;
+    ctx.orderId = q.value(0).toInt();
+    ctx.userId = q.value(1).toInt();
+    ctx.pileId = q.value(2).toInt();
+    ctx.pileStatus = q.value(3).toInt();
+    ctx.power = q.value(4).toDouble();
+    ctx.price = q.value(5).toDouble();
+    ctx.energy = q.value(6).toDouble();
+    ctx.amount = q.value(7).toDouble();
+    ctx.simMinutes = q.value(8).toInt();
+    ctx.freezeAmount = q.value(9).toDouble();
+    ctx.targetType = q.value(10).toInt();
+    ctx.targetValue = q.value(11).toDouble();
+    ctx.priceSnapshot = q.value(12).toDouble();
+    ctx.userBalance = q.value(13).toDouble();
+    return ctx;
+}
+
+bool OrderDao::updateProgress(int orderId, double energy, double amount, int simMinutes,
+                              QString *errMsg, const QString &connName)
+{
+    QSqlQuery q(daoDb(connName));
+    q.prepare("UPDATE charge_order SET energy=?, amount=?, sim_minutes=? WHERE id=?");
+    q.addBindValue(energy);
+    q.addBindValue(amount);
+    q.addBindValue(simMinutes);
+    q.addBindValue(orderId);
+    if (!q.exec()) {
+        if (errMsg)
+            *errMsg = q.lastError().text();
         return false;
     }
-    if (orderId)
-        *orderId = query.lastInsertId().toInt();
     return true;
 }
 
-bool OrderDao::getById(int orderId, OrderInfo *out, QString *errMsg, const QString &connName)
+bool OrderDao::finishWithType(int orderId, double energy, double amount, int simMinutes,
+                              int finishType, const QString &reason,
+                              QString *errMsg, const QString &connName)
 {
-    QSqlQuery query(QSqlDatabase::database(connName));
-    query.prepare(QString(kOrderFields).prepend("SELECT ") + kOrderFrom + " WHERE o.id = :id");
-    query.bindValue(":id", orderId);
-    if (!query.exec()) {
+    QSqlQuery q(daoDb(connName));
+    q.prepare("UPDATE charge_order SET end_time=datetime('now','localtime'),"
+              " energy=?, amount=?, sim_minutes=?, status=1, finish_type=?, cancel_reason=?"
+              " WHERE id=?");
+    q.addBindValue(energy);
+    q.addBindValue(amount);
+    q.addBindValue(simMinutes);
+    q.addBindValue(finishType);
+    q.addBindValue(reason);
+    q.addBindValue(orderId);
+    if (!q.exec()) {
         if (errMsg)
-            *errMsg = "查询订单失败: " + query.lastError().text();
+            *errMsg = q.lastError().text();
         return false;
-    }
-    if (!query.next()) {
-        if (errMsg)
-            *errMsg = "订单不存在";
-        return false;
-    }
-    if (out)
-        *out = readOrder(query);
-    return true;
-}
-
-bool OrderDao::getUnfinishedByUser(int userId, OrderInfo *out, bool *has,
-                                   QString *errMsg, const QString &connName)
-{
-    if (has)
-        *has = false;
-    QSqlQuery query(QSqlDatabase::database(connName));
-    query.prepare(QString(kOrderFields).prepend("SELECT ") + kOrderFrom +
-                  " WHERE o.user_id = :u AND o.status = 0 ORDER BY o.id DESC LIMIT 1");
-    query.bindValue(":u", userId);
-    if (!query.exec()) {
-        if (errMsg)
-            *errMsg = "查询未完成订单失败: " + query.lastError().text();
-        return false;
-    }
-    if (query.next()) {
-        if (has)
-            *has = true;
-        if (out)
-            *out = readOrder(query);
     }
     return true;
 }
 
-bool OrderDao::getContext(int orderId, OrderContext *out, QString *errMsg,
-                          const QString &connName)
+bool OrderDao::addRefund(int orderId, double amount,
+                         QString *errMsg, const QString &connName)
 {
-    QSqlQuery query(QSqlDatabase::database(connName));
-    query.prepare(QString(kOrderFields).prepend("SELECT ") + ", p.power, s.price" +
-                  kOrderFrom + " WHERE o.id = :id");
-    query.bindValue(":id", orderId);
-    if (!query.exec()) {
+    QSqlQuery q(daoDb(connName));
+    q.prepare("UPDATE charge_order SET refund_amount=refund_amount+? WHERE id=?");
+    q.addBindValue(amount);
+    q.addBindValue(orderId);
+    if (!q.exec()) {
         if (errMsg)
-            *errMsg = "查询订单详情失败: " + query.lastError().text();
+            *errMsg = q.lastError().text();
         return false;
-    }
-    if (!query.next()) {
-        if (errMsg)
-            *errMsg = "订单不存在";
-        return false;
-    }
-    if (out) {
-        out->order = readOrder(query);
-        out->power = query.value(11).toDouble();
-        out->price = query.value(12).toDouble();
     }
     return true;
 }
 
-bool OrderDao::updateProgress(int orderId, double energy, double amount, const QString &connName)
+QList<OrderInfo> OrderDao::listActive(QString *errMsg, const QString &connName)
 {
-    QSqlQuery query(QSqlDatabase::database(connName));
-    query.prepare("UPDATE charge_order SET energy = :e, amount = :a WHERE id = :id");
-    query.bindValue(":e", energy);
-    query.bindValue(":a", amount);
-    query.bindValue(":id", orderId);
-    return query.exec();
+    QList<OrderInfo> list;
+    QSqlQuery q(daoDb(connName));
+    if (!q.exec("SELECT " + kOrderFields +
+                " FROM charge_order o"
+                " JOIN pile p ON o.pile_id=p.id"
+                " JOIN station s ON o.station_id=s.id"
+                " WHERE o.status=0 ORDER BY o.id")) {
+        if (errMsg)
+            *errMsg = q.lastError().text();
+        return list;
+    }
+    while (q.next())
+        list.append(readOrder(q));
+    return list;
 }
 
-bool OrderDao::finish(int orderId, const QString &endTime, double energy, double amount,
-                      QString *errMsg, const QString &connName)
+QList<OrderInfo> OrderDao::listByUser(int userId, int page, int pageSize, int *total,
+                                      QString *errMsg, const QString &connName)
 {
-    QSqlQuery query(QSqlDatabase::database(connName));
-    query.prepare("UPDATE charge_order SET end_time = :t, energy = :e, amount = :a,"
-                  " status = 1 WHERE id = :id");
-    query.bindValue(":t", endTime);
-    query.bindValue(":e", energy);
-    query.bindValue(":a", amount);
-    query.bindValue(":id", orderId);
-    if (!query.exec()) {
+    QList<OrderInfo> list;
+    if (total)
+        *total = 0;
+    if (pageSize <= 0)
+        pageSize = 20;
+    if (page < 0)
+        page = 0;
+
+    QSqlDatabase db = daoDb(connName);
+    QSqlQuery cnt(db);
+    cnt.prepare("SELECT COUNT(*) FROM charge_order WHERE user_id=?");
+    cnt.addBindValue(userId);
+    if (cnt.exec() && cnt.next() && total)
+        *total = cnt.value(0).toInt();
+
+    QSqlQuery q(db);
+    q.prepare("SELECT " + kOrderFields +
+              " FROM charge_order o"
+              " JOIN pile p ON o.pile_id=p.id"
+              " JOIN station s ON o.station_id=s.id"
+              " WHERE o.user_id=? ORDER BY o.id DESC LIMIT ? OFFSET ?");
+    q.addBindValue(userId);
+    q.addBindValue(pageSize);
+    q.addBindValue(page * pageSize);
+    if (!q.exec()) {
         if (errMsg)
-            *errMsg = "完成订单失败: " + query.lastError().text();
-        return false;
+            *errMsg = q.lastError().text();
+        return list;
     }
-    return true;
+    while (q.next())
+        list.append(readOrder(q));
+    return list;
+}
+
+QList<OrderInfo> OrderDao::listAll(int statusFilter, QString *errMsg, const QString &connName)
+{
+    QList<OrderInfo> list;
+    QSqlQuery q(daoDb(connName));
+    if (statusFilter < 0) {
+        if (!q.exec("SELECT " + kOrderFields +
+                    " FROM charge_order o"
+                    " JOIN pile p ON o.pile_id=p.id"
+                    " JOIN station s ON o.station_id=s.id"
+                    " ORDER BY o.id DESC LIMIT 500")) {
+            if (errMsg)
+                *errMsg = q.lastError().text();
+            return list;
+        }
+    } else {
+        q.prepare("SELECT " + kOrderFields +
+                  " FROM charge_order o"
+                  " JOIN pile p ON o.pile_id=p.id"
+                  " JOIN station s ON o.station_id=s.id"
+                  " WHERE o.status=? ORDER BY o.id DESC LIMIT 500");
+        q.addBindValue(statusFilter);
+        if (!q.exec()) {
+            if (errMsg)
+                *errMsg = q.lastError().text();
+            return list;
+        }
+    }
+    while (q.next())
+        list.append(readOrder(q));
+    return list;
 }
 
 bool OrderDao::salesSummary(double *today, double *month, double *total,
                             QString *errMsg, const QString &connName)
 {
-    QSqlQuery query(QSqlDatabase::database(connName));
-    const QString sql =
-        "SELECT"
-        " COALESCE(SUM(CASE WHEN date(start_time) = date('now','localtime') THEN amount ELSE 0 END), 0),"
-        " COALESCE(SUM(CASE WHEN strftime('%Y-%m', start_time) = strftime('%Y-%m','now','localtime') THEN amount ELSE 0 END), 0),"
-        " COALESCE(SUM(amount), 0)"
-        " FROM charge_order WHERE status = 1";
-    if (!query.exec(sql)) {
+    QSqlQuery q(daoDb(connName));
+    if (!q.exec("SELECT"
+                " COALESCE(SUM(CASE WHEN date(end_time)=date('now','localtime') THEN amount END),0),"
+                " COALESCE(SUM(CASE WHEN end_time>=datetime('now','localtime','-30 days') THEN amount END),0),"
+                " COALESCE(SUM(amount),0)"
+                " FROM charge_order WHERE status=1")) {
         if (errMsg)
-            *errMsg = "统计营收失败: " + query.lastError().text();
+            *errMsg = q.lastError().text();
         return false;
     }
-    if (query.next()) {
-        if (today)
-            *today = query.value(0).toDouble();
-        if (month)
-            *month = query.value(1).toDouble();
-        if (total)
-            *total = query.value(2).toDouble();
-    }
+    if (!q.next())
+        return false;
+    if (today) *today = q.value(0).toDouble();
+    if (month) *month = q.value(1).toDouble();
+    if (total) *total = q.value(2).toDouble();
     return true;
 }
 
-QVector<QPair<QString, double>> OrderDao::dailyRevenue(int lastDays, QString *errMsg,
+QVector<QPair<QString, double>> OrderDao::dailyRevenue(int days, QString *errMsg,
                                                        const QString &connName)
 {
-    QVector<QPair<QString, double>> result;
-
-    // 先从库里取有数据的日子
-    QHash<QString, double> byDate;
-    QSqlQuery query(QSqlDatabase::database(connName));
-    query.prepare("SELECT date(start_time) AS d, SUM(amount) FROM charge_order"
-                  " WHERE status = 1 AND date(start_time) >= date('now','localtime', :off)"
-                  " GROUP BY d");
-    query.bindValue(":off", QString("-%1 days").arg(lastDays - 1));
-    if (!query.exec()) {
+    QVector<QPair<QString, double>> list;
+    QSqlQuery q(daoDb(connName));
+    q.prepare("SELECT date(end_time) d, COALESCE(SUM(amount),0) FROM charge_order"
+              " WHERE status=1 AND end_time>=datetime('now','localtime',?)"
+              " GROUP BY d ORDER BY d");
+    q.addBindValue(QString("-%1 days").arg(days));
+    if (!q.exec()) {
         if (errMsg)
-            *errMsg = "统计每日营收失败: " + query.lastError().text();
-        return result;
+            *errMsg = q.lastError().text();
+        return list;
     }
-    while (query.next())
-        byDate.insert(query.value(0).toString(), query.value(1).toDouble());
-
-    // 按日期升序补齐缺失日期为 0
-    const QDate today = QDate::currentDate();
-    for (int i = lastDays - 1; i >= 0; --i) {
-        const QString key = today.addDays(-i).toString("yyyy-MM-dd");
-        result.append(qMakePair(key, byDate.value(key, 0.0)));
-    }
-    return result;
+    while (q.next())
+        list.append({ q.value(0).toString(), q.value(1).toDouble() });
+    return list;
 }
 
-QList<QPair<QString, double>> OrderDao::stationRevenue(QString *errMsg, const QString &connName)
+QList<QPair<QString, double>> OrderDao::stationRevenue(QString *errMsg,
+                                                       const QString &connName)
 {
-    QList<QPair<QString, double>> result;
-    QSqlQuery query(QSqlDatabase::database(connName));
-    const QString sql =
-        "SELECT s.name, COALESCE(SUM(o.amount), 0) AS rev FROM station s"
-        " LEFT JOIN charge_order o ON o.station_id = s.id AND o.status = 1"
-        " GROUP BY s.id ORDER BY rev DESC";
-    if (!query.exec(sql)) {
+    QList<QPair<QString, double>> list;
+    QSqlQuery q(daoDb(connName));
+    if (!q.exec("SELECT s.name, COALESCE(SUM(o.amount),0)"
+                " FROM charge_order o JOIN station s ON o.station_id=s.id"
+                " WHERE o.status=1 GROUP BY o.station_id ORDER BY SUM(o.amount) DESC")) {
         if (errMsg)
-            *errMsg = "统计各站营收失败: " + query.lastError().text();
-        return result;
+            *errMsg = q.lastError().text();
+        return list;
     }
-    while (query.next())
-        result.append(qMakePair(query.value(0).toString(), query.value(1).toDouble()));
-    return result;
+    while (q.next())
+        list.append({ q.value(0).toString(), q.value(1).toDouble() });
+    return list;
 }

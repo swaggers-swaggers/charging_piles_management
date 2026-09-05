@@ -1,116 +1,187 @@
 #include "DatabaseManager.h"
 
 #include <QCoreApplication>
-#include <QCryptographicHash>
-#include <QDate>
 #include <QDateTime>
-#include <QDebug>
-#include <QFile>
+#include <QDir>
 #include <QFileInfo>
-#include <QMap>
-#include <QPair>
-#include <QVector>
-#include <QSqlDatabase>
+#include <QSet>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QStringList>
+#include <QVariant>
+#include <QCryptographicHash>
 
 namespace {
-QString hashAdminPassword(const QString &password)
+// 手机号 SHA-256 哈希(登录按哈希匹配, 避免明文存储)
+QString hashPhone(const QString &phone)
 {
-    static const QByteArray salt = "neusoft-admin-password-2026";
-    return QString::fromLatin1(QCryptographicHash::hash(
-        salt + password.toUtf8(), QCryptographicHash::Sha256).toHex());
-}
+    return QString::fromLatin1(
+        QCryptographicHash::hash(phone.toUtf8(), QCryptographicHash::Sha256).toHex());
 }
 
-// 数据库文件查找优先级:
-//   1. 环境变量 CHARGING_DB 指定的路径
-//   2. 工作目录 / 可执行文件目录附近的 test.db、database/test.db
-//   3. 都不存在时, 在工作目录新建 test.db (SQLite 会自动创建空文件)
-// 在虚拟机里如需固定数据库位置, 可执行: export CHARGING_DB=/path/to/test.db
+// 手机号脱敏: 保留前 3 位与后 4 位, 中间用 **** 代替
+QString maskPhone(const QString &phone)
+{
+    if (phone.size() < 7)
+        return phone;
+    return phone.left(3) + "****" + phone.right(4);
+}
+} // namespace
+
 DatabaseManager &DatabaseManager::instance()
 {
-    static DatabaseManager mgr;
-    return mgr;
+    static DatabaseManager inst;
+    return inst;
+}
+
+QString DatabaseManager::resolveDatabaseFile() const
+{
+    // 1. 环境变量显式指定
+    const QString env = QString::fromLocal8Bit(qgetenv("CHARGING_DB"));
+    if (!env.isEmpty())
+        return QDir::fromNativeSeparators(env);
+
+    // 2. 工作目录下的 test.db
+    const QString cwd = QDir::current().filePath("test.db");
+    if (QFileInfo::exists(cwd))
+        return cwd;
+
+    // 3. 从可执行文件目录向上最多 3 级查找 test.db / database/test.db
+    QDir dir(QCoreApplication::applicationDirPath());
+    for (int i = 0; i < 3; ++i) {
+        const QString direct = dir.filePath("test.db");
+        if (QFileInfo::exists(direct))
+            return direct;
+        const QString under = dir.filePath("database/test.db");
+        if (QFileInfo::exists(under))
+            return under;
+        if (!dir.cdUp())
+            break;
+    }
+
+    // 4. 都没有: 在工作目录新建
+    return cwd;
 }
 
 bool DatabaseManager::init(QString *errMsg)
 {
     m_dbPath = resolveDatabaseFile();
-
-    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
-    db.setDatabaseName(m_dbPath);
-
-    if (!db.open()) {
+    m_db = QSqlDatabase::addDatabase("QSQLITE");   // 默认无名连接
+    m_db.setDatabaseName(m_dbPath);
+    if (!m_db.open()) {
         if (errMsg)
-            *errMsg = QString("无法打开数据库 %1:\n%2").arg(m_dbPath, db.lastError().text());
+            *errMsg = QStringLiteral("数据库打开失败(%1): %2")
+                          .arg(m_dbPath, m_db.lastError().text());
         return false;
     }
-
-    // WAL 模式允许管理界面(主线程)与网络线程的连接并发读写; busy_timeout 缓解写锁冲突
-    QSqlQuery pragma(db);
+    // WAL 模式: 管理端写订单/统计时, 大屏只读连接不会锁库
+    QSqlQuery pragma(m_db);
     pragma.exec("PRAGMA journal_mode=WAL");
     pragma.exec("PRAGMA busy_timeout=3000");
+    pragma.exec("PRAGMA foreign_keys=ON");
 
-    if (!createTables(QString(), errMsg))
+    if (!createTables(errMsg))
         return false;
 
-    // 旧库升级必须先于演示数据匹配，避免明文用户被重复创建。
+    // 兼容旧库: 手机号由明文升级为哈希存储(只执行一次)
     migratePhoneEncryption();
+    // v2: 订单扩展列(旧库平滑升级, 新库建表时已包含)
+    migrateV2Schema();
+    migrateAdminSchema();
+
     seedDefaultData();
-
-    // 演示数据: 近30天固定订单(让销售业绩/大屏趋势有数据可看)
+    seedDefaultFeeRules();
     seedDemoOrders();
-
-    qDebug() << "[Database] 已连接:" << m_dbPath;
     return true;
 }
 
-QString DatabaseManager::databasePath() const
+bool DatabaseManager::loginOrRegisterUser(const QString &rawPhone, UserInfo *out,
+                                          bool *isNew, QString *errMsg,
+                                          const QString &connName)
 {
-    return m_dbPath;
-}
+    QSqlDatabase db = connName.isEmpty() ? m_db : QSqlDatabase::database(connName);
+    const QString hashed = hashPhone(rawPhone);
 
-QString DatabaseManager::resolveDatabaseFile() const
-{
-    const QString envPath = qEnvironmentVariable("CHARGING_DB");
-    if (!envPath.isEmpty())
-        return envPath;
-
-    const QString appDir = QCoreApplication::applicationDirPath();
-
-    // 优先沿用已存在的 test.db(兼容旧数据), 顺序: 可执行文件目录附近 > 工作目录
-    const QStringList candidates = {
-        appDir + "/test.db",
-        appDir + "/../test.db",
-        appDir + "/../../test.db",
-        appDir + "/../database/test.db",
-        appDir + "/../../database/test.db",
-        "test.db",
-        "database/test.db",
-    };
-
-    for (const QString &path : candidates) {
-        if (QFileInfo::exists(path))
-            return path;
+    QSqlQuery q(db);
+    q.prepare("SELECT id, phone_masked, nickname, avatar, balance, status, register_time"
+              " FROM user WHERE phone=?");
+    q.addBindValue(hashed);
+    if (!q.exec()) {
+        if (errMsg) *errMsg = "登录查询失败: " + q.lastError().text();
+        return false;
+    }
+    if (q.next()) {
+        if (isNew) *isNew = false;
+        if (out) {
+            out->id = q.value(0).toInt();
+            out->phone = q.value(1).toString();
+            out->nickname = q.value(2).toString();
+            out->avatar = q.value(3).toString();
+            out->balance = q.value(4).toDouble();
+            out->status = q.value(5).toInt();
+            out->registerTime = q.value(6).toString();
+        }
+        return true;
     }
 
-    // 兜底: 固定在可执行文件目录, 不随工作目录变化, 避免换目录启动导致"数据丢失"
-    return appDir + "/test.db";
+    // 新用户自动注册
+    const QString masked = maskPhone(rawPhone);
+    const QString nick = QStringLiteral("充电用户%1").arg(rawPhone.right(4));
+    QSqlQuery ins(db);
+    ins.prepare("INSERT INTO user(phone, phone_masked, nickname, balance) VALUES(?,?,?,0)");
+    ins.addBindValue(hashed);
+    ins.addBindValue(masked);
+    ins.addBindValue(nick);
+    if (!ins.exec()) {
+        if (errMsg) *errMsg = "注册失败: " + ins.lastError().text();
+        return false;
+    }
+    if (isNew) *isNew = true;
+    if (out) {
+        out->id = ins.lastInsertId().toInt();
+        out->phone = masked;
+        out->nickname = nick;
+        out->balance = 0.0;
+        out->status = UserNormal;
+    }
+    return true;
 }
 
-bool DatabaseManager::createTables(const QString &connName, QString *errMsg)
+bool DatabaseManager::verifyAdmin(const QString &username, const QString &password,
+                                  int *adminId, QString *errMsg)
 {
-    // 状态字段约定:
-    //   user.status    0-正常 1-冻结
-    //   pile.type      0-快充 1-慢充
-    //   pile.status    0-闲置 1-在用 2-故障
-    //   charge_order.status  0-充电中 1-已完成
+    QSqlQuery q(m_db);
+    q.prepare("SELECT id, password_hash, salt FROM admin WHERE username=?");
+    q.addBindValue(username);
+    if (!q.exec() || !q.next()) {
+        if (errMsg)
+            *errMsg = QStringLiteral("账号不存在");
+        return false;
+    }
+    const int id = q.value(0).toInt();
+    const QString stored = q.value(1).toString();
+    const QString salt = q.value(2).toString();
+    const QString calc = QString::fromLatin1(
+        QCryptographicHash::hash((salt + password).toUtf8(),
+                                 QCryptographicHash::Sha256).toHex());
+    if (calc != stored) {
+        if (errMsg)
+            *errMsg = QStringLiteral("密码错误");
+        return false;
+    }
+    if (adminId)
+        *adminId = id;
+    return true;
+}
+
+bool DatabaseManager::createTables(QString *errMsg)
+{
     const QStringList statements = {
         "CREATE TABLE IF NOT EXISTS admin ("
         " id INTEGER PRIMARY KEY AUTOINCREMENT,"
         " username TEXT UNIQUE NOT NULL,"
-        " password TEXT NOT NULL,"
+        " password_hash TEXT NOT NULL,"
+        " salt TEXT DEFAULT '',"
         " create_time TEXT DEFAULT (datetime('now','localtime')))",
 
         "CREATE TABLE IF NOT EXISTS user ("
@@ -137,7 +208,7 @@ bool DatabaseManager::createTables(const QString &connName, QString *errMsg)
         " station_id INTEGER NOT NULL,"
         " code TEXT NOT NULL,"
         " type INTEGER DEFAULT 0,"
-        " power REAL DEFAULT 0,"
+        " power REAL DEFAULT 60,"
         " status INTEGER DEFAULT 0,"
         " total_count INTEGER DEFAULT 0,"
         " total_duration INTEGER DEFAULT 0,"
@@ -153,9 +224,53 @@ bool DatabaseManager::createTables(const QString &connName, QString *errMsg)
         " energy REAL DEFAULT 0,"
         " amount REAL DEFAULT 0,"
         " status INTEGER DEFAULT 0,"
+        " freeze_amount REAL DEFAULT 0,"
+        " target_type INTEGER DEFAULT 0,"
+        " target_value REAL DEFAULT 0,"
+        " price_snapshot REAL DEFAULT 0,"
+        " finish_type INTEGER DEFAULT 0,"
+        " cancel_reason TEXT DEFAULT '',"
+        " refund_amount REAL DEFAULT 0,"
+        " sim_minutes INTEGER DEFAULT 0,"
         " FOREIGN KEY(user_id) REFERENCES user(id),"
         " FOREIGN KEY(pile_id) REFERENCES pile(id),"
         " FOREIGN KEY(station_id) REFERENCES station(id))",
+
+        "CREATE TABLE IF NOT EXISTS price_rule ("
+        " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " station_id INTEGER NOT NULL,"
+        " period INTEGER DEFAULT 1,"
+        " start_time TEXT DEFAULT '00:00',"
+        " end_time TEXT DEFAULT '24:00',"
+        " price REAL DEFAULT 1.0,"
+        " service_fee REAL DEFAULT 0.0,"
+        " FOREIGN KEY(station_id) REFERENCES station(id))",
+
+        "CREATE TABLE IF NOT EXISTS charge_reservation ("
+        " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " user_id INTEGER NOT NULL,"
+        " pile_id INTEGER NOT NULL,"
+        " station_id INTEGER NOT NULL,"
+        " type INTEGER DEFAULT 0,"
+        " create_time TEXT DEFAULT (datetime('now','localtime')),"
+        " assign_time TEXT,"
+        " expire_time TEXT,"
+        " reserve_date TEXT,"
+        " reserve_start TEXT,"
+        " reserve_end TEXT,"
+        " status INTEGER DEFAULT 0,"
+        " remind_sent INTEGER DEFAULT 0,"
+        " FOREIGN KEY(user_id) REFERENCES user(id),"
+        " FOREIGN KEY(pile_id) REFERENCES pile(id),"
+        " FOREIGN KEY(station_id) REFERENCES station(id))",
+
+        "CREATE TABLE IF NOT EXISTS recharge_log ("
+        " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " user_id INTEGER NOT NULL,"
+        " amount REAL NOT NULL,"
+        " balance_after REAL NOT NULL,"
+        " create_time TEXT DEFAULT (datetime('now','localtime')),"
+        " FOREIGN KEY(user_id) REFERENCES user(id))",
 
         "CREATE TABLE IF NOT EXISTS op_log ("
         " id INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -166,439 +281,307 @@ bool DatabaseManager::createTables(const QString &connName, QString *errMsg)
 
         "CREATE INDEX IF NOT EXISTS idx_pile_station ON pile(station_id)",
         "CREATE INDEX IF NOT EXISTS idx_order_user ON charge_order(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_order_status ON charge_order(status)",
+        "CREATE INDEX IF NOT EXISTS idx_order_pile ON charge_order(pile_id, status)",
+        "CREATE INDEX IF NOT EXISTS idx_reservation_pile ON charge_reservation(pile_id, status)",
+        "CREATE INDEX IF NOT EXISTS idx_reservation_user ON charge_reservation(user_id, status)",
+        "CREATE INDEX IF NOT EXISTS idx_price_rule_station ON price_rule(station_id)",
+        "CREATE INDEX IF NOT EXISTS idx_recharge_log_user ON recharge_log(user_id)",
     };
 
-    QSqlQuery query(QSqlDatabase::database(connName));
     for (const QString &sql : statements) {
-        if (!query.exec(sql)) {
+        QSqlQuery q(m_db);
+        if (!q.exec(sql)) {
             if (errMsg)
-                *errMsg = "初始化数据表失败: " + query.lastError().text();
+                *errMsg = QStringLiteral("建表失败: %1 | SQL: %2")
+                              .arg(q.lastError().text(), sql);
             return false;
         }
     }
     return true;
-}
-
-void DatabaseManager::seedDefaultData()
-{
-    QSqlQuery query;
-
-    // 默认管理员 admin / 123456 (项目说明书: 账号密码存储在数据库管理员表中)
-    // 密码以加盐 SHA-256 摘要存储; verifyAdmin 兼容历史 MD5/明文记录并自动升级
-    const QString hashedPwd = hashAdminPassword("123456");
-    query.prepare("INSERT OR IGNORE INTO admin (username, password) VALUES (:u, :p)");
-    query.bindValue(":u", "admin");
-    query.bindValue(":p", hashedPwd);
-    query.exec();
-
-    // 固定种子数据: 充电站/电桩分布(仅表为空时写入, 多次运行完全一致)
-    query.exec("SELECT COUNT(*) FROM station");
-    if (query.next() && query.value(0).toInt() > 0) {
-        const int stationCount = query.value(0).toInt();
-        if (stationCount != 12)
-            qWarning() << "[Database] 现有站点数量为" << stationCount
-                       << ", 与默认种子数量 12 不一致, 保留现有业务数据";
-        return;
-    }
-
-    const struct StationSeed {
-        QString name;
-        QString address;
-        double longitude;
-        double latitude;
-        double price;   // 元/度
-        int pileCount;
-    } seeds[] = {
-        { "特来电五道口充电站",       "北京市海淀区成府路28号五道口购物中心停车场",    116.339065, 39.991117, 1.35, 8 },
-        { "开迈斯国家体育馆充电站",   "北京市朝阳区天辰东路9号奥林匹克公园P3停车场",    116.387746, 39.997471, 1.60, 12 },
-        { "中石化奥林匹克P2充电站",   "北京市朝阳区天辰西路水立方停车场",               116.387679, 39.993433, 1.20, 6 },
-        { "昆仑网电望京南充电站",     "北京市朝阳区望京南加油站",                       116.482330, 40.013817, 1.25, 8 },
-        { "国家电网大兴机场充电站",   "北京市大兴区天兴一街与航兴路交叉口南侧停车场",   116.420394, 39.529542, 1.50, 10 },
-        { "小桔充电望京文化产业园站", "北京市朝阳区望京西路48-6号",                     116.479208, 39.994492, 1.10, 6 },
-        { "普天望京凯德Mall充电站",   "北京市朝阳区广顺北大街33号凯德Mall停车场",       116.468897, 39.992102, 1.15, 4 },
-        { "国家电网北京坊充电站",     "北京市西城区大栅栏煤市街北京坊B3停车场",         116.396702, 39.898266, 1.30, 6 },
-        { "昆仑网电工体西门充电站",   "北京市东城区新中街东直门城市生态岛旁",           116.439840, 39.931522, 1.45, 8 },
-        { "比亚迪通州科创充电站",     "北京市通州区科创东五街1号",                       116.551189, 39.813862, 1.05, 10 },
-        { "小桔充电亚林西充电站",     "北京市丰台区南苑亚林西",                          116.350235, 39.854170, 0.95, 6 },
-        { "高陆通成铭大厦充电站",     "北京市西城区西直门南大街2号成铭大厦B4停车场",    116.350637, 39.938143, 1.20, 4 },
-    };
-
-    int codeSeq = 1;
-    for (const StationSeed &s : seeds) {
-        query.prepare("INSERT INTO station (name, address, longitude, latitude, price) "
-                      "VALUES (?, ?, ?, ?, ?)");
-        query.addBindValue(s.name);
-        query.addBindValue(s.address);
-        query.addBindValue(s.longitude);
-        query.addBindValue(s.latitude);
-        query.addBindValue(s.price);
-        if (!query.exec())
-            continue;
-        const int stationId = query.lastInsertId().toInt();
-
-        for (int i = 0; i < s.pileCount; ++i) {
-            const int type = (i % 2 == 0) ? PileFast : PileSlow;
-            const double power = (type == PileFast) ? 60.0 : 7.0;  // kW
-            int status = PileIdle;
-            if (codeSeq % 5 == 0) status = PileInUse;              // 示例: 部分在用
-            if (codeSeq % 7 == 0) status = PileFault;              // 示例: 少量故障
-
-            query.prepare("INSERT INTO pile (station_id, code, type, power, status) "
-                          "VALUES (?, ?, ?, ?, ?)");
-            query.addBindValue(stationId);
-            query.addBindValue(QString("CP-%1").arg(codeSeq, 3, 10, QLatin1Char('0')));
-            query.addBindValue(type);
-            query.addBindValue(power);
-            query.addBindValue(status);
-            query.exec();
-            ++codeSeq;
-        }
-    }
-}
-
-// 演示用户(手机号仅存哈希+脱敏); 第一个用户作为"每日演示订单已生成"的哨兵
-static const struct DemoUserSeed {
-    const char *phone;
-    const char *nickname;
-    double balance;
-    int regDaysAgo;   // 注册时间距今天数
-} kDemoUsers[] = {
-    { "13800000001", "演示用户A", 500.0, 90 },
-    { "13911112222", "演示用户B", 260.0, 75 },
-    { "13733334444", "演示用户C", 320.0, 60 },
-    { "13655556666", "演示用户D", 150.0, 45 },
-    { "13577778888", "演示用户E", 88.5, 30 },
-    { "15899990001", "演示用户F", 410.0, 80 },
-    { "15911112222", "演示用户G", 60.0, 20 },
-    { "18633334444", "演示用户H", 200.0, 55 },
-    { "18855556666", "演示用户I", 700.0, 100 },
-    { "18577778888", "演示用户J", 35.0, 10 },
-};
-
-void DatabaseManager::seedDemoOrders()
-{
-    // 滚动 + 持久化: 演示数据始终覆盖到今天(今日/本月/近7日都有数据可看),
-    // 但同一天内只生成一次(以第一个演示用户"今天是否有订单"为哨兵), 结果稳定可复现。
-    QSqlQuery query;
-    query.prepare("SELECT COUNT(*) FROM charge_order WHERE user_id ="
-                  " (SELECT id FROM user WHERE phone = :p)"
-                  " AND date(start_time) = date('now','localtime')");
-    query.bindValue(":p", hashPhone(QString::fromUtf8(kDemoUsers[0].phone)));
-    if (query.exec() && query.next() && query.value(0).toInt() > 0)
-        return;
-
-    QString err;
-    generateDemoData(&err);
-    if (err.isEmpty())
-        qDebug() << "[Database] 已生成近30天北京演示订单数据";
-    else
-        qWarning() << "[Database] 生成演示数据失败:" << err;
-}
-
-void DatabaseManager::generateDemoData(QString *errMsg)
-{
-    QSqlQuery query;
-
-    // 1. 确保演示用户存在(手机号仅存哈希 + 脱敏, 不落明文)
-    QVector<int> userIds;
-    for (const DemoUserSeed &u : kDemoUsers) {
-        const QString phone = QString::fromUtf8(u.phone);
-        const QString ph = hashPhone(phone);
-        int uid = -1;
-        query.prepare("SELECT id FROM user WHERE phone = :p");
-        query.bindValue(":p", ph);
-        if (query.exec() && query.next()) {
-            uid = query.value(0).toInt();
-        } else {
-            query.prepare("INSERT INTO user (phone, phone_masked, nickname, balance, register_time) "
-                          "VALUES (:p, :m, :n, :b, :r)");
-            query.bindValue(":p", ph);
-            query.bindValue(":m", maskPhone(phone));
-            query.bindValue(":n", QString::fromUtf8(u.nickname));
-            query.bindValue(":b", u.balance);
-            query.bindValue(":r", QDateTime::currentDateTime().addDays(-u.regDaysAgo)
-                            .toString("yyyy-MM-dd hh:mm:ss"));
-            if (query.exec()) {
-                uid = query.lastInsertId().toInt();
-            } else {
-                if (errMsg)
-                    *errMsg = "创建演示用户失败: " + query.lastError().text();
-                return;
-            }
-        }
-        if (uid > 0)
-            userIds.append(uid);
-    }
-    if (userIds.isEmpty()) {
-        if (errMsg)
-            *errMsg = "无法创建演示用户";
-        return;
-    }
-
-    // 2. 清理演示用户的旧演示订单(避免重复运行累积)
-    for (int uid : userIds) {
-        query.prepare("DELETE FROM charge_order WHERE user_id = ?");
-        query.addBindValue(uid);
-        query.exec();
-    }
-
-    // 3. 充电站价格 + 电桩(含类型/功率/所属站)
-    QMap<int, double> stationPrice;
-    query.exec("SELECT id, price FROM station");
-    while (query.next())
-        stationPrice.insert(query.value(0).toInt(), query.value(1).toDouble());
-
-    struct PileRow { int id; int stationId; int type; double power; };
-    QVector<PileRow> piles;
-    query.exec("SELECT id, station_id, type, power FROM pile");
-    while (query.next())
-        piles.append({ query.value(0).toInt(), query.value(1).toInt(),
-                       query.value(2).toInt(), query.value(3).toDouble() });
-    if (piles.isEmpty() || stationPrice.isEmpty()) {
-        if (errMsg)
-            *errMsg = "缺少充电站/电桩数据";
-        return;
-    }
-
-    // 4. 确定性伪随机: 固定种子, 多次运行生成结果完全一致("固定下来")
-    quint32 seed = 20260904u;
-    auto rnd = [&seed]() -> quint32 {
-        seed = seed * 1103515245u + 12345u;
-        return (seed >> 16) & 0x7fff;
-    };
-
-    // 24h 充电需求权重(接近真实: 深夜低谷, 早晚通勤双高峰, 晚高峰最高)
-    const int hourWeight[24] = {
-        1, 1, 1, 1, 2, 4,     // 0-5  深夜低谷
-        8, 12, 15, 12, 10, 10, // 6-11 早高峰(8-9)
-        9, 9, 10, 11, 13, 16,  // 12-17 午间平稳
-        18, 18, 15, 11, 7, 3   // 18-23 晚高峰(18-19)
-    };
-    int weightSum = 0;
-    for (int w : hourWeight) weightSum += w;
-
-    // 按权重抽取 0~23 点(真实分布)
-    auto pickHour = [&]() -> int {
-        int r = static_cast<int>(rnd() % weightSum);
-        for (int h = 0; h < 24; ++h) {
-            if (r < hourWeight[h]) return h;
-            r -= hourWeight[h];
-        }
-        return 18;
-    };
-
-    const QDate today = QDate::currentDate();
-    for (int day = 29; day >= 0; --day) {
-        const QDate d = today.addDays(-day);
-        const bool weekend = (d.dayOfWeek() == 6 || d.dayOfWeek() == 7);
-        // 每天订单数: 工作日 18~39, 周末 22~45(出行多, 单量略高)
-        const int nOrders = weekend ? 22 + static_cast<int>(rnd() % 24)
-                                    : 18 + static_cast<int>(rnd() % 22);
-        for (int i = 0; i < nOrders; ++i) {
-            // 随机用户(演示用户均匀充电)
-            const int ui = static_cast<int>(rnd() % userIds.size());
-            // 随机桩
-            const PileRow &pl = piles[static_cast<int>(rnd() % piles.size())];
-            const double price = stationPrice.value(pl.stationId, 1.0);
-            const int hour = pickHour();
-            const int minute = static_cast<int>(rnd() % 60);
-
-            // 按桩类型生成接近真实的时长/电量
-            double energy = 0.0, duration = 0.0;
-            if (pl.type == PileFast) {               // 快充: 15~55 kWh, 0.4~1.5h
-                energy = 15.0 + static_cast<double>(rnd() % 41);
-                duration = 0.4 + static_cast<double>(rnd() % 12) / 10.0;
-            } else {                                 // 慢充: 10~40 kWh, 2.0~8.0h
-                energy = 10.0 + static_cast<double>(rnd() % 31);
-                duration = 2.0 + static_cast<double>(rnd() % 61) / 10.0;
-            }
-            const double amount = qRound(energy * price * 100.0) / 100.0;
-
-            const QString startStr = QString("%1 %2:%3:00")
-                .arg(d.toString("yyyy-MM-dd"))
-                .arg(hour, 2, 10, QLatin1Char('0'))
-                .arg(minute, 2, 10, QLatin1Char('0'));
-            const QDateTime endDt =
-                QDateTime::fromString(startStr, "yyyy-MM-dd hh:mm:ss")
-                    .addSecs(qint64(duration * 3600));
-            const QString endStr = endDt.toString("yyyy-MM-dd hh:mm:ss");
-
-            query.prepare("INSERT INTO charge_order "
-                          "(user_id, pile_id, station_id, start_time, end_time, energy, amount, status) "
-                          "VALUES (?, ?, ?, ?, ?, ?, ?, 1)");
-            query.addBindValue(userIds[ui]);
-            query.addBindValue(pl.id);
-            query.addBindValue(pl.stationId);
-            query.addBindValue(startStr);
-            query.addBindValue(endStr);
-            query.addBindValue(energy);
-            query.addBindValue(amount);
-            query.exec();
-        }
-    }
-}
-
-bool DatabaseManager::verifyAdmin(const QString &username, const QString &password,
-                                  int *adminId, QString *errMsg, const QString &connName)
-{
-    QSqlQuery query(QSqlDatabase::database(connName));
-    query.prepare("SELECT id, password FROM admin WHERE username = :u");
-    query.bindValue(":u", username);
-
-    if (!query.exec()) {
-        if (errMsg)
-            *errMsg = "查询管理员信息失败: " + query.lastError().text();
-        return false;
-    }
-
-    if (!query.next()) {
-        if (errMsg)
-            *errMsg = "用户名或密码错误!";
-        return false;
-    }
-
-    const int id = query.value(0).toInt();
-    const QString stored = query.value(1).toString();
-    const QString hashed = hashAdminPassword(password);
-    const QString legacyMd5 = QString::fromLatin1(
-        QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Md5).toHex());
-
-    if (stored != hashed) {
-        // 兼容历史 MD5/明文记录: 校验通过后自动升级为加盐 SHA-256
-        if (stored != legacyMd5 && stored != password) {
-            if (errMsg)
-                *errMsg = "用户名或密码错误!";
-            return false;
-        }
-        QSqlQuery upgrade(QSqlDatabase::database(connName));
-        upgrade.prepare("UPDATE admin SET password = :p WHERE id = :id");
-        upgrade.bindValue(":p", hashed);
-        upgrade.bindValue(":id", id);
-        upgrade.exec();
-    }
-
-    if (adminId)
-        *adminId = id;
-    return true;
-}
-
-bool DatabaseManager::loginOrRegisterUser(const QString &phone, UserInfo *info,
-                                          bool *isNewUser, QString *errMsg,
-                                          const QString &connName)
-{
-    QSqlDatabase db = QSqlDatabase::database(connName);
-
-    // 数据库只存哈希(不可逆) + 脱敏号, 不落明文手机号
-    const QString phoneHash = hashPhone(phone);
-    const QString masked = maskPhone(phone);
-
-    QSqlQuery query(db);
-    query.prepare("SELECT id, nickname, balance, status FROM user WHERE phone = :p");
-    query.bindValue(":p", phoneHash);
-
-    if (!query.exec()) {
-        if (errMsg)
-            *errMsg = "查询用户信息失败: " + query.lastError().text();
-        return false;
-    }
-
-    if (query.next()) {
-        if (query.value(3).toInt() == UserFrozen) {
-            if (errMsg)
-                *errMsg = "该账号已被冻结, 请联系管理员";
-            return false;
-        }
-        if (info) {
-            info->id = query.value(0).toInt();
-            info->phone = masked;
-            info->nickname = query.value(1).toString();
-            info->balance = query.value(2).toDouble();
-        }
-        if (isNewUser)
-            *isNewUser = false;
-        return true;
-    }
-
-    // 手机号不存在, 自动注册新用户
-    const QString nickname = "用户" + phone.right(4);
-    query.prepare("INSERT INTO user (phone, phone_masked, nickname) VALUES (:p, :m, :n)");
-    query.bindValue(":p", phoneHash);
-    query.bindValue(":m", masked);
-    query.bindValue(":n", nickname);
-
-    if (!query.exec()) {
-        if (errMsg)
-            *errMsg = "注册新用户失败: " + query.lastError().text();
-        return false;
-    }
-
-    if (info) {
-        info->id = query.lastInsertId().toInt();
-        info->phone = masked;
-        info->nickname = nickname;
-        info->balance = 0.0;
-    }
-    if (isNewUser)
-        *isNewUser = true;
-    return true;
-}
-
-QString DatabaseManager::hashPhone(const QString &phone)
-{
-    // 固定应用级盐 + SHA-256: 同一手机号哈希稳定(可精确匹配), 但不可逆还原明文
-    static const QByteArray kSalt = "neusoft-charging-platform-2026";
-    return QString::fromLatin1(
-        QCryptographicHash::hash(kSalt + phone.toUtf8(), QCryptographicHash::Sha256).toHex());
-}
-
-QString DatabaseManager::maskPhone(const QString &phone)
-{
-    // 脱敏: 保留前3后4, 中间变星号; 如 13812345678 → 138****5678
-    if (phone.size() <= 7)
-        return phone.left(3) + "****";
-    return phone.left(3) + "****" + phone.right(4);
 }
 
 void DatabaseManager::migratePhoneEncryption()
 {
-    QSqlDatabase db = QSqlDatabase::database();
+    // 检测是否仍是明文手机号: 能读出 11 位数字即旧库
+    QSqlQuery probe(m_db);
+    if (!probe.exec("SELECT id, phone FROM user LIMIT 1"))
+        return;
+    if (!probe.next())
+        return;
+    const QString sample = probe.value(1).toString();
+    if (sample.size() != 11)
+        return;   // 已是哈希(64位hex), 无需迁移
 
-    // 旧库升级(关键): 老版本 user 表没有 phone_masked 列, CREATE TABLE IF NOT EXISTS
-    // 不会给已存在的表加列, 必须先 ALTER 补列, 否则后续 INSERT/SELECT 都会失败
-    {
-        QSqlQuery colCheck(db);
-        if (!colCheck.exec("SELECT phone_masked FROM user LIMIT 1")) {
-            QSqlQuery alter(db);
-            if (alter.exec("ALTER TABLE user ADD COLUMN phone_masked TEXT DEFAULT ''"))
-                qDebug() << "[Database] 已为旧库 user 表补充 phone_masked 列";
-            else
-                qWarning() << "[Database] 补充 phone_masked 列失败:" << alter.lastError().text();
+    QSqlQuery add(m_db);
+    add.exec("ALTER TABLE user ADD COLUMN phone_masked TEXT DEFAULT ''");
+
+    QSqlQuery all(m_db);
+    all.exec("SELECT id, phone FROM user");
+    struct Row { int id; QString phone; };
+    QList<Row> rows;
+    while (all.next())
+        rows.append({ all.value(0).toInt(), all.value(1).toString() });
+    for (const Row &r : rows) {
+        QSqlQuery up(m_db);
+        up.prepare("UPDATE user SET phone=?, phone_masked=? WHERE id=?");
+        up.addBindValue(hashPhone(r.phone));
+        up.addBindValue(maskPhone(r.phone));
+        up.addBindValue(r.id);
+        up.exec();
+    }
+}
+
+void DatabaseManager::migrateV2Schema()
+{
+    // 收集 charge_order 现有列, 缺什么补什么(SQLite 不支持 ADD COLUMN IF NOT EXISTS)
+    QSet<QString> existing;
+    QSqlQuery ti(m_db);
+    if (ti.exec("PRAGMA table_info(charge_order)")) {
+        while (ti.next())
+            existing.insert(ti.value(1).toString().toLower());
+    }
+    struct Col { QString name; QString ddl; };
+    const QList<Col> need = {
+        { "freeze_amount",  "REAL DEFAULT 0" },
+        { "target_type",    "INTEGER DEFAULT 0" },
+        { "target_value",   "REAL DEFAULT 0" },
+        { "price_snapshot", "REAL DEFAULT 0" },
+        { "finish_type",    "INTEGER DEFAULT 0" },
+        { "cancel_reason",  "TEXT DEFAULT ''" },
+        { "refund_amount",  "REAL DEFAULT 0" },
+        { "sim_minutes",    "INTEGER DEFAULT 0" },
+    };
+    for (const Col &c : need) {
+        if (existing.contains(c.name))
+            continue;
+        QSqlQuery add(m_db);
+        add.exec(QString("ALTER TABLE charge_order ADD COLUMN %1 %2").arg(c.name, c.ddl));
+    }
+}
+
+void DatabaseManager::migrateAdminSchema()
+{
+    // 旧库 admin 表: 列名为 password, 无 salt 列; 统一为 password_hash + salt
+    QSet<QString> cols;
+    QSqlQuery ti(m_db);
+    if (ti.exec("PRAGMA table_info(admin)")) {
+        while (ti.next())
+            cols.insert(ti.value(1).toString().toLower());
+    }
+    if (cols.contains("password") && !cols.contains("password_hash")) {
+        QSqlQuery q(m_db);
+        q.exec("ALTER TABLE admin RENAME COLUMN password TO password_hash");
+        cols.remove("password");
+        cols.insert("password_hash");
+    }
+    if (!cols.contains("salt")) {
+        QSqlQuery q(m_db);
+        q.exec("ALTER TABLE admin ADD COLUMN salt TEXT DEFAULT ''");
+        // 旧记录全部使用固定应用级盐, 与 hashAdminPassword 旧逻辑一致
+        q.exec("UPDATE admin SET salt = 'neusoft-admin-password-2026' WHERE salt = ''");
+    }
+}
+
+void DatabaseManager::seedDefaultData()
+{
+    QSqlQuery check(m_db);
+    check.exec("SELECT COUNT(*) FROM admin");
+    if (check.next() && check.value(0).toInt() == 0) {
+        // 默认管理员 admin/123456 (加盐 SHA-256, 盐在前: SHA256(salt+pwd))
+        const QString salt = "neusoft-admin-password-2026";
+        const QString hash = QString::fromLatin1(
+            QCryptographicHash::hash(
+                (salt + QString("123456")).toUtf8(), QCryptographicHash::Sha256).toHex());
+        QSqlQuery q(m_db);
+        q.prepare("INSERT INTO admin(username, password_hash, salt) VALUES(?,?,?)");
+        q.addBindValue("admin");
+        q.addBindValue(hash);
+        q.addBindValue(salt);
+        q.exec();
+    }
+
+    check.exec("SELECT COUNT(*) FROM station");
+    if (check.next() && check.value(0).toInt() > 0)
+        return;   // 已有站点数据, 不重复种子
+
+    struct SeedStation {
+        const char *name; const char *addr;
+        double lon; double lat; double price; int piles;
+    };
+    // 12 个北京城区充电站, 每站 6~10 个桩, 价格 0.8~1.6 元/度
+    const SeedStation seeds[] = {
+        { "东软望京充电站",       "北京市朝阳区望京街 10 号",     116.4810, 39.9978, 1.20, 8 },
+        { "国贸 CBD 充电站",       "北京市朝阳区建国门外大街 1 号", 116.4615, 39.9087, 1.50, 10 },
+        { "中关村软件园充电站",   "北京市海淀区中关村软件园 8 号楼",116.2982, 40.0489, 1.10, 8 },
+        { "西单大悦城充电站",     "北京市西城区西单北大街 131 号", 116.3736, 39.9095, 1.60, 6 },
+        { "北京南站枢纽充电站",   "北京市丰台区永外大街车站路",    116.3787, 39.8652, 1.30, 10 },
+        { "亦庄经济开发区充电站", "北京市大兴区荣华中路 10 号",    116.5068, 39.7955, 0.90, 8 },
+        { "五道口购物中心充电站", "北京市海淀区成府路 28 号",      116.3384, 39.9928, 1.30, 6 },
+        { "奥林匹克公园充电站",   "北京市朝阳区北辰东路 15 号",    116.3975, 39.9919, 1.00, 8 },
+        { "三里屯太古里充电站",   "北京市朝阳区三里屯路 19 号",    116.4552, 39.9370, 1.60, 6 },
+        { "通州副中心充电站",     "北京市通州区运河西大街 2 号",   116.6586, 39.9025, 0.80, 8 },
+        { "西直门交通枢纽充电站", "北京市西城区西直门外大街 1 号", 116.3553, 39.9408, 1.20, 10 },
+        { "丰台科技园充电站",     "北京市丰台区科学城星火路 1 号", 116.2987, 39.8355, 0.95, 8 },
+    };
+
+    int codeSeq = 0;
+    for (const SeedStation &s : seeds) {
+        QSqlQuery sq(m_db);
+        sq.prepare("INSERT INTO station(name, address, longitude, latitude, price) VALUES(?,?,?,?,?)");
+        sq.addBindValue(QString::fromUtf8(s.name));
+        sq.addBindValue(QString::fromUtf8(s.addr));
+        sq.addBindValue(s.lon);
+        sq.addBindValue(s.lat);
+        sq.addBindValue(s.price);
+        if (!sq.exec())
+            continue;
+        const int stationId = sq.lastInsertId().toInt();
+        for (int i = 0; i < s.piles; ++i) {
+            ++codeSeq;
+            // 快慢交替: 偶数快充 60kW, 奇数慢充 7kW
+            const bool fast = (i % 2 == 0);
+            int status = PileIdle;
+            if (codeSeq % 5 == 0)
+                status = PileInUse;
+            else if (codeSeq % 7 == 0)
+                status = PileFault;
+            QSqlQuery pq(m_db);
+            pq.prepare("INSERT INTO pile(station_id, code, type, power, status) VALUES(?,?,?,?,?)");
+            pq.addBindValue(stationId);
+            pq.addBindValue(QString("P%1").arg(codeSeq, 4, 10, QChar('0')));
+            pq.addBindValue(fast ? PileFast : PileSlow);
+            pq.addBindValue(fast ? 60.0 : 7.0);
+            pq.addBindValue(status);
+            pq.exec();
         }
     }
 
-    QSqlQuery check(db);
-    if (!check.exec("SELECT phone, id FROM user"))
-        return;
+    // 演示用户: 手机号 13800000000 (免密登录直接可用), 初始余额 200
+    QSqlQuery uq(m_db);
+    uq.prepare("INSERT INTO user(phone, phone_masked, nickname, balance) VALUES(?,?,?,?)");
+    uq.addBindValue(hashPhone("13800000000"));
+    uq.addBindValue(maskPhone("13800000000"));
+    uq.addBindValue("演示用户");
+    uq.addBindValue(200.0);
+    uq.exec();
+}
 
-    QList<QPair<int, QString>> migrate;   // (id, 明文手机号)
-    while (check.next()) {
-        const QString phone = check.value(0).toString();
-        // 已加密的哈希为 64 位 hex, 明文(手机号)一般 ≤ 11 位, 据此区分
-        if (phone.length() == 64)
+void DatabaseManager::seedDefaultFeeRules()
+{
+    // 为每个站点生成默认分时费率(无规则时才生成, 管理端改过的不覆盖)
+    // 谷段 00:00-07:00 / 23:00-24:00 = 基准价*0.8
+    // 峰段 10:00-12:00 / 17:00-21:00 = 基准价*1.3
+    // 平段 其余时间 = 基准价; 服务费统一 0.10 元/度
+    struct Seg { int period; const char *start; const char *end; double mul; };
+    const Seg segs[] = {
+        { 0, "00:00", "07:00", 0.8 },
+        { 1, "07:00", "10:00", 1.0 },
+        { 2, "10:00", "12:00", 1.3 },
+        { 1, "12:00", "17:00", 1.0 },
+        { 2, "17:00", "21:00", 1.3 },
+        { 1, "21:00", "23:00", 1.0 },
+        { 0, "23:00", "24:00", 0.8 },
+    };
+
+    QSqlQuery stations(m_db);
+    stations.exec("SELECT id, price FROM station");
+    struct SRow { int id; double price; };
+    QList<SRow> rows;
+    while (stations.next())
+        rows.append({ stations.value(0).toInt(), stations.value(1).toDouble() });
+
+    for (const SRow &s : rows) {
+        QSqlQuery cnt(m_db);
+        cnt.prepare("SELECT COUNT(*) FROM price_rule WHERE station_id=?");
+        cnt.addBindValue(s.id);
+        cnt.exec();
+        if (cnt.next() && cnt.value(0).toInt() > 0)
             continue;
-        migrate.append({ check.value(1).toInt(), phone });
+        for (const Seg &seg : segs) {
+            QSqlQuery ins(m_db);
+            ins.prepare("INSERT INTO price_rule(station_id, period, start_time, end_time, price, service_fee)"
+                        " VALUES(?,?,?,?,?,?)");
+            ins.addBindValue(s.id);
+            ins.addBindValue(seg.period);
+            ins.addBindValue(QString::fromUtf8(seg.start));
+            ins.addBindValue(QString::fromUtf8(seg.end));
+            ins.addBindValue(qRound(s.price * seg.mul * 100) / 100.0);
+            ins.addBindValue(0.10);
+            ins.exec();
+        }
     }
-    if (migrate.isEmpty())
+}
+
+void DatabaseManager::seedDemoOrders()
+{
+    QSqlQuery check(m_db);
+    check.exec("SELECT COUNT(*) FROM charge_order");
+    if (check.next() && check.value(0).toInt() > 0)
+        return;   // 已有订单不重复生成
+
+    // 近 30 天演示订单(全部已完成), 让销售业绩页开箱即有数据
+    QSqlQuery piles(m_db);
+    piles.exec("SELECT id, station_id, power FROM pile WHERE status<>2 ORDER BY id");
+    struct PRow { int id; int station; double power; };
+    QList<PRow> pileRows;
+    while (piles.next())
+        pileRows.append({ piles.value(0).toInt(), piles.value(1).toInt(), piles.value(2).toDouble() });
+    if (pileRows.isEmpty())
         return;
 
-    for (const auto &row : migrate) {
-        const QString masked = maskPhone(row.second);
-        QSqlQuery up(db);
-        up.prepare("UPDATE user SET phone = :h, phone_masked = :m WHERE id = :id");
-        up.bindValue(":h", hashPhone(row.second));
-        up.bindValue(":m", masked);
-        up.bindValue(":id", row.first);
-        up.exec();
+    // 演示用户 id 固定为首个用户
+    QSqlQuery uq(m_db);
+    uq.exec("SELECT id FROM user ORDER BY id LIMIT 1");
+    if (!uq.next())
+        return;
+    const int userId = uq.value(0).toInt();
+
+    QDateTime now = QDateTime::currentDateTime();
+    int rng = 7;
+    auto nextRand = [&rng](int mod) {
+        rng = (rng * 1103515245 + 12345) & 0x7fffffff;
+        return rng % mod;
+    };
+
+    for (int day = 29; day >= 0; --day) {
+        const int orderCount = 3 + nextRand(6);   // 每天 3~8 单
+        for (int k = 0; k < orderCount; ++k) {
+            const PRow &p = pileRows[nextRand(pileRows.size())];
+            const int minutes = 15 + nextRand(75);          // 15~89 分钟
+            const double energy = p.power * minutes / 60.0; // 度
+            QSqlQuery priceQ(m_db);
+            priceQ.prepare("SELECT price FROM station WHERE id=?");
+            priceQ.addBindValue(p.station);
+            priceQ.exec();
+            double price = 1.2;
+            if (priceQ.next())
+                price = priceQ.value(0).toDouble();
+            const double amount = qRound(energy * price * 100) / 100.0;
+
+            QDateTime start = now.addDays(-day).addSecs(-nextRand(86400));
+            QDateTime end = start.addSecs(minutes * 60);
+            QSqlQuery oq(m_db);
+            oq.prepare("INSERT INTO charge_order(user_id, pile_id, station_id, start_time, end_time,"
+                       " energy, amount, status, price_snapshot, sim_minutes, finish_type)"
+                       " VALUES(?,?,?,?,?,?,?,1,?,?,0)");
+            oq.addBindValue(userId);
+            oq.addBindValue(p.id);
+            oq.addBindValue(p.station);
+            oq.addBindValue(start.toString("yyyy-MM-dd HH:mm:ss"));
+            oq.addBindValue(end.toString("yyyy-MM-dd HH:mm:ss"));
+            oq.addBindValue(qRound(energy * 100) / 100.0);
+            oq.addBindValue(amount);
+            oq.addBindValue(price);
+            oq.addBindValue(minutes);
+            oq.exec();
+
+            // 累计桩使用次数/时长
+            QSqlQuery pu(m_db);
+            pu.prepare("UPDATE pile SET total_count=total_count+1, total_duration=total_duration+? WHERE id=?");
+            pu.addBindValue(minutes);
+            pu.addBindValue(p.id);
+            pu.exec();
+        }
     }
-    qDebug() << "[Database] 已完成" << migrate.size() << "条手机号加密迁移";
 }

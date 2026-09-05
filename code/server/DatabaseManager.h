@@ -3,55 +3,45 @@
 
 #include "types.h"
 
+#include <QSqlDatabase>
 #include <QString>
 
-// 数据库管理(单例), 服务端专用
-// 负责: 打开 SQLite 数据库 / 自动建表 / 默认数据 / 登录相关的查询
-// 线程说明: QSqlDatabase 连接不能跨线程共用。主线程使用默认连接;
-// 网络工作线程通过 connName 参数传入自己的连接名(见 network/ClientHandler)
+// 数据库连接与初始化(默认无名连接, 管理端页面共享; 每个客户端线程另开命名连接)
+// - 启动时建表、写入默认管理员 admin/admin123 与 12 个演示充电站
+// - SQLite WAL 模式, 避免管理端写入时大屏只读查询锁库
+// - 数据库文件查找顺序: CHARGING_DB 环境变量 → 工作目录 test.db
+//   → 可执行文件目录向上查找 → 都没有则在工作目录新建 test.db
 class DatabaseManager
 {
 public:
     static DatabaseManager &instance();
 
-    // 打开数据库并初始化表结构和默认数据, 失败时通过 errMsg 返回原因
     bool init(QString *errMsg = nullptr);
+    QSqlDatabase &database() { return m_db; }
+    QString databasePath() const { return m_dbPath; }
 
-    QString databasePath() const;
-
-    // 管理员登录校验(管理员表 admin, 默认账号 admin / 123456)
-    bool verifyAdmin(const QString &username, const QString &password,
-                     int *adminId = nullptr, QString *errMsg = nullptr,
-                     const QString &connName = QString());
-
-    // 用户手机号免密登录: 手机号存在则校验状态后返回用户信息,
-    // 不存在则自动注册(默认昵称 "用户" + 手机号后4位)
-    bool loginOrRegisterUser(const QString &phone, UserInfo *info = nullptr,
-                             bool *isNewUser = nullptr, QString *errMsg = nullptr,
+    // 用户免密登录: 按手机号哈希查用户, 不存在则自动注册
+    // out->phone 返回脱敏手机号; isNew 标记是否本次新注册
+    bool loginOrRegisterUser(const QString &rawPhone, UserInfo *out, bool *isNew,
+                             QString *errMsg = nullptr,
                              const QString &connName = QString());
 
-    // 手机号安全处理(隐私保护: 数据库不存明文手机号)
-    // hashPhone: SHA-256(应用盐+手机号) → 16进制, 用于登录精确匹配与唯一存储
-    // maskPhone: 脱敏显示 138****5678, 用于管理端展示与模糊搜索
-    static QString hashPhone(const QString &phone);
-    static QString maskPhone(const QString &phone);
-
-    // 生成/重建近30天演示订单(销售业绩与大屏数据用)
-    // 由 seedDemoOrders 在"今天尚无演示订单"时调用, 滚动到今天; 同一天内只生成一次
-    void generateDemoData(QString *errMsg = nullptr);
+    // 管理员账号密码校验(加盐 SHA-256), 成功时回填 adminId
+    bool verifyAdmin(const QString &username, const QString &password,
+                     int *adminId, QString *errMsg = nullptr);
 
 private:
     DatabaseManager() = default;
-
-    // 按优先级查找可用的数据库文件, 都不存在时返回工作目录下的 test.db
     QString resolveDatabaseFile() const;
-    bool createTables(const QString &connName, QString *errMsg);
+    bool createTables(QString *errMsg = nullptr);
+    void migratePhoneEncryption();   // 旧库手机号明文 → 哈希(只执行一次)
+    void migrateV2Schema();          // v2: charge_order 扩展列平滑升级
+    void migrateAdminSchema();       // 旧库 admin 表: password→password_hash, 补 salt 列
     void seedDefaultData();
-    // 演示数据: 近30天固定订单(确定性伪随机, 表空时填充一次), 让营收/趋势/大屏有数据可看
-    void seedDemoOrders();
-    // 兼容旧库: 把 user.phone 明文迁移为哈希, 并回填 phone_masked 脱敏列
-    void migratePhoneEncryption();
+    void seedDefaultFeeRules();      // v2: 生成默认峰谷平分时费率
+    void seedDemoOrders();           // 生成近 30 天演示订单(空库时)
 
+    QSqlDatabase m_db;
     QString m_dbPath;
 };
 

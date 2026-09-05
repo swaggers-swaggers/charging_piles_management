@@ -5,6 +5,7 @@
 #include "SalesPage.h"
 #include "PileStatusPage.h"
 #include "PileManagePage.h"
+#include "OrderManagePage.h"
 #include "StationManagePage.h"
 #include "UserManagePage.h"
 #include "IconFactory.h"
@@ -80,11 +81,11 @@ void AdminMainWindow::initUi()
     m_navList = new QListWidget(sidebar);
     m_navList->setObjectName("navList");
     const QStringList navNames = {
-        "销售业绩", "电桩状态", "充电桩管理", "充电站管理", "用户管理",
+        "销售业绩", "电桩状态", "充电桩管理", "订单管理", "充电站管理", "用户管理",
     };
     const QVector<IconFactory::IconType> navIcons = {
         IconFactory::IconChartLine, IconFactory::IconBattery, IconFactory::IconPile,
-        IconFactory::IconBuilding, IconFactory::IconUsers,
+        IconFactory::IconBolt, IconFactory::IconBuilding, IconFactory::IconUsers,
     };
     for (int i = 0; i < navNames.size(); ++i) {
         auto *item = new QListWidgetItem(navNames[i]);
@@ -138,6 +139,7 @@ void AdminMainWindow::initUi()
     m_stack->addWidget(new SalesPage());
     m_stack->addWidget(new PileStatusPage());
     m_stack->addWidget(new PileManagePage());
+    m_stack->addWidget(new OrderManagePage());
     m_stack->addWidget(new StationManagePage());
     m_stack->addWidget(new UserManagePage());
 

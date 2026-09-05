@@ -4,14 +4,13 @@
 #include <QJsonObject>
 #include <QObject>
 #include <QTcpSocket>
-#include <QTimer>
 
 // 单个客户端连接的处理类, 运行在独立工作线程中:
 //   套接字读写 / JSON 解析 / 业务处理(含数据库访问)全部在本线程完成
 // 数据库: 每个线程创建独立的 QSqlDatabase 连接(QSqlDatabase 连接禁止跨线程共用),
 //         连接名以线程 id 区分, 查询时通过 connName 参数传给 Dao
-// 充电模拟: 本连接用户开始充电后启动进度定时器, 每 3 秒真实时间模拟 1 分钟充电,
-//           按桩功率累计电量、按站电价累计金额, 并向客户端推送进度
+// 充电推进: v2 起统一收归主线程 ChargingEngine, 本类只负责发起/结算/排队/预约等请求,
+//           客户端断线不再影响充电; 引擎通过 pushToClient() 跨线程向本连接推送
 class ClientHandler : public QObject
 {
     Q_OBJECT
@@ -27,7 +26,8 @@ public slots:
     void start();          // 在工作线程中执行: 初始化套接字与数据库连接
     void onReadyRead();
     void onDisconnected();
-    void onProgressTick(); // 充电进度模拟定时器
+    // 供 ChargingEngine 在主线程通过队列连接调用, 向该连接推送消息
+    void pushToClient(const QJsonObject &obj) { sendJson(obj); }
 
 private:
     void processLine(const QByteArray &line);
@@ -43,22 +43,21 @@ private:
     QJsonObject processStationList(const QJsonObject &req);
     QJsonObject processStationPiles(const QJsonObject &req);
     QJsonObject processUnfinishedOrder(const QJsonObject &req);
-    QJsonObject processStartCharge(const QJsonObject &req);
+    QJsonObject startChargeInternal(int replyType, const QJsonObject &req);
     QJsonObject processStopCharge(const QJsonObject &req);
-
-    // 充电进度定时器控制(断线/结算后停止)
-    void startProgressTimer(int orderId);
-    void stopProgressTimer();
+    QJsonObject processReservePile(const QJsonObject &req);     // 现场排队/取消
+    QJsonObject processAppointPile(const QJsonObject &req);     // 时段预约
+    QJsonObject processAppointSlots(const QJsonObject &req);    // 某日时段占用
+    QJsonObject processMyReservations(const QJsonObject &req);  // 我的排队/预约
+    QJsonObject processOrderHistory(const QJsonObject &req);    // 订单历史
+    QJsonObject processOrderDetail(const QJsonObject &req);     // 订单详情
+    QJsonObject processStationFee(const QJsonObject &req);      // 站点分时费率
 
     qintptr m_descriptor;
     QTcpSocket *m_socket = nullptr;
     QByteArray m_buffer;
     QString m_dbConnName;
     int m_userId = -1;      // 登录后绑定的用户
-
-    QTimer *m_progressTimer = nullptr;   // 充电进度定时器(本线程事件循环驱动)
-    int m_chargingOrderId = -1;          // 当前模拟中的订单
-    int m_simMinutes = 0;                // 已模拟的充电分钟数
 };
 
 #endif // CLIENTHANDLER_H

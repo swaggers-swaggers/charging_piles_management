@@ -8,8 +8,8 @@ class QListWidget;
 class QStackedWidget;
 
 // 用户客户端主窗口 (模拟手机端交互)
-// 四个功能页面对应项目说明书:
-//   附近充电站 / 一键导航 / 用户信息 / 电动汽车充电
+// 五个功能页面:
+//   附近充电站 / 一键导航 / 用户信息 / 电动汽车充电 / 我的订单
 class UserMainWindow : public QMainWindow
 {
     Q_OBJECT

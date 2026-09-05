@@ -1,9 +1,12 @@
 #include "ClientHandler.h"
 
+#include "ChargingEngine.h"
 #include "DatabaseManager.h"
 #include "Predictor.h"
 #include "dao/OrderDao.h"
 #include "dao/PileDao.h"
+#include "dao/PriceRuleDao.h"
+#include "dao/ReservationDao.h"
 #include "dao/StationDao.h"
 #include "dao/UserDao.h"
 #include "protocol.h"
@@ -12,7 +15,6 @@
 
 #include <algorithm>
 #include <QDebug>
-#include <QHostAddress>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonParseError>
@@ -22,10 +24,6 @@
 #include <QSqlQuery>
 #include <QThread>
 
-// 充电模拟参数: 定时器每 3 秒真实时间 = 1 分钟模拟充电
-static const int kTickMs = 3000;
-static const int kMinutesPerTick = 1;
-
 ClientHandler::ClientHandler(qintptr socketDescriptor, QObject *parent)
     : QObject(parent)
     , m_descriptor(socketDescriptor)
@@ -34,6 +32,7 @@ ClientHandler::ClientHandler(qintptr socketDescriptor, QObject *parent)
 
 ClientHandler::~ClientHandler()
 {
+    ChargingEngine::instance().unregisterClient(this);
     if (!m_dbConnName.isEmpty()) {
         QSqlDatabase db = QSqlDatabase::database(m_dbConnName);
         if (db.isOpen())
@@ -70,7 +69,6 @@ void ClientHandler::start()
     connect(m_socket, &QTcpSocket::disconnected,
             this, &ClientHandler::onDisconnected);
     connect(m_socket, &QTcpSocket::errorOccurred, this, [this](QAbstractSocket::SocketError) {
-        // RemoteHostClosed 会紧随 disconnected, 其余错误记日志便于排查
         if (m_socket->error() != QAbstractSocket::RemoteHostClosedError)
             qDebug() << "[ClientHandler] 套接字错误:" << m_socket->errorString();
     });
@@ -83,7 +81,6 @@ void ClientHandler::onReadyRead()
 {
     m_buffer.append(m_socket->readAll());
 
-    // 防止异常数据撑爆内存
     if (m_buffer.size() > 1024 * 1024) {
         qDebug() << "[ClientHandler] 缓冲区超限, 断开连接";
         m_socket->disconnectFromHost();
@@ -101,7 +98,8 @@ void ClientHandler::onReadyRead()
 void ClientHandler::onDisconnected()
 {
     qDebug() << "[ClientHandler] 客户端断开 userId=" << m_userId;
-    stopProgressTimer();
+    // v2: 断线不再停止充电, 引擎在主线程继续推进
+    ChargingEngine::instance().unregisterClient(this);
     emit finished();
 }
 
@@ -128,15 +126,23 @@ void ClientHandler::handleRequest(const QJsonObject &request)
     case Protocol::ReqHeartbeat:
         reply = Protocol::makeReply(type, true);
         break;
-    case Protocol::ReqUserLogin:       reply = processUserLogin(request);      break;
-    case Protocol::ReqGetUserInfo:     reply = processGetUserInfo(request);    break;
-    case Protocol::ReqUpdateProfile:   reply = processUpdateProfile(request);  break;
-    case Protocol::ReqRecharge:        reply = processRecharge(request);       break;
-    case Protocol::ReqStationList:     reply = processStationList(request);    break;
-    case Protocol::ReqStationPiles:    reply = processStationPiles(request);   break;
-    case Protocol::ReqUnfinishedOrder: reply = processUnfinishedOrder(request);break;
-    case Protocol::ReqStartCharge:     reply = processStartCharge(request);    break;
-    case Protocol::ReqStopCharge:      reply = processStopCharge(request);     break;
+    case Protocol::ReqUserLogin:        reply = processUserLogin(request);        break;
+    case Protocol::ReqGetUserInfo:      reply = processGetUserInfo(request);      break;
+    case Protocol::ReqUpdateProfile:    reply = processUpdateProfile(request);    break;
+    case Protocol::ReqRecharge:         reply = processRecharge(request);         break;
+    case Protocol::ReqStationList:      reply = processStationList(request);      break;
+    case Protocol::ReqStationPiles:     reply = processStationPiles(request);     break;
+    case Protocol::ReqUnfinishedOrder:  reply = processUnfinishedOrder(request);  break;
+    case Protocol::ReqStartCharge:      reply = startChargeInternal(type, request); break;
+    case Protocol::ReqStopCharge:       reply = processStopCharge(request);       break;
+    case Protocol::ReqStartChargeExt:   reply = startChargeInternal(type, request); break;
+    case Protocol::ReqReservePile:      reply = processReservePile(request);      break;
+    case Protocol::ReqAppointPile:      reply = processAppointPile(request);      break;
+    case Protocol::ReqAppointSlots:     reply = processAppointSlots(request);     break;
+    case Protocol::ReqMyReservations:   reply = processMyReservations(request);   break;
+    case Protocol::ReqOrderHistory:     reply = processOrderHistory(request);     break;
+    case Protocol::ReqOrderDetail:      reply = processOrderDetail(request);      break;
+    case Protocol::ReqStationFee:       reply = processStationFee(request);       break;
     default:
         sendError(type, "暂不支持的消息类型");
         return;
@@ -163,6 +169,8 @@ QJsonObject ClientHandler::processUserLogin(const QJsonObject &req)
         return Protocol::makeReply(Protocol::ReqUserLogin, false, errMsg);
 
     m_userId = info.id;
+    // 注册到引擎, 充电推进/排队/预约事件可推送到本连接
+    ChargingEngine::instance().registerClient(m_userId, this);
 
     QJsonObject reply = Protocol::makeReply(Protocol::ReqUserLogin, true);
     reply.insert("userId", info.id);
@@ -170,7 +178,7 @@ QJsonObject ClientHandler::processUserLogin(const QJsonObject &req)
     reply.insert("nickname", info.nickname);
     reply.insert("balance", info.balance);
     reply.insert("isNew", isNewUser);
-    qDebug() << "[ClientHandler] 用户登录:" << info.phone   // 仅打印脱敏号
+    qDebug() << "[ClientHandler] 用户登录:" << info.phone
              << (isNewUser ? "(新注册)" : "") << "nickname=" << info.nickname;
     return reply;
 }
@@ -179,6 +187,7 @@ QJsonObject ClientHandler::processUserLogin(const QJsonObject &req)
 
 QJsonObject ClientHandler::processGetUserInfo(const QJsonObject &req)
 {
+    Q_UNUSED(req)
     const int userId = m_userId;
     UserInfo u;
     QString errMsg;
@@ -188,7 +197,7 @@ QJsonObject ClientHandler::processGetUserInfo(const QJsonObject &req)
     QJsonObject reply = Protocol::makeReply(Protocol::ReqGetUserInfo, true);
     reply.insert("nickname", u.nickname);
     reply.insert("balance", u.balance);
-    reply.insert("avatar", u.avatar);   // base64, 空串表示默认头像
+    reply.insert("avatar", u.avatar);
     reply.insert("status", u.status);
     return reply;
 }
@@ -219,6 +228,14 @@ QJsonObject ClientHandler::processRecharge(const QJsonObject &req)
     if (!UserDao::recharge(userId, amount, &newBalance, &errMsg, m_dbConnName))
         return Protocol::makeReply(Protocol::ReqRecharge, false, errMsg);
 
+    // 充值流水
+    QSqlQuery log(QSqlDatabase::database(m_dbConnName));
+    log.prepare("INSERT INTO recharge_log(user_id, amount, balance_after) VALUES(?,?,?)");
+    log.addBindValue(userId);
+    log.addBindValue(amount);
+    log.addBindValue(newBalance);
+    log.exec();
+
     qDebug() << "[ClientHandler] 用户" << userId << "充值" << amount << "元, 余额" << newBalance;
     QJsonObject reply = Protocol::makeReply(Protocol::ReqRecharge, true);
     reply.insert("balance", newBalance);
@@ -238,11 +255,9 @@ QJsonObject ClientHandler::processStationList(const QJsonObject &req)
                    stations.end());
     for (StationInfo &s : stations) {
         s.distance = GeoUtil::haversineKm(lat, lon, s.latitude, s.longitude);
-        // 负荷预测: 预计 1 小时后的空闲率(阶段5 加分项)
         s.predictIdle = Predictor::predictIdleRate(s.id, s.totalPiles, s.idlePiles, 1,
                                                     m_dbConnName);
     }
-    // 按距离由近及远
     std::sort(stations.begin(), stations.end(),
               [](const StationInfo &a, const StationInfo &b) { return a.distance < b.distance; });
 
@@ -275,11 +290,12 @@ QJsonObject ClientHandler::processStationPiles(const QJsonObject &req)
 
 QJsonObject ClientHandler::processUnfinishedOrder(const QJsonObject &req)
 {
+    Q_UNUSED(req)
     const int userId = m_userId;
-    OrderInfo order;
     bool has = false;
     QString errMsg;
-    if (!OrderDao::getUnfinishedByUser(userId, &order, &has, &errMsg, m_dbConnName))
+    const OrderInfo order = OrderDao::getUnfinishedByUser(userId, &has, &errMsg, m_dbConnName);
+    if (!errMsg.isEmpty() && !has)
         return Protocol::makeReply(Protocol::ReqUnfinishedOrder, false, errMsg);
 
     QJsonObject reply = Protocol::makeReply(Protocol::ReqUnfinishedOrder, true);
@@ -289,47 +305,33 @@ QJsonObject ClientHandler::processUnfinishedOrder(const QJsonObject &req)
     return reply;
 }
 
-QJsonObject ClientHandler::processStartCharge(const QJsonObject &req)
+QJsonObject ClientHandler::startChargeInternal(int replyType, const QJsonObject &req)
 {
     const int userId = m_userId;
     const int pileId = req.value("pileId").toInt();
     if (pileId <= 0)
-        return Protocol::makeReply(Protocol::ReqStartCharge, false, "参数错误: 缺少pileId");
+        return Protocol::makeReply(replyType, false, "参数错误: 缺少pileId");
 
-    // 1. 该用户已有未完成订单 → 拒绝
-    OrderInfo exist;
-    bool has = false;
-    OrderDao::getUnfinishedByUser(userId, &exist, &has, nullptr, m_dbConnName);
-    if (has)
-        return Protocol::makeReply(Protocol::ReqStartCharge, false, "您有未完成的充电订单, 请先结算!");
+    const int targetType = req.value("targetType").toInt(TargetNone);
+    const double targetValue = req.value("targetValue").toDouble(0.0);
 
-    // 2. 桩状态校验
-    PileInfo pile;
-    QString errMsg;
-    if (!PileDao::getById(pileId, &pile, &errMsg, m_dbConnName))
-        return Protocol::makeReply(Protocol::ReqStartCharge, false, errMsg);
-    if (pile.status != PileIdle)
-        return Protocol::makeReply(Protocol::ReqStartCharge, false,
-                                   QString("电桩 %1 当前不可用(%2)")
-                                       .arg(pile.code, pile.status == PileFault ? "故障" : "在用"));
-
-    // 3. 建订单 + 桩置在用
-    const QString now = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
-    int orderId = -1;
-    if (!OrderDao::create(userId, pileId, pile.stationId, now, &orderId, &errMsg, m_dbConnName)) {
-        return Protocol::makeReply(Protocol::ReqStartCharge, false, errMsg);
+    const ChargingEngine::StartResult r =
+        ChargingEngine::instance().startCharging(userId, pileId, targetType, targetValue,
+                                                 m_dbConnName);
+    if (!r.ok) {
+        QJsonObject fail = Protocol::makeReply(replyType, false, r.error);
+        fail.insert("errorCode", r.errorCode);
+        return fail;
     }
-    PileDao::setStatus(pileId, PileInUse, nullptr, m_dbConnName);
 
-    qDebug() << "[ClientHandler] 用户" << userId << "在电桩" << pile.code << "开始充电, 订单" << orderId;
+    qDebug() << "[ClientHandler] 用户" << userId << "开始充电, 订单" << r.order.id
+             << "冻结" << r.freezeAmount << "元";
 
-    // 4. 启动本线程的充电进度模拟
-    startProgressTimer(orderId);
-
-    OrderInfo order;
-    OrderDao::getById(orderId, &order, nullptr, m_dbConnName);
-    QJsonObject reply = Protocol::makeReply(Protocol::ReqStartCharge, true);
-    reply.insert("order", order.toJson());
+    QJsonObject reply = Protocol::makeReply(replyType, true);
+    reply.insert("order", r.order.toJson());
+    reply.insert("freezeAmount", r.freezeAmount);
+    reply.insert("price", r.unitPrice);
+    reply.insert("balance", r.balanceAfter);
     return reply;
 }
 
@@ -340,110 +342,208 @@ QJsonObject ClientHandler::processStopCharge(const QJsonObject &req)
     if (orderId <= 0)
         return Protocol::makeReply(Protocol::ReqStopCharge, false, "参数错误: 缺少orderId");
 
-    OrderContext ctx;
-    QString errMsg;
-    if (!OrderDao::getContext(orderId, &ctx, &errMsg, m_dbConnName))
-        return Protocol::makeReply(Protocol::ReqStopCharge, false, errMsg);
-    if (ctx.order.userId != userId)
+    const OrderInfo before = OrderDao::getById(orderId, nullptr, m_dbConnName);
+    if (before.id == 0)
+        return Protocol::makeReply(Protocol::ReqStopCharge, false, "订单不存在");
+    if (before.userId != userId)
         return Protocol::makeReply(Protocol::ReqStopCharge, false, "无权操作该订单");
-    if (ctx.order.status != OrderCharging)
-        return Protocol::makeReply(Protocol::ReqStopCharge, false, "订单已完成结算");
+    if (before.status != OrderCharging)
+        return Protocol::makeReply(Protocol::ReqStopCharge, false, "订单已结束, 无需重复结算");
 
-    // 重新读取数据库中的最新累计值，避免进度定时器写入与结算使用旧快照。
-    if (!OrderDao::getContext(orderId, &ctx, &errMsg, m_dbConnName))
-        return Protocol::makeReply(Protocol::ReqStopCharge, false, errMsg);
-    if (ctx.order.userId != m_userId || ctx.order.status != OrderCharging)
-        return Protocol::makeReply(Protocol::ReqStopCharge, false, "订单状态已变化, 请刷新后重试");
+    const ChargingEngine::SettleResult sr =
+        ChargingEngine::instance().settleOrder(orderId, FinishByUser,
+                                               QStringLiteral("用户主动结束"), m_dbConnName);
+    if (!sr.ok)
+        return Protocol::makeReply(Protocol::ReqStopCharge, false, sr.error);
 
-    // 1. 余额校验与扣款
-    UserInfo user;
-    UserDao::getById(userId, &user, nullptr, m_dbConnName);
-    if (user.balance < ctx.order.amount)
-        return Protocol::makeReply(Protocol::ReqStopCharge, false,
-                                   QString("余额不足(需 %1 元, 当前 %2 元), 请先充值!")
-                                       .arg(ctx.order.amount, 0, 'f', 2)
-                                       .arg(user.balance, 0, 'f', 2));
-    UserDao::adjustBalance(userId, -ctx.order.amount, nullptr, m_dbConnName);
+    qDebug() << "[ClientHandler] 订单" << orderId << "结算: 电量" << sr.order.energy
+             << "度, 金额" << sr.order.amount << "元";
 
-    // 2. 计费时长: 优先用模拟分钟数, 兜底用真实经过分钟数
-    const int minutes = m_chargingOrderId == orderId
-                            ? qMax(m_simMinutes, 1)
-                            : qMax<int>(QDateTime::fromString(ctx.order.startTime,
-                                                              "yyyy-MM-dd hh:mm:ss")
-                                            .secsTo(QDateTime::currentDateTime()) / 60, 1);
-
-    // 3. 完成订单 + 更新桩统计与状态
-    const QString now = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
-    OrderDao::finish(orderId, now, ctx.order.energy, ctx.order.amount, &errMsg, m_dbConnName);
-    PileDao::addUsage(ctx.order.pileId, minutes, nullptr, m_dbConnName);
-    PileDao::setStatus(ctx.order.pileId, PileIdle, nullptr, m_dbConnName);
-
-    stopProgressTimer();
-
-    qDebug() << "[ClientHandler] 订单" << orderId << "结算: 电量" << ctx.order.energy
-             << "度, 金额" << ctx.order.amount << "元";
-
-    UserInfo after;
-    UserDao::getById(userId, &after, nullptr, m_dbConnName);
-    OrderInfo order;
-    OrderDao::getById(orderId, &order, nullptr, m_dbConnName);
     QJsonObject reply = Protocol::makeReply(Protocol::ReqStopCharge, true);
-    reply.insert("order", order.toJson());
-    reply.insert("balance", after.balance);
+    reply.insert("order", sr.order.toJson());
+    reply.insert("balance", sr.balanceAfter);
     return reply;
 }
 
-// ---------- 充电进度模拟 ----------
+// ---------- 现场排队 ----------
 
-void ClientHandler::startProgressTimer(int orderId)
+QJsonObject ClientHandler::processReservePile(const QJsonObject &req)
 {
-    stopProgressTimer();
-    m_chargingOrderId = orderId;
-    m_simMinutes = 0;
+    const int userId = m_userId;
+    const int action = req.value("action").toInt(0);
 
-    m_progressTimer = new QTimer(this);
-    connect(m_progressTimer, &QTimer::timeout, this, &ClientHandler::onProgressTick);
-    m_progressTimer->start(kTickMs);
-}
-
-void ClientHandler::stopProgressTimer()
-{
-    if (m_progressTimer) {
-        m_progressTimer->stop();
-        m_progressTimer->deleteLater();
-        m_progressTimer = nullptr;
-    }
-    m_chargingOrderId = -1;
-}
-
-void ClientHandler::onProgressTick()
-{
-    if (m_chargingOrderId < 0)
-        return;
-
-    OrderContext ctx;
-    if (!OrderDao::getContext(m_chargingOrderId, &ctx, nullptr, m_dbConnName)
-        || ctx.order.status != OrderCharging) {
-        // 订单已不存在/已完成(如服务重启后的旧订单), 停止模拟
-        stopProgressTimer();
-        return;
+    if (action == 1) {
+        const int rid = req.value("reservationId").toInt();
+        QString err;
+        if (!ReservationDao::cancelByUser(rid, userId, &err, m_dbConnName))
+            return Protocol::makeReply(Protocol::ReqReservePile, false,
+                                       err.isEmpty() ? "取消失败, 记录不存在或已结束" : err);
+        return Protocol::makeReply(Protocol::ReqReservePile, true);
     }
 
-    m_simMinutes += kMinutesPerTick;
+    const int pileId = req.value("pileId").toInt();
+    if (pileId <= 0)
+        return Protocol::makeReply(Protocol::ReqReservePile, false, "参数错误: 缺少pileId");
 
-    // 电量按桩功率累计(kWh), 金额按站电价累计(元)
-    const double energy = ctx.order.energy + ctx.power * kMinutesPerTick / 60.0;
-    const double amount = energy * ctx.price;
-    OrderDao::updateProgress(m_chargingOrderId, energy, amount, m_dbConnName);
+    const PileInfo pile = PileDao::getById(pileId, nullptr, m_dbConnName);
+    if (pile.id == 0)
+        return Protocol::makeReply(Protocol::ReqReservePile, false, "充电桩不存在");
+    if (pile.status == PileFault)
+        return Protocol::makeReply(Protocol::ReqReservePile, false, "该桩故障中, 无法排队");
+    if (pile.status == PileIdle)
+        return Protocol::makeReply(Protocol::ReqReservePile, false, "该桩当前空闲, 可直接充电");
 
-    // 推送进度给客户端
-    QJsonObject push;
-    push.insert("type", Protocol::PushOrderProgress);
-    push.insert("orderId", m_chargingOrderId);
-    push.insert("energy", qRound(energy * 100) / 100.0);
-    push.insert("amount", qRound(amount * 100) / 100.0);
-    push.insert("minutes", m_simMinutes);
-    sendJson(push);
+    QString err;
+    const int rid = ReservationDao::enqueue(userId, pileId, pile.stationId, &err, m_dbConnName);
+    if (rid == -2)
+        return Protocol::makeReply(Protocol::ReqReservePile, false, "您已在该桩排队/预约, 请勿重复操作");
+    if (rid == -3)
+        return Protocol::makeReply(Protocol::ReqReservePile, false, "该桩排队人数已满, 请选择其他桩");
+    if (rid <= 0)
+        return Protocol::makeReply(Protocol::ReqReservePile, false,
+                                   err.isEmpty() ? "排队失败" : err);
+
+    const int pos = ReservationDao::queuePosition(rid, nullptr, m_dbConnName);
+    QJsonObject reply = Protocol::makeReply(Protocol::ReqReservePile, true);
+    reply.insert("reservationId", rid);
+    reply.insert("queuePos", pos);
+    reply.insert("waiting", ReservationDao::pendingCount(pileId, nullptr, m_dbConnName));
+    return reply;
+}
+
+// ---------- 时段预约 ----------
+
+QJsonObject ClientHandler::processAppointPile(const QJsonObject &req)
+{
+    const int userId = m_userId;
+    const int pileId = req.value("pileId").toInt();
+    const QString date = req.value("reserveDate").toString();
+    const QString start = req.value("reserveStart").toString();
+    const QString end = req.value("reserveEnd").toString();
+
+    if (pileId <= 0 || date.isEmpty() || start.isEmpty() || end.isEmpty())
+        return Protocol::makeReply(Protocol::ReqAppointPile, false, "预约信息不完整");
+
+    const PileInfo pile = PileDao::getById(pileId, nullptr, m_dbConnName);
+    if (pile.id == 0)
+        return Protocol::makeReply(Protocol::ReqAppointPile, false, "充电桩不存在");
+    if (pile.status == PileFault)
+        return Protocol::makeReply(Protocol::ReqAppointPile, false, "该桩故障中, 无法预约");
+
+    QString err;
+    const int rid = ReservationDao::appointCreate(userId, pileId, pile.stationId,
+                                                  date, start, end, &err, m_dbConnName);
+    if (rid == -2)
+        return Protocol::makeReply(Protocol::ReqAppointPile, false, "该时段已被预约, 请更换时段");
+    if (rid == -3)
+        return Protocol::makeReply(Protocol::ReqAppointPile, false, "预约开始时间已过, 请选择未来时段");
+    if (rid == -4)
+        return Protocol::makeReply(Protocol::ReqAppointPile, false, "您已有该桩的有效预约, 请勿重复预约");
+    if (rid <= 0)
+        return Protocol::makeReply(Protocol::ReqAppointPile, false,
+                                   err.isEmpty() ? "预约失败" : err);
+
+    QJsonObject reply = Protocol::makeReply(Protocol::ReqAppointPile, true);
+    reply.insert("reservationId", rid);
+    return reply;
+}
+
+QJsonObject ClientHandler::processAppointSlots(const QJsonObject &req)
+{
+    const int pileId = req.value("pileId").toInt();
+    const QString date = req.value("date").toString();
+    if (pileId <= 0 || date.isEmpty())
+        return Protocol::makeReply(Protocol::ReqAppointSlots, false, "参数不完整");
+
+    const QList<ReservationInfo> booked =
+        ReservationDao::bookedSlots(pileId, date, nullptr, m_dbConnName);
+    QJsonArray bookedArr;
+    for (const ReservationInfo &r : booked) {
+        QJsonObject b;
+        b.insert("start", r.reserveStart);
+        b.insert("end", r.reserveEnd);
+        bookedArr.append(b);
+    }
+
+    // 08:00~22:00 每 30 分钟一个可选起点
+    QJsonArray slotArr;
+    for (int m = 8 * 60; m < 22 * 60; m += 30)
+        slotArr.append(QString("%1:%2")
+                           .arg(m / 60, 2, 10, QChar('0'))
+                           .arg(m % 60, 2, 10, QChar('0')));
+
+    QJsonObject reply = Protocol::makeReply(Protocol::ReqAppointSlots, true);
+    reply.insert("slots", slotArr);
+    reply.insert("booked", bookedArr);
+    return reply;
+}
+
+QJsonObject ClientHandler::processMyReservations(const QJsonObject &req)
+{
+    Q_UNUSED(req)
+    const QList<ReservationInfo> list =
+        ReservationDao::myList(m_userId, nullptr, m_dbConnName);
+    QJsonArray arr;
+    for (const ReservationInfo &r : list)
+        arr.append(r.toJson());
+    QJsonObject reply = Protocol::makeReply(Protocol::ReqMyReservations, true);
+    reply.insert("reservations", arr);
+    return reply;
+}
+
+// ---------- 订单历史/详情/费率 ----------
+
+QJsonObject ClientHandler::processOrderHistory(const QJsonObject &req)
+{
+    const int page = req.value("page").toInt(0);
+    const int pageSize = req.value("pageSize").toInt(20);
+    int total = 0;
+    const QList<OrderInfo> orders =
+        OrderDao::listByUser(m_userId, page, pageSize, &total, nullptr, m_dbConnName);
+    QJsonArray arr;
+    for (const OrderInfo &o : orders)
+        arr.append(o.toJson());
+    QJsonObject reply = Protocol::makeReply(Protocol::ReqOrderHistory, true);
+    reply.insert("orders", arr);
+    reply.insert("total", total);
+    return reply;
+}
+
+QJsonObject ClientHandler::processOrderDetail(const QJsonObject &req)
+{
+    const int orderId = req.value("orderId").toInt();
+    const OrderInfo o = OrderDao::getById(orderId, nullptr, m_dbConnName);
+    if (o.id == 0)
+        return Protocol::makeReply(Protocol::ReqOrderDetail, false, "订单不存在");
+    if (o.userId != m_userId)
+        return Protocol::makeReply(Protocol::ReqOrderDetail, false, "无权查看该订单");
+    QJsonObject reply = Protocol::makeReply(Protocol::ReqOrderDetail, true);
+    reply.insert("order", o.toJson());
+    return reply;
+}
+
+QJsonObject ClientHandler::processStationFee(const QJsonObject &req)
+{
+    const int stationId = req.value("stationId").toInt();
+    if (stationId <= 0)
+        return Protocol::makeReply(Protocol::ReqStationFee, false, "参数错误: 缺少stationId");
+
+    const QList<FeeRule> rules = PriceRuleDao::listByStation(stationId, nullptr, m_dbConnName);
+    QJsonArray arr;
+    for (const FeeRule &r : rules)
+        arr.append(r.toJson());
+
+    double defaultPrice = 0;
+    QSqlQuery sq(QSqlDatabase::database(m_dbConnName));
+    sq.prepare("SELECT price FROM station WHERE id=?");
+    sq.addBindValue(stationId);
+    if (sq.exec() && sq.next())
+        defaultPrice = sq.value(0).toDouble();
+
+    QJsonObject reply = Protocol::makeReply(Protocol::ReqStationFee, true);
+    reply.insert("rules", arr);
+    reply.insert("defaultPrice", defaultPrice);
+    return reply;
 }
 
 // ---------- 发送 ----------
