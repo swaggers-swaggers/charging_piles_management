@@ -1,4 +1,5 @@
 #include <QApplication>
+#include "AppTheme.h"
 #include <QFile>
 #include <QNetworkProxyFactory>
 #include <QtGlobal>
@@ -22,12 +23,7 @@ int main(int argc, char *argv[])
     // v2rayN 开启时地图与路线请求走代理，关闭时自动直连。
     QNetworkProxyFactory::setUseSystemConfiguration(true);
 
-    // 全局样式表
-    QFile globalQss(":/qss/global.qss");
-    if (globalQss.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        a.setStyleSheet(QString::fromUtf8(globalQss.readAll()));
-        globalQss.close();
-    }
+    AppTheme::apply(a);
 
     // 客户端不访问数据库, 登录经 Socket 由服务端校验
     LoginDialog dlg;

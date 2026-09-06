@@ -2,6 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>东软电动汽车充电桩管理平台 - 大数据可视化大屏</title>
 <script>
 // 防呆: 检测是否以"文件方式"(file://, 即双击 index.html)打开 —— 这种方式浏览器会拦截数据请求
@@ -22,39 +23,53 @@ if (window.location.protocol === 'file:') {
 <script src="echarts.min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; overflow: hidden;
-               background: #0B1728; color: #D8E4F0;
+  html, body { width: 100%; min-height: 100%; overflow: auto;
+               background: #F3F7F6; color: #243E33;
                font-family: "Microsoft YaHei", "PingFang SC", sans-serif; }
-  #screen { display: flex; flex-direction: column; width: 100%; height: 100%; padding: 14px 18px; }
+  #screen { display: flex; flex-direction: column; width: 100%; min-height: 100vh; padding: 24px; max-width: 1800px; margin: auto; }
 
-  #header { height: 64px; display: flex; align-items: center; justify-content: space-between;
-            background: linear-gradient(90deg, #10263E, #14324F, #10263E);
-            border: 1px solid #1E4266; border-radius: 8px; padding: 0 24px; }
-  #header h1 { font-size: 26px; letter-spacing: 4px; color: #FFFFFF; }
-  #header h1 span { color: #37C6FF; }
-  #updated { font-size: 13px; color: #7FA3C4; }
+  #header { min-height: 76px; gap: 16px; display: flex; align-items: center; justify-content: space-between;
+            background: linear-gradient(90deg, #FFFFFF, #EDF7F0, #FFFFFF);
+            border: 1px solid #DCE8DF; border-radius: 8px; padding: 0 24px; }
+  #header h1 { font-size: 26px; letter-spacing: 1px; color: #173E33; }
+  #header h1 span { color: #237653; }
+  #updated { font-size: 13px; color: #667C73; }
 
   #metrics { display: flex; gap: 16px; margin: 12px 0; }
-  .metric { flex: 1; height: 96px; background: #10263E; border: 1px solid #1E4266;
+  .metric { flex: 1; height: 96px; background: #FFFFFF; border: 1px solid #DCE8DF;
             border-radius: 8px; display: flex; flex-direction: column;
             align-items: center; justify-content: center; }
-  .metric .label { font-size: 14px; color: #7FA3C4; margin-bottom: 8px; }
-  .metric .value { font-size: 32px; font-weight: bold; color: #37C6FF; }
-  .metric.green .value { color: #2EE6A8; }
-  .metric.orange .value { color: #FFB020; }
+  .metric .label { font-size: 14px; color: #667C73; margin-bottom: 8px; }
+  .metric .value { font-size: 32px; font-weight: bold; color: #237653; }
+  .metric.green .value { color: #368D69; }
+  .metric.orange .value { color: #B7802B; }
 
-  #charts { flex: 1; display: grid; grid-template-columns: 1fr 1fr;
-            grid-template-rows: 1fr 1fr; gap: 14px; min-height: 0; }
-  .panel { background: #10263E; border: 1px solid #1E4266; border-radius: 8px;
+  #charts { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            grid-template-rows: repeat(2, minmax(280px, 1fr)); gap: 14px; min-height: 0; }
+  .panel { background: #FFFFFF; border: 1px solid #DCE8DF; border-radius: 8px;
            display: flex; flex-direction: column; padding: 10px 14px; min-height: 0; }
-  .panel h3 { font-size: 15px; color: #BBD4EC; margin: 2px 0 6px; }
-  .chart { flex: 1; min-height: 0; }
+  .panel h3 { font-size: 15px; color: #345C47; margin: 2px 0 6px; }
+  .chart { flex: 1; min-height: 240px; min-width: 0; }
+  .metric, .panel { box-shadow: 0 4px 20px rgba(24, 65, 44, .035); border-radius: 14px; }
+  .panel { min-width: 0; padding: 18px; }
+  #header h1 { font-size: clamp(18px, 2vw, 26px); }
+  #updated { line-height: 1.6; }
+  @media (max-width: 900px) {
+    #header { flex-direction: column; align-items: flex-start; padding: 18px; }
+    #metrics { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); }
+    #charts { grid-template-columns: minmax(0,1fr); grid-template-rows: none; }
+    #screen { padding: 12px; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .metric { transition: transform .18s ease; }
+    .metric:hover { transform: translateY(-3px); }
+  }
 </style>
 </head>
 <body>
 <div id="screen">
   <div id="header">
-    <h1>⚡ 东软电动汽车充电桩 <span>大数据可视化大屏</span></h1>
+    <h1>⚡ 东软电动汽车充电桩 <span>运营数据总览</span></h1>
     <div id="updated">等待数据...</div>
   </div>
 
@@ -95,62 +110,66 @@ function render(data) {
     return;
   }
   document.getElementById('updated').textContent =
-      '数据更新时间: ' + data.updated + '  (每10秒自动刷新)';
+      '数据更新时间: ' + data.updated + '  (每5秒自动刷新)';
   document.getElementById('mToday').textContent = data.metrics.today.toFixed(2);
   document.getElementById('mMonth').textContent = data.metrics.month.toFixed(2);
   document.getElementById('mTotal').textContent = data.metrics.total.toFixed(2);
   document.getElementById('mPeak').textContent = data.predict.peakHour + ' 时';
 
   charts.trend.setOption({
+    backgroundColor: '#FFFFFF',
     tooltip: { trigger: 'axis' },
-    grid: { left: 50, right: 20, top: 20, bottom: 28 },
+    grid: { left: 12, right: 20, top: 20, bottom: 12, containLabel: true },
     xAxis: { type: 'category', data: data.daily7.dates,
-             axisLine: { lineStyle: { color: '#3E5F80' } }, axisLabel: { color: '#7FA3C4' } },
-    yAxis: { type: 'value', axisLabel: { color: '#7FA3C4' },
-             splitLine: { lineStyle: { color: '#1B3A5A' } } },
+             axisLine: { lineStyle: { color: '#B9CDC0' } }, axisLabel: { color: '#667C73' } },
+    yAxis: { type: 'value', axisLabel: { color: '#667C73' },
+             splitLine: { lineStyle: { color: '#E4EEE7' } } },
     series: [{ type: 'line', smooth: true, data: data.daily7.values,
-               areaStyle: { color: 'rgba(55,198,255,0.15)' },
-               lineStyle: { color: '#37C6FF', width: 2 },
-               itemStyle: { color: '#37C6FF' } }]
+               areaStyle: { color: 'rgba(35,118,83,0.12)' },
+               lineStyle: { color: '#237653', width: 2 },
+               itemStyle: { color: '#237653' } }]
   });
 
   charts.pile.setOption({
+    backgroundColor: '#FFFFFF',
     tooltip: { trigger: 'item', formatter: '{b}: {c} 台 ({d}%)' },
-    legend: { bottom: 0, textStyle: { color: '#7FA3C4' } },
+    legend: { bottom: 0, textStyle: { color: '#667C73' } },
     series: [{ type: 'pie', radius: ['38%', '62%'], center: ['50%', '46%'],
-               label: { color: '#BBD4EC' },
+               label: { color: '#345C47' },
                data: [
-                 { value: data.pileStatus.idle, name: '闲置', itemStyle: { color: '#2EE6A8' } },
-                 { value: data.pileStatus.inUse, name: '在用', itemStyle: { color: '#37C6FF' } },
-                 { value: data.pileStatus.fault, name: '故障', itemStyle: { color: '#FF6B6B' } }
+                 { value: data.pileStatus.idle, name: '闲置', itemStyle: { color: '#368D69' } },
+                 { value: data.pileStatus.inUse, name: '在用', itemStyle: { color: '#237653' } },
+                 { value: data.pileStatus.fault, name: '故障', itemStyle: { color: '#C5525A' } }
                ] }]
   });
 
   charts.station.setOption({
+    backgroundColor: '#FFFFFF',
     tooltip: { trigger: 'axis' },
-    grid: { left: 50, right: 20, top: 20, bottom: 28 },
+    grid: { left: 12, right: 20, top: 20, bottom: 12, containLabel: true },
     xAxis: { type: 'category', data: data.stationRevenue.names,
-             axisLine: { lineStyle: { color: '#3E5F80' } }, axisLabel: { color: '#7FA3C4' } },
-    yAxis: { type: 'value', axisLabel: { color: '#7FA3C4' },
-             splitLine: { lineStyle: { color: '#1B3A5A' } } },
+             axisLine: { lineStyle: { color: '#B9CDC0' } }, axisLabel: { color: '#667C73' } },
+    yAxis: { type: 'value', axisLabel: { color: '#667C73' },
+             splitLine: { lineStyle: { color: '#E4EEE7' } } },
     series: [{ type: 'bar', barWidth: '45%', data: data.stationRevenue.values,
-               itemStyle: { color: '#FFB020', borderRadius: [4, 4, 0, 0] } }]
+               itemStyle: { color: '#B7802B', borderRadius: [4, 4, 0, 0] } }]
   });
 
   charts.predict.setOption({
+    backgroundColor: '#FFFFFF',
     tooltip: { trigger: 'axis' },
-    grid: { left: 50, right: 20, top: 20, bottom: 28 },
+    grid: { left: 12, right: 20, top: 20, bottom: 12, containLabel: true },
     xAxis: { type: 'category', data: data.predict.hours, boundaryGap: false,
-             axisLine: { lineStyle: { color: '#3E5F80' } },
-             axisLabel: { color: '#7FA3C4', interval: 3 } },
-    yAxis: { type: 'value', axisLabel: { color: '#7FA3C4' },
-             splitLine: { lineStyle: { color: '#1B3A5A' } } },
+             axisLine: { lineStyle: { color: '#B9CDC0' } },
+             axisLabel: { color: '#667C73', interval: 3 } },
+    yAxis: { type: 'value', axisLabel: { color: '#667C73' },
+             splitLine: { lineStyle: { color: '#E4EEE7' } } },
     series: [{ type: 'line', smooth: true, data: data.predict.loads,
-               areaStyle: { color: 'rgba(46,230,168,0.12)' },
-               lineStyle: { color: '#2EE6A8', width: 2 },
-               itemStyle: { color: '#2EE6A8' },
+               areaStyle: { color: 'rgba(54,141,105,0.12)' },
+               lineStyle: { color: '#368D69', width: 2 },
+               itemStyle: { color: '#368D69' },
                markPoint: { data: [{ type: 'max', name: '高峰' }],
-                            itemStyle: { color: '#FF6B6B' } } }]
+                            itemStyle: { color: '#C5525A' } } }]
   });
 }
 

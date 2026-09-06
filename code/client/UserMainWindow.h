@@ -8,8 +8,7 @@ class QListWidget;
 class QStackedWidget;
 
 // 用户客户端主窗口 (模拟手机端交互)
-// 五个功能页面:
-//   附近充电站 / 一键导航 / 用户信息 / 电动汽车充电 / 我的订单
+// 首页串联查站、导航与选桩；侧栏保留充电进度、订单、消息和账户。
 class UserMainWindow : public QMainWindow
 {
     Q_OBJECT

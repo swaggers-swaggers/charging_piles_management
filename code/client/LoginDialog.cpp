@@ -6,6 +6,10 @@
 #include "network/TcpClient.h"
 
 #include <QFile>
+#include <QLabel>
+#include <QGuiApplication>
+#include <QScreen>
+#include "IconFactory.h"
 #include <QJsonObject>
 #include <QMessageBox>
 #include <QRegularExpression>
@@ -56,7 +60,19 @@ LoginDialog::LoginDialog(QWidget *parent)
     , ui(new Ui::LoginDialog)
 {
     ui->setupUi(this);
-    setFixedSize(440, 560);
+    setMinimumSize(400, 480);
+    const QSize screen = QGuiApplication::primaryScreen()->availableGeometry().size();
+    resize(qMin(480, screen.width() - 40), qMin(620, screen.height() - 60));
+    ui->card->setAttribute(Qt::WA_StyledBackground, true);
+    ui->titleLabel->setWordWrap(true);
+    ui->subtitleLabel->setWordWrap(true);
+    ui->hintLabel->setWordWrap(true);
+    ui->loginBtn->setDefault(true);
+    ui->exitBtn->setAutoDefault(false);
+    auto *mark = new QLabel(this);
+    mark->setObjectName("loginMark");
+    mark->setPixmap(IconFactory::icon(IconFactory::IconBolt, QColor("#237653")).pixmap(32, 32));
+    ui->rootLayout->insertWidget(0, mark, 0, Qt::AlignHCenter);
 
     loadStyleSheet();
 
@@ -64,10 +80,10 @@ LoginDialog::LoginDialog(QWidget *parent)
     ui->phoneEdit->setValidator(
         new QRegularExpressionValidator(QRegularExpression("^1\\d{0,10}$"), ui->phoneEdit));
 
-    // 服务端地址提示
-    ui->hintLabel->setText(QString("需要先启动服务端 ChargingServer (%1:%2)")
-                               .arg(Protocol::serverHost())
-                               .arg(Protocol::serverPort()));
+    ui->hintLabel->setText("找站 · 导航 · 充电，一站完成");
+    ui->hintLabel->setToolTip(QString("登录需连接服务端 %1:%2").arg(Protocol::serverHost()).arg(Protocol::serverPort()));
+    ui->phoneEdit->setAccessibleName("手机号");
+    ui->phoneEdit->setClearButtonEnabled(true);
 
     // 恢复上次登录的手机号(密文存储, 不落明文)
     const QString lastPhone = loadRememberedPhone();

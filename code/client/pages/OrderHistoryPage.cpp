@@ -90,6 +90,8 @@ OrderHistoryPage::OrderHistoryPage(QWidget *parent)
     m_orderTable->setAlternatingRowColors(true);
     m_orderTable->verticalHeader()->setVisible(false);
     m_orderTable->setColumnCount(9);
+    m_orderTable->horizontalHeader()->setStretchLastSection(true);
+    m_orderTable->horizontalHeader()->setMinimumSectionSize(80);
     m_orderTable->setHorizontalHeaderLabels(
         { QStringLiteral("订单号"), QStringLiteral("电桩"), QStringLiteral("充电站"),
           QStringLiteral("开始时间"), QStringLiteral("结束时间"), QStringLiteral("电量(度)"),
@@ -122,6 +124,8 @@ OrderHistoryPage::OrderHistoryPage(QWidget *parent)
     m_resTable->setAlternatingRowColors(true);
     m_resTable->verticalHeader()->setVisible(false);
     m_resTable->setColumnCount(8);
+    m_resTable->horizontalHeader()->setStretchLastSection(true);
+    m_resTable->horizontalHeader()->setMinimumSectionSize(80);
     m_resTable->setHorizontalHeaderLabels(
         { QStringLiteral("ID"), QStringLiteral("类型"), QStringLiteral("电桩"),
           QStringLiteral("充电站"), QStringLiteral("创建时间"), QStringLiteral("预约时段"),

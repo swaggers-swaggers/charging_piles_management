@@ -61,6 +61,8 @@ PileManagePage::PileManagePage(QWidget *parent)
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
     m_table->verticalHeader()->setVisible(false);
     m_table->setColumnCount(7);
+    m_table->horizontalHeader()->setStretchLastSection(true);
+    m_table->horizontalHeader()->setMinimumSectionSize(80);
     m_table->setHorizontalHeaderLabels(
         { "电桩编号", "所属电站", "类型", "功率(kW)", "当前状态", "累计充电次数", "累计时长(小时)" });
 

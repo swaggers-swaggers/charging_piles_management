@@ -1,4 +1,5 @@
 #include <QApplication>
+#include "AppTheme.h"
 #include <QFile>
 #include <QHostAddress>
 #include <QMessageBox>
@@ -24,12 +25,7 @@ int main(int argc, char *argv[])
     a.setApplicationName("ChargingServer");
     QApplication::setStyle("Fusion");
 
-    // 全局样式表
-    QFile globalQss(":/qss/global.qss");
-    if (globalQss.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        a.setStyleSheet(QString::fromUtf8(globalQss.readAll()));
-        globalQss.close();
-    }
+    AppTheme::apply(a);
 
     // 初始化数据库(服务端是数据库唯一持有者)
     QString dbErr;

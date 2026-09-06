@@ -1,0 +1,16 @@
+********* Start testing of DiscoveryTest *********
+Config: Using QtTest library 6.4.2, Qt 6.4.2 (x86_64-little_endian-lp64 shared (dynamic) release build; by GCC 13.2.0), ubuntu 24.04
+QWARN  : DiscoveryTest::initTestCase() This plugin does not support propagateSizeHints()
+QWARN  : DiscoveryTest::initTestCase() This plugin does not support propagateSizeHints()
+PASS   : DiscoveryTest::initTestCase()
+PASS   : DiscoveryTest::homepageAndFilters()
+PASS   : DiscoveryTest::busyStationAndRefresh()
+QWARN  : DiscoveryTest::navigationContext() This plugin does not support propagateSizeHints()
+PASS   : DiscoveryTest::navigationContext()
+PASS   : DiscoveryTest::failureAndRecovery()
+PASS   : DiscoveryTest::lightPagesAndTables()
+PASS   : DiscoveryTest::variablePowerModel()
+PASS   : DiscoveryTest::activeChargeIsPreserved()
+PASS   : DiscoveryTest::cleanupTestCase()
+Totals: 9 passed, 0 failed, 0 skipped, 0 blacklisted, 452ms
+********* Finished testing of DiscoveryTest *********

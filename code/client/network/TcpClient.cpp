@@ -42,7 +42,7 @@ TcpClient::~TcpClient()
         m_thread->quit();
         m_thread->wait(3000);
     }
-    delete m_worker;   // 线程已结束, worker 不再活跃, 直接释放(无 parent)
+    // finished -> deleteLater 已负责销毁 worker；再次 delete 会在退出时重复释放。
     m_worker = nullptr;
 }
 

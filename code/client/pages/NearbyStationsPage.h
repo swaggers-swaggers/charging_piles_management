@@ -8,7 +8,9 @@
 
 class QComboBox;
 class QLineEdit;
-class QTableWidget;
+class QVBoxLayout;
+class QLabel;
+class QCheckBox;
 
 // 附近充电站查询页(项目说明书):
 //   定位: 下拉选择区域 或输入内置演示地标，不依赖第三方地图 Key
@@ -25,20 +27,31 @@ public:
     double currentLon() const { return m_lon; }
     double currentLat() const { return m_lat; }
 
+signals:
+    void chargeRequested(int stationId);
+    void navigationRequested(int stationId, double lon, double lat);
+
 protected:
     void showEvent(QShowEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 private slots:
     void refresh();
     void onRegionChanged(int index);
     void onLocate();            // 手动输入地址 → 本地演示地标匹配
-    void onStationSelected();
-    void showPileDetail();
+    void renderStations();
+    void showPileDetail(int stationId);
 
 private:
     QComboBox *m_regionCombo;
     QLineEdit *m_addrEdit;
-    QTableWidget *m_table;
+    QVBoxLayout *m_cards;
+    QLabel *m_summary;
+    QLabel *m_count;
+    QLineEdit *m_search;
+    QCheckBox *m_idleOnly;
+    QComboBox *m_sort;
+    bool m_refreshing = false;
 
     QList<StationInfo> m_stations;
     double m_lon = 116.3100;

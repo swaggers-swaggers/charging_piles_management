@@ -5,6 +5,10 @@
 #include "ServerSession.h"
 
 #include <QFile>
+#include <QLabel>
+#include <QGuiApplication>
+#include <QScreen>
+#include "IconFactory.h"
 #include <QMessageBox>
 #include <QSettings>
 
@@ -13,7 +17,19 @@ AdminLoginDialog::AdminLoginDialog(QWidget *parent)
     , ui(new Ui::AdminLoginDialog)
 {
     ui->setupUi(this);
-    setFixedSize(420, 470);
+    setMinimumSize(400, 480);
+    const QSize screen = QGuiApplication::primaryScreen()->availableGeometry().size();
+    resize(qMin(480, screen.width() - 40), qMin(620, screen.height() - 60));
+    ui->card->setAttribute(Qt::WA_StyledBackground, true);
+    ui->titleLabel->setWordWrap(true);
+    ui->subtitleLabel->setWordWrap(true);
+    ui->hintLabel->setWordWrap(true);
+    ui->loginBtn->setDefault(true);
+    ui->exitBtn->setAutoDefault(false);
+    auto *mark = new QLabel(this);
+    mark->setObjectName("loginMark");
+    mark->setPixmap(IconFactory::icon(IconFactory::IconBolt, QColor("#237653")).pixmap(32, 32));
+    ui->rootLayout->insertWidget(0, mark, 0, Qt::AlignHCenter);
 
     loadStyleSheet();
 
@@ -23,6 +39,8 @@ AdminLoginDialog::AdminLoginDialog(QWidget *parent)
     ui->nameEdit->setText(lastName);
     ui->rememberChk->setChecked(!lastName.isEmpty());
 
+    ui->nameEdit->setAccessibleName("管理员账号");
+    ui->pwdEdit->setAccessibleName("管理员密码");
     initConnections();
 }
 

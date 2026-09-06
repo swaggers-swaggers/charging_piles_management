@@ -139,6 +139,18 @@ NavigationPage::NavigationPage(QWidget *parent)
     onStartChanged(0);
 }
 
+void NavigationPage::setDestination(int stationId, double lon, double lat)
+{
+    m_requestedStationId = stationId;
+    m_lon = lon;
+    m_lat = lat;
+    m_startCombo->blockSignals(true);
+    // 自定义首页地标不必回退成城区中心。
+    m_startCombo->addItem("首页所选位置", QVariantList{lon, lat});
+    m_startCombo->setCurrentIndex(m_startCombo->count() - 1);
+    m_startCombo->blockSignals(false);
+}
+
 void NavigationPage::showEvent(QShowEvent *event)
 {
     QWidget::showEvent(event);
@@ -148,8 +160,7 @@ void NavigationPage::showEvent(QShowEvent *event)
 
 void NavigationPage::onStartChanged(int index)
 {
-    if (index < 0 || index >= int(sizeof(kDemoLocations) / sizeof(kDemoLocations[0])))
-        return;
+    if (index < 0) return;
 
     if (m_routeReply) {
         disconnect(m_routeReply, nullptr, this, nullptr);
@@ -158,8 +169,15 @@ void NavigationPage::onStartChanged(int index)
         m_routeReply = nullptr;
         m_previewButton->setEnabled(true);
     }
-    m_lon = kDemoLocations[index].lon;
-    m_lat = kDemoLocations[index].lat;
+    if (index < int(sizeof(kDemoLocations) / sizeof(kDemoLocations[0]))) {
+        m_lon = kDemoLocations[index].lon;
+        m_lat = kDemoLocations[index].lat;
+    } else {
+        const auto coords = m_startCombo->itemData(index).toList();
+        if (coords.size() != 2) return;
+        m_lon = coords[0].toDouble();
+        m_lat = coords[1].toDouble();
+    }
     m_routePolyline.clear();
     if (isVisible())
         refresh();
@@ -179,7 +197,7 @@ void NavigationPage::refresh()
     for (const QJsonValue &v : arr)
         m_stations.append(StationInfo::fromJson(v.toObject()));
 
-    const int savedStationId = m_destCombo->currentData().toInt();
+    const int savedStationId = m_requestedStationId >= 0 ? m_requestedStationId : m_destCombo->currentData().toInt();
     m_destCombo->blockSignals(true);
     m_destCombo->clear();
     for (const StationInfo &s : m_stations)
@@ -188,6 +206,9 @@ void NavigationPage::refresh()
     const int idx = m_destCombo->findData(savedStationId);
     if (idx >= 0)
         m_destCombo->setCurrentIndex(idx);
+    else if (m_requestedStationId >= 0)
+        m_destCombo->setCurrentIndex(-1);
+    m_requestedStationId = -1;
 
     onPlanChanged();
 }

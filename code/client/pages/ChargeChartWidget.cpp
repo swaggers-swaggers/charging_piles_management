@@ -12,14 +12,15 @@ ChargeChartWidget::ChargeChartWidget(QWidget *parent)
     setMinimumHeight(140);
 }
 
-void ChargeChartWidget::addPoint(int minutes, double energy, double amount)
+void ChargeChartWidget::addPoint(int minutes, double energy, double amount, double power)
 {
     // 同一分钟只保留最新值(避免重复点)
     if (!m_data.isEmpty() && m_data.last().minutes == minutes) {
         m_data.last().energy = energy;
         m_data.last().amount = amount;
+        m_data.last().power = power;
     } else {
-        m_data.append({minutes, energy, amount});
+        m_data.append({minutes, energy, amount, power});
     }
     update();
 }
@@ -40,7 +41,14 @@ void ChargeChartWidget::setMode(int mode)
 
 void ChargeChartWidget::paintEvent(QPaintEvent *)
 {
+    QVector<Point> data;
+    for (const auto &point : m_data)
+        if (m_mode != 2 || point.power >= 0) data.append(point);
+    const auto value = [this](const Point &point) {
+        return m_mode == 0 ? point.energy : m_mode == 1 ? point.amount : point.power;
+    };
     QPainter p(this);
+    p.fillRect(rect(), QColor("#FFFFFF"));
     p.setRenderHint(QPainter::Antialiasing, true);
 
     const int w = width();
@@ -54,9 +62,10 @@ void ChargeChartWidget::paintEvent(QPaintEvent *)
     p.setFont(QFont(QString(), 10, QFont::Bold));
     p.drawText(padL, 4, cw, 16, Qt::AlignLeft | Qt::AlignVCenter,
                m_mode == 0 ? QStringLiteral("充电曲线 — 电量(度)")
-                           : QStringLiteral("充电曲线 — 金额(元)"));
+                           : m_mode == 1 ? QStringLiteral("充电曲线 — 金额(元)")
+                                         : QStringLiteral("模拟充电功率 — kW"));
 
-    if (m_data.size() < 2) {
+    if (data.size() < 2) {
         p.setPen(QColor("#BFBFBF"));
         p.setFont(QFont(QString(), 11));
         p.drawText(padL, padT, cw, ch, Qt::AlignCenter,
@@ -65,11 +74,11 @@ void ChargeChartWidget::paintEvent(QPaintEvent *)
     }
 
     // 计算范围
-    int maxMin = m_data.last().minutes;
+    int maxMin = data.last().minutes;
     if (maxMin < 10) maxMin = 10;
     double maxVal = 0;
-    for (const auto &pt : m_data)
-        maxVal = qMax(maxVal, m_mode == 0 ? pt.energy : pt.amount);
+    for (const auto &pt : data)
+        maxVal = qMax(maxVal, value(pt));
     if (maxVal < 1.0) maxVal = 1.0;
     // Y轴向上取整到合适刻度
     double yStep = 1.0;
@@ -104,21 +113,21 @@ void ChargeChartWidget::paintEvent(QPaintEvent *)
     }
 
     // 渐变填充区域
-    const QColor lineColor = m_mode == 0 ? QColor("#1677FF") : QColor("#FA8C16");
+    const QColor lineColor = m_mode == 1 ? QColor("#B77A25") : QColor("#237653");
     QLinearGradient grad(0, padT, 0, padT + ch);
     grad.setColorAt(0, QColor(lineColor.red(), lineColor.green(), lineColor.blue(), 40));
     grad.setColorAt(1, QColor(lineColor.red(), lineColor.green(), lineColor.blue(), 4));
 
     QPainterPath path;
-    path.moveTo(xOf(m_data.first().minutes), yOf(m_mode == 0 ? m_data.first().energy : m_data.first().amount));
-    for (int i = 1; i < m_data.size(); ++i) {
-        const auto &pt = m_data[i];
-        path.lineTo(xOf(pt.minutes), yOf(m_mode == 0 ? pt.energy : pt.amount));
+    path.moveTo(xOf(data.first().minutes), yOf(value(data.first())));
+    for (int i = 1; i < data.size(); ++i) {
+        const auto &pt = data[i];
+        path.lineTo(xOf(pt.minutes), yOf(value(pt)));
     }
     // 闭合填充
     QPainterPath fillPath = path;
-    fillPath.lineTo(xOf(m_data.last().minutes), padT + ch);
-    fillPath.lineTo(xOf(m_data.first().minutes), padT + ch);
+    fillPath.lineTo(xOf(data.last().minutes), padT + ch);
+    fillPath.lineTo(xOf(data.first().minutes), padT + ch);
     fillPath.closeSubpath();
     p.fillPath(fillPath, grad);
 
@@ -130,16 +139,16 @@ void ChargeChartWidget::paintEvent(QPaintEvent *)
     // 数据点
     p.setBrush(lineColor);
     p.setPen(Qt::NoPen);
-    for (const auto &pt : m_data) {
+    for (const auto &pt : data) {
         p.drawEllipse(QPointF(xOf(pt.minutes),
-                               yOf(m_mode == 0 ? pt.energy : pt.amount)), 3, 3);
+                               yOf(value(pt))), 3, 3);
     }
 
     // 最新值标签
-    const auto &last = m_data.last();
-    const double lastVal = m_mode == 0 ? last.energy : last.amount;
+    const auto &last = data.last();
+    const double lastVal = value(last);
     const QString tag = QString("%1 %2").arg(lastVal, 0, 'f', 2)
-                            .arg(m_mode == 0 ? QStringLiteral("度") : QStringLiteral("元"));
+                            .arg(m_mode == 0 ? QStringLiteral("度") : m_mode == 1 ? QStringLiteral("元") : QStringLiteral("kW"));
     const QFontMetrics fm(p.font());
     const int tw = fm.horizontalAdvance(tag) + 12;
     const int lx = qMin(padL + cw - tw, (int)(xOf(last.minutes) - tw / 2.0));

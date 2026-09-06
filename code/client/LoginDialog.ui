@@ -45,7 +45,7 @@
    <item>
     <widget class="QLabel" name="subtitleLabel">
      <property name="text">
-      <string>电 动 汽 车 充 电 服 务</string>
+      <string>发现好站，让每一程满电出发</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
@@ -89,7 +89,7 @@
       <item>
        <widget class="QLabel" name="cardTitle">
         <property name="text">
-         <string>手机号登录</string>
+         <string>欢迎回来</string>
         </property>
        </widget>
       </item>

@@ -49,6 +49,8 @@ UserManagePage::UserManagePage(QWidget *parent)
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
     m_table->verticalHeader()->setVisible(false);
     m_table->setColumnCount(6);
+    m_table->horizontalHeader()->setStretchLastSection(true);
+    m_table->horizontalHeader()->setMinimumSectionSize(80);
     m_table->setHorizontalHeaderLabels(
         { "用户ID", "手机号", "昵称", "钱包余额(元)", "注册时间", "状态" });
 

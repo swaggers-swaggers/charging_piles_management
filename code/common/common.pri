@@ -6,3 +6,5 @@ HEADERS += \
     $$PWD/types.h \
     $$PWD/GeoUtil.h \
     $$PWD/IconFactory.h
+
+HEADERS += $$PWD/AppTheme.h $$PWD/ChargingPowerModel.h

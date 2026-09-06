@@ -2,6 +2,8 @@
     <qresource prefix="/">
         <file>qss/global.qss</file>
         <file>qss/login.qss</file>
+        <file>qss/client.qss</file>
+        <file>icons/lucide/plug-zap.svg</file>
         <file>map/map.html</file>
     </qresource>
 </RCC>

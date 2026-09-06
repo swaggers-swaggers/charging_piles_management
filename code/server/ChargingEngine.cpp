@@ -1,4 +1,5 @@
 #include "ChargingEngine.h"
+#include "ChargingPowerModel.h"
 
 #include "DatabaseManager.h"
 #include "network/ClientHandler.h"
@@ -449,7 +450,9 @@ void ChargingEngine::sweepActiveOrders()
         }
 
         int newMin = ctx.simMinutes + ChargeConfig::kMinutesPerTick;
-        double newEnergy = ctx.energy + ctx.power * ChargeConfig::kMinutesPerTick / 60.0;
+        const double power = ChargingPowerModel::averageKw(ctx.power, o.id,
+            ctx.simMinutes + ChargeConfig::kMinutesPerTick / 2.0, ctx.energy);
+        double newEnergy = ctx.energy + power * ChargeConfig::kMinutesPerTick / 60.0;
         double newAmount = newEnergy * ctx.priceSnapshot;
 
         int finish = -1;
@@ -508,7 +511,7 @@ void ChargingEngine::sweepActiveOrders()
         push.insert("energy", newEnergy);
         push.insert("amount", newAmount);
         push.insert("minutes", newMin);
-        push.insert("power", ctx.power);
+        push.insert("power", power);
         push.insert("targetType", ctx.targetType);
         push.insert("targetValue", ctx.targetValue);
         push.insert("targetProgress", qBound(0.0, progress, 1.0));

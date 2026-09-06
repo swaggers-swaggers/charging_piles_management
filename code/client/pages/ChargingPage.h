@@ -42,6 +42,7 @@ class ChargingPage : public QWidget
 
 public:
     explicit ChargingPage(QWidget *parent = nullptr);
+    void selectStation(int stationId);
 
 protected:
     void showEvent(QShowEvent *event) override;
@@ -96,6 +97,7 @@ private:
     QLabel *m_waitDesc;
     QPushButton *m_cancelWaitBtn;
 
+    int m_requestedStationId = -1;
     QList<StationInfo> m_stations;
     QList<PileInfo> m_piles;
     OrderInfo m_currentOrder;

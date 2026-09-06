@@ -26,6 +26,7 @@ class NavigationPage : public QWidget
 
 public:
     explicit NavigationPage(QWidget *parent = nullptr);
+    void setDestination(int stationId, double lon, double lat);
 
 protected:
     void showEvent(QShowEvent *event) override;
@@ -53,6 +54,7 @@ private:
     QList<StationInfo> m_stations;
     double m_lon = 116.3100;
     double m_lat = 39.9600;
+    int m_requestedStationId = -1;
     int m_destIndex = -1;
     QList<QPair<double, double>> m_routePolyline;   // WGS-84，(纬度, 经度)
 };

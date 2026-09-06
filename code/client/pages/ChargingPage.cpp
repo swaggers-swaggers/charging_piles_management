@@ -86,12 +86,12 @@ void ChargeRingWidget::paintEvent(QPaintEvent *)
     p.drawArc(ringRect, 0, 360 * 16);
 
     if (m_progress >= 0) {
-        QPen fg(QColor("#2E7BE6"), 14, Qt::SolidLine, Qt::RoundCap);
+        QPen fg(QColor("#237653"), 14, Qt::SolidLine, Qt::RoundCap);
         p.setPen(fg);
         const int span = int(qBound(0.0, m_progress, 1.0) * 360 * 16);
         p.drawArc(ringRect, 90 * 16, -span);
     } else {
-        QPen fg(QColor("#37C6FF"), 14, Qt::SolidLine, Qt::RoundCap);
+        QPen fg(QColor("#66CDA4"), 14, Qt::SolidLine, Qt::RoundCap);
         p.setPen(fg);
         p.drawArc(ringRect, 90 * 16, -60 * 16);
     }
@@ -325,8 +325,8 @@ private:
             } else {
                 btn->setStyleSheet(
                     "QPushButton{background:#EAF7F0;color:#1F9D67;border:1px solid #BFE6D2;"
-                    "border-radius:6px;} QPushButton:checked{background:#2E7BE6;color:white;"
-                    "border:1px solid #2E7BE6;font-weight:bold;}");
+                    "border-radius:6px;} QPushButton:checked{background:#237653;color:white;"
+                    "border:1px solid #237653;font-weight:bold;}");
                 connect(btn, &QPushButton::clicked, this, [this, i] {
                     m_selectedIndex = i;
                     paintSelection();
@@ -347,7 +347,7 @@ private:
             if (!b->isEnabled())
                 continue;
             if (i == m_selectedIndex)
-                b->setStyleSheet("QPushButton{background:#2E7BE6;color:white;border:1px solid #2E7BE6;"
+                b->setStyleSheet("QPushButton{background:#237653;color:white;border:1px solid #237653;"
                                  "border-radius:6px;font-weight:bold;}");
             else if (i > m_selectedIndex && i < m_selectedIndex + spanCount)
                 b->setStyleSheet("QPushButton{background:#BCD7FA;color:#1B5BB8;border:1px solid #8FBCF2;"
@@ -395,10 +395,10 @@ ChargingPage::ChargingPage(QWidget *parent)
         "QLabel#badgeFault{background:#FBEAEB;color:#C5525A;border-radius:8px;padding:2px 8px;}"
         "QLabel#miniValue{font-size:20px;font-weight:bold;color:#1F2A3C;}"
         "QLabel#miniCap{color:#6B7280;font-size:12px;}"
-        "QPushButton#primaryBtn{background:#2E7BE6;color:white;border:none;border-radius:8px;"
+        "QPushButton#primaryBtn{background:#237653;color:white;border:none;border-radius:8px;"
         "padding:7px 14px;font-weight:bold;} QPushButton#primaryBtn:hover{background:#1B5BB8;}"
-        "QPushButton#ghostBtn{background:white;color:#2E7BE6;border:1px solid #2E7BE6;border-radius:8px;"
-        "padding:6px 12px;} QPushButton#ghostBtn:hover{background:#EEF5FF;}"
+        "QPushButton#ghostBtn{background:white;color:#237653;border:1px solid #237653;border-radius:8px;"
+        "padding:6px 12px;} QPushButton#ghostBtn:hover{background:#EEF8F0;}"
         "QPushButton#warnBtn{background:#EFA93C;color:white;border:none;border-radius:8px;padding:7px 14px;}"
         "QPushButton#settleBtn{background:#C5525A;color:white;border:none;border-radius:10px;"
         "padding:12px;font-size:15px;font-weight:bold;} QPushButton#settleBtn:hover{background:#A93E46;}");
@@ -426,7 +426,7 @@ void ChargingPage::buildSelectView()
     lay->setContentsMargins(24, 20, 24, 24);
     lay->setSpacing(14);
 
-    QLabel *title = new QLabel(QStringLiteral("电动汽车充电"), m_selectView);
+    QLabel *title = new QLabel(QStringLiteral("选择电桩，开启充电"), m_selectView);
     title->setObjectName("pageTitle");
     QLabel *hint = new QLabel(
         QStringLiteral("选择充电站与电桩: 空闲桩可立即充电或预约, 在用桩可排队等待"), m_selectView);
@@ -436,12 +436,12 @@ void ChargingPage::buildSelectView()
     stationRow->addWidget(new QLabel(QStringLiteral("充电站:"), m_selectView));
     m_stationCombo = new QComboBox(m_selectView);
     m_stationCombo->setObjectName("stationCombo");
-    m_stationCombo->setMinimumWidth(300);
+    m_stationCombo->setMinimumWidth(180);
+    m_stationCombo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     QPushButton *refreshBtn = new QPushButton(QStringLiteral("刷新"), m_selectView);
     refreshBtn->setObjectName("searchButton");
-    stationRow->addWidget(m_stationCombo);
+    stationRow->addWidget(m_stationCombo, 1);
     stationRow->addWidget(refreshBtn);
-    stationRow->addStretch();
     m_stationInfo = new QLabel(m_selectView);
     m_stationInfo->setStyleSheet("color:#6B7280;");
     stationRow->addWidget(m_stationInfo);
@@ -450,6 +450,7 @@ void ChargingPage::buildSelectView()
     m_cardScroll->setWidgetResizable(true);
     m_cardScroll->setFrameShape(QFrame::NoFrame);
     m_cardHost = new QWidget(m_cardScroll);
+    m_cardHost->setObjectName("chargingCardHost");
     m_cardGrid = new QGridLayout(m_cardHost);
     m_cardGrid->setContentsMargins(2, 2, 2, 2);
     m_cardGrid->setSpacing(12);
@@ -510,12 +511,12 @@ void ChargingPage::buildChargingView()
     // 实时充电曲线
     auto *chartRow = new QHBoxLayout();
     chartRow->setSpacing(8);
-    auto *chartTitle = new QLabel(QStringLiteral("实时充电曲线"), m_chargingView);
+    auto *chartTitle = new QLabel(QStringLiteral("充电曲线 · 演示模拟"), m_chargingView);
     chartTitle->setStyleSheet("font-size:13px;font-weight:bold;color:#1A1B1C;");
-    m_chartModeBtn = new QPushButton(QStringLiteral("切换:金额"), m_chargingView);
-    m_chartModeBtn->setStyleSheet("QPushButton{background:#F0F7FF;border:1px solid #91CAFF;"
-                                   "border-radius:6px;padding:4px 12px;color:#1677FF;font-size:11px;}"
-                                   "QPushButton:hover{background:#E6F4FF;}");
+    m_chartModeBtn = new QPushButton(QStringLiteral("切换:电量"), m_chargingView);
+    m_chartModeBtn->setStyleSheet("QPushButton{background:#EDF7F0;border:1px solid #91BFA0;"
+                                   "border-radius:6px;padding:4px 12px;color:#237653;font-size:11px;}"
+                                   "QPushButton:hover{background:#E2F2E7;}");
     m_chartModeBtn->setCursor(Qt::PointingHandCursor);
     chartRow->addWidget(chartTitle);
     chartRow->addStretch();
@@ -541,13 +542,10 @@ void ChargingPage::buildChargingView()
 
     connect(stopBtn, &QPushButton::clicked, this, &ChargingPage::onStopCharge);
     connect(m_chartModeBtn, &QPushButton::clicked, this, [this]() {
-        if (m_chart->mode() == 0) {
-            m_chart->setMode(1);
-            m_chartModeBtn->setText(QStringLiteral("切换:电量"));
-        } else {
-            m_chart->setMode(0);
-            m_chartModeBtn->setText(QStringLiteral("切换:金额"));
-        }
+        const int next = (m_chart->mode() + 1) % 3;
+        m_chart->setMode(next);
+        const QStringList labels{"切换:金额", "切换:功率", "切换:电量"};
+        m_chartModeBtn->setText(labels[next]);
     });
 }
 
@@ -565,7 +563,7 @@ void ChargingPage::buildWaitingView()
 
     QLabel *icon = new QLabel(m_waitingView);
     icon->setAlignment(Qt::AlignCenter);
-    icon->setPixmap(IconFactory::icon(IconFactory::IconBattery, QColor("#2E7BE6")).pixmap(56, 56));
+    icon->setPixmap(IconFactory::icon(IconFactory::IconBattery, QColor("#237653")).pixmap(56, 56));
     m_waitTitle = new QLabel(m_waitingView);
     m_waitTitle->setAlignment(Qt::AlignCenter);
     QFont tf = m_waitTitle->font();
@@ -592,8 +590,16 @@ void ChargingPage::buildWaitingView()
     connect(m_cancelWaitBtn, &QPushButton::clicked, this, &ChargingPage::onCancelWaiting);
 }
 
+void ChargingPage::selectStation(int stationId)
+{
+    m_requestedStationId = stationId;
+    if (isVisible() && !m_hasOrder && m_waitingId < 0)
+        refreshStations();
+}
+
 void ChargingPage::refreshStations()
 {
+    const int selectedId = m_requestedStationId >= 0 ? m_requestedStationId : m_stationCombo->currentData().toInt();
     const QJsonObject reply = TcpClient::instance().request(
         Protocol::ReqStationList, QJsonObject{{"lon", 123.45}, {"lat", 41.70}});
     if (!reply.value("ok").toBool()) {
@@ -610,6 +616,13 @@ void ChargingPage::refreshStations()
     for (const StationInfo &s : m_stations)
         m_stationCombo->addItem(QString("%1 (空闲 %2/%3)")
                                     .arg(s.name).arg(s.idlePiles).arg(s.totalPiles), s.id);
+    const int index = m_stationCombo->findData(selectedId);
+    if (index >= 0) m_stationCombo->setCurrentIndex(index);
+    else if (m_requestedStationId >= 0) {
+        m_stationCombo->setCurrentIndex(-1);
+        QMessageBox::information(this, "站点已更新", "所选站点已不可用，请返回首页刷新或选择其他站点。");
+    }
+    m_requestedStationId = -1;
     m_stationCombo->blockSignals(false);
     onStationPicked();
 }
@@ -632,6 +645,8 @@ void ChargingPage::onStationPicked()
         for (const QJsonValue &v : piles)
             m_piles.append(PileInfo::fromJson(v.toObject()));
     }
+    if (!reply.value("ok").toBool())
+        m_stationInfo->setText("电桩加载失败，请点击刷新重试");
     rebuildPileCards();
 }
 
@@ -643,7 +658,12 @@ void ChargingPage::rebuildPileCards()
         delete it;
     }
 
-    const int columns = 3;
+    if (m_piles.isEmpty()) {
+        auto *empty = new QLabel("暂无可选电桩，请刷新或选择其他站点", m_cardHost);
+        empty->setObjectName("emptyState");
+        m_cardGrid->addWidget(empty, 0, 0);
+    }
+    const int columns = qBound(1, (m_cardScroll->viewport()->width() - 12) / 232, 3);
     for (int i = 0; i < m_piles.size(); ++i) {
         const PileInfo p = m_piles[i];
         QFrame *card = new QFrame(m_cardHost);
@@ -908,6 +928,7 @@ void ChargingPage::showEvent(QShowEvent *event)
         QJsonObject{{"userId", ClientSession::instance().userId}});
     if (reply.value("ok").toBool() && reply.value("hasOrder").toBool()) {
         m_currentOrder = OrderInfo::fromJson(reply.value("order").toObject());
+        m_requestedStationId = -1;
         enterChargingView(m_currentOrder);
         return;
     }
@@ -922,6 +943,7 @@ void ChargingPage::showEvent(QShowEvent *event)
         for (const QJsonValue &v : arr) {
             const ReservationInfo r = ReservationInfo::fromJson(v.toObject());
             if (r.status == ReservationActive || r.status == ReservationAssigned) {
+                m_requestedStationId = -1;
                 enterWaitingView(r);
                 waiting = true;
                 break;
@@ -953,7 +975,8 @@ void ChargingPage::onPushReceived(const QJsonObject &msg)
             m_ring->setProgress(msg.value("targetProgress").toDouble());
         }
         if (m_chart)
-            m_chart->addPoint(m_currentOrder.simMinutes, m_currentOrder.energy, m_currentOrder.amount);
+            m_chart->addPoint(m_currentOrder.simMinutes, m_currentOrder.energy, m_currentOrder.amount,
+                              msg.value("power").toDouble(-1));
         return;
     }
 

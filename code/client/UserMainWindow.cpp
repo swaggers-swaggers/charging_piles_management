@@ -12,6 +12,9 @@
 #include "protocol.h"
 #include "IconFactory.h"
 
+#include <QFile>
+#include <QDialog>
+#include <QTimer>
 #include <QGuiApplication>
 #include <QColor>
 #include <QHBoxLayout>
@@ -20,6 +23,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QScreen>
+#include <QScrollArea>
 #include <QSize>
 #include <QStackedWidget>
 #include <QStatusBar>
@@ -33,8 +37,8 @@ UserMainWindow::UserMainWindow(QWidget *parent)
     setWindowTitle("东软电动汽车充电桩应用管理平台 - 用户端");
     // 尺寸自适应屏幕, 避免在分辨率较小的虚拟机窗口上超出屏幕看不到
     const QSize screen = QGuiApplication::primaryScreen()->availableGeometry().size();
-    resize(qMin(1000, qMax(640, screen.width() - 80)),
-           qMin(680, qMax(480, screen.height() - 120)));
+    resize(qMin(1200, qMax(640, screen.width() - 80)),
+           qMin(820, qMax(480, screen.height() - 120)));
 
     initUi();
 
@@ -57,7 +61,7 @@ void UserMainWindow::initUi()
     // ---------- 左侧导航 ----------
     QWidget *sidebar = new QWidget(central);
     sidebar->setObjectName("sidebar");
-    sidebar->setFixedWidth(200);
+    sidebar->setFixedWidth(176);
     QVBoxLayout *sideLayout = new QVBoxLayout(sidebar);
     sideLayout->setContentsMargins(0, 20, 0, 12);
     sideLayout->setSpacing(10);
@@ -80,12 +84,11 @@ void UserMainWindow::initUi()
     m_navList = new QListWidget(sidebar);
     m_navList->setObjectName("navList");
     const QStringList navNames = {
-        "附近充电站", "一键导航", "用户信息", "电动汽车充电", "我的订单", "消息中心",
+        "附近充电站", "充电进度", "我的订单", "消息中心", "我的账户",
     };
     const QVector<IconFactory::IconType> navIcons = {
-        IconFactory::IconLocation, IconFactory::IconCompass,
-        IconFactory::IconUser, IconFactory::IconBolt, IconFactory::IconChartLine,
-        IconFactory::IconChartLine,
+        IconFactory::IconLocation, IconFactory::IconBolt,
+        IconFactory::IconChartLine, IconFactory::IconBattery, IconFactory::IconUser,
     };
     for (int i = 0; i < navNames.size(); ++i) {
         auto *item = new QListWidgetItem(navNames[i]);
@@ -105,6 +108,9 @@ void UserMainWindow::initUi()
     sideLayout->addWidget(logoBox);
     sideLayout->addSpacing(12);
     sideLayout->addWidget(m_navList, 1);
+    auto *sideNote = new QLabel("绿色出行\n让每一程更轻松", sidebar);
+    sideNote->setObjectName("sideNote");
+    sideLayout->addWidget(sideNote);
     sideLayout->addWidget(logoutBtn);
 
     // ---------- 右侧: 页头 + 页面栈 ----------
@@ -134,17 +140,50 @@ void UserMainWindow::initUi()
 
     m_stack = new QStackedWidget(rightArea);
     m_stack->setObjectName("contentStack");
-    m_stack->addWidget(new NearbyStationsPage());
-    m_stack->addWidget(new NavigationPage());
-    m_stack->addWidget(new UserInfoPage());
-    m_stack->addWidget(new ChargingPage());
-    m_stack->addWidget(new OrderHistoryPage());
-    m_stack->addWidget(new MessagePage());
+    m_stack->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Ignored);
+    auto *nearby = new NearbyStationsPage();
+    auto *charging = new ChargingPage();
+    m_stack->addWidget(nearby);
+    auto addScrollablePage = [this](QWidget *page) {
+        auto *scroll = new QScrollArea(m_stack);
+        scroll->setWidgetResizable(true);
+        scroll->setFrameShape(QFrame::NoFrame);
+        scroll->setWidget(page);
+        m_stack->addWidget(scroll);
+    };
+    addScrollablePage(charging);
+    addScrollablePage(new OrderHistoryPage());
+    addScrollablePage(new MessagePage());
+    addScrollablePage(new UserInfoPage());
+    connect(nearby, &NearbyStationsPage::chargeRequested, this, [this, charging](int id) {
+        charging->selectStation(id);
+        m_navList->setCurrentRow(1);
+    });
+    connect(nearby, &NearbyStationsPage::navigationRequested, this, [this](int id, double lon, double lat) {
+        QDialog dialog(this);
+        dialog.setWindowTitle("站点导航");
+        dialog.resize(qMin(1000, width()), qMin(720, height()));
+        auto *layout = new QVBoxLayout(&dialog);
+        auto *back = new QPushButton("返回充电站", &dialog);
+        layout->addWidget(back, 0, Qt::AlignLeft);
+        auto *navigation = new NavigationPage(&dialog);
+        navigation->setDestination(id, lon, lat);
+        layout->addWidget(navigation, 1);
+        connect(back, &QPushButton::clicked, &dialog, &QDialog::accept);
+        dialog.exec();
+    });
+    auto *balanceTimer = new QTimer(this);
+    connect(balanceTimer, &QTimer::timeout, this, [this] {
+        m_headerUser->setText(QString("%1  |  余额: %2 元")
+            .arg(ClientSession::instance().nickname)
+            .arg(ClientSession::instance().balance, 0, 'f', 2));
+    });
+    balanceTimer->start(1000);
 
     // 消息中心未读角标: 导航项文本后追加未读数
     auto updateMsgBadge = [this](int unread) {
-        if (m_navList->count() <= 5) return;
-        auto *item = m_navList->item(5);
+        if (m_navList->count() <= 3) return;
+        auto *item = m_navList->item(3);
         if (!item) return;
         item->setText(unread > 0 ? QString("消息中心 (%1)").arg(unread)
                                   : QString("消息中心"));

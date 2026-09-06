@@ -119,13 +119,13 @@ protected:
             else
                 path.lineTo(x, y);
         }
-        QPen linePen(QColor("#A9864F"));
+        QPen linePen(QColor("#237653"));
         linePen.setWidth(2);
         p.setPen(linePen);
         p.setBrush(Qt::NoBrush);
         p.drawPath(path);
 
-        p.setBrush(QColor("#A9864F"));
+        p.setBrush(QColor("#237653"));
         for (int i = 0; i < n; ++i) {
             const double x = plot.left() + plot.width() * i / step;
             const double y = plot.bottom() - plot.height() * (m_data[i].second - minV) / range;
@@ -196,7 +196,7 @@ protected:
             const double h = plot.height() * (m_data[i].second / maxV);
             const double x = plot.left() + plot.width() * (i + 0.5) / n - barW / 2;
             const QRectF bar(x, plot.bottom() - h, barW, h);
-            p.setBrush(QColor("#C9A86A"));
+            p.setBrush(QColor("#64A986"));
             p.drawRoundedRect(bar, 2, 2);
         }
     }
@@ -289,7 +289,7 @@ void SalesPage::refresh()
     chart->setTitle(QString("营收趋势 (近%1日, 单位: 元)").arg(days));
     chart->legend()->hide();
 
-    QPen pen(QColor("#A9864F"));
+    QPen pen(QColor("#237653"));
     pen.setWidth(2);
     series->setPen(pen);
     chart->addSeries(series);

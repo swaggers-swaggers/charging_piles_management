@@ -59,6 +59,8 @@ StationManagePage::StationManagePage(QWidget *parent)
     m_stationTable->setAlternatingRowColors(true);
     m_stationTable->verticalHeader()->setVisible(false);
     m_stationTable->setColumnCount(8);
+    m_stationTable->horizontalHeader()->setStretchLastSection(true);
+    m_stationTable->horizontalHeader()->setMinimumSectionSize(80);
     m_stationTable->setHorizontalHeaderLabels(
         { "ID", "站名", "详细地址", "经度", "纬度", "电价(元/度)", "总电桩数", "在线率" });
 
@@ -77,6 +79,8 @@ StationManagePage::StationManagePage(QWidget *parent)
     m_pileTable->setAlternatingRowColors(true);
     m_pileTable->verticalHeader()->setVisible(false);
     m_pileTable->setColumnCount(6);
+    m_pileTable->horizontalHeader()->setStretchLastSection(true);
+    m_pileTable->horizontalHeader()->setMinimumSectionSize(80);
     m_pileTable->setHorizontalHeaderLabels(
         { "电桩编号", "类型", "功率(kW)", "状态", "累计次数", "累计时长(小时)" });
     detailLayout->addWidget(m_detailTitle);

@@ -1,77 +1,77 @@
-/* 登录对话框主题：企业稳重风，深藏青背景 + 暖金强调 + 白色卡片 */
+/* 登录对话框主题：统一浅绿背景、深绿品牌色与白色登录卡片 */
 
 #loginDialog {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                stop:0 #1B2A42, stop:0.55 #142139, stop:1 #0E1930);
+                stop:0 #F3F7F6, stop:0.55 #EDF6F0, stop:1 #E2F1E7);
 }
 
 #titleLabel {
-    color: #F4D99B;
-    font-size: 25px;
+    color: #174F3B;
+    font-size: 28px;
     font-weight: bold;
     background: transparent;
     letter-spacing: 2px;
 }
 
 #subtitleLabel {
-    color: rgba(244, 217, 155, 210);
+    color: #5C7C6B;
     font-size: 14px;
     background: transparent;
-    letter-spacing: 5px;
+    letter-spacing: 1px;
 }
 
 #hintLabel {
-    color: rgba(216, 224, 238, 170);
+    color: #708478;
     font-size: 12px;
     background: transparent;
 }
 
 #exitBtn {
-    color: rgba(226, 233, 244, 200);
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: #557361;
+    background: #FFFFFF;
+    border: 1px solid #D3E4D8;
     border-radius: 7px;
     font-size: 12px;
     padding: 6px 16px;
 }
 #exitBtn:hover {
-    color: #F4D99B;
-    background: rgba(244, 217, 155, 0.14);
-    border-color: #C5A66F;
+    color: #174F3B;
+    background: #E3F3E8;
+    border-color: #83B496;
 }
 
 #card {
     background: #FFFFFF;
     border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    border: 1px solid #DAE8DF;
 }
 
 #cardTitle {
-    color: #243247;
+    color: #243E33;
     font-size: 16px;
     font-weight: bold;
     background: transparent;
 }
 
 QLineEdit {
-    background: #F8F9FB;
-    border: 1px solid #D6DDE7;
+    background: #F6FAF7;
+    border: 1px solid #D3E1D8;
     border-radius: 8px;
     padding: 11px 14px;
     font-size: 14px;
-    color: #243247;
-    selection-background-color: #A9864F;
+    color: #243E33;
+    selection-background-color: #237653;
     selection-color: #FFFFFF;
 }
 QLineEdit:focus {
-    border: 2px solid #B9975B;
+    border: 2px solid #6DA385;
     background: #FFFFFF;
     padding: 10px 13px;
 }
 QLineEdit::placeholder { color: #A0AABA; }
 
 QPushButton#userLoginBtn, QPushButton#adminLoginBtn {
-    background: #A9864F;
+    background: #237653;
     color: #FFFFFF;
     border: none;
     border-radius: 8px;
@@ -80,24 +80,24 @@ QPushButton#userLoginBtn, QPushButton#adminLoginBtn {
     font-weight: bold;
     letter-spacing: 3px;
 }
-QPushButton#userLoginBtn:hover, QPushButton#adminLoginBtn:hover { background: #B9955B; }
-QPushButton#userLoginBtn:pressed, QPushButton#adminLoginBtn:pressed { background: #967443; }
+QPushButton#userLoginBtn:hover, QPushButton#adminLoginBtn:hover { background: #2D8660; }
+QPushButton#userLoginBtn:pressed, QPushButton#adminLoginBtn:pressed { background: #195E42; }
 
 #tipLabel {
-    color: #8B96A6;
+    color: #6B8173;
     font-size: 12px;
     background: transparent;
 }
 
 #fieldLabel {
-    color: #526176;
+    color: #456451;
     font-size: 13px;
     font-weight: bold;
     background: transparent;
 }
 
 QCheckBox {
-    color: #657286;
+    color: #587362;
     font-size: 13px;
     background: transparent;
     spacing: 8px;
@@ -105,11 +105,14 @@ QCheckBox {
 QCheckBox::indicator {
     width: 16px;
     height: 16px;
-    border: 1px solid #C4CDD8;
+    border: 1px solid #C5D8CB;
     border-radius: 4px;
     background: #FFFFFF;
 }
 QCheckBox::indicator:checked {
-    background: #A9864F;
-    border-color: #967443;
+    background: #237653;
+    border-color: #195E42;
 }
+
+QLabel#loginMark { background: #DDF0E4; border: 1px solid #C8E2D1; border-radius: 14px; padding: 10px; }
+QPushButton#userLoginBtn:focus, QPushButton#adminLoginBtn:focus { border: 2px solid #85BB99; }

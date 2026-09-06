@@ -180,6 +180,8 @@ PileStatusPage::PileStatusPage(QWidget *parent)
     m_table->setAlternatingRowColors(true);
     m_table->verticalHeader()->setVisible(false);
     m_table->setColumnCount(4);
+    m_table->horizontalHeader()->setStretchLastSection(true);
+    m_table->horizontalHeader()->setMinimumSectionSize(80);
     m_table->setHorizontalHeaderLabels({ "状态", "数量(台)", "占比", "说明" });
 
     QHBoxLayout *chartsRow = new QHBoxLayout();

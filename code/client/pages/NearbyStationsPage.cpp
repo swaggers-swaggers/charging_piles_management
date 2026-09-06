@@ -4,6 +4,12 @@
 #include "protocol.h"
 #include "network/TcpClient.h"
 
+#include "IconFactory.h"
+#include <QScrollArea>
+#include <QCheckBox>
+#include <QFrame>
+#include <QDateTime>
+#include <algorithm>
 #include <QBrush>
 #include <QColor>
 #include <QComboBox>
@@ -68,55 +74,97 @@ NearbyStationsPage::NearbyStationsPage(QWidget *parent)
     layout->setContentsMargins(24, 20, 24, 24);
     layout->setSpacing(16);
 
-    QLabel *title = new QLabel("附近充电站", this);
-    title->setObjectName("pageTitle");
+    QFrame *hero = new QFrame(this);
+    hero->setObjectName("discoveryHero");
+    QHBoxLayout *heroRow = new QHBoxLayout(hero);
+    heroRow->setContentsMargins(24, 20, 24, 20);
+    QVBoxLayout *intro = new QVBoxLayout;
+    auto *eyebrow = new QLabel("NEUSOFT  /  CHARGE YOUR JOURNEY", hero);
+    eyebrow->setObjectName("heroEyebrow");
+    auto *title = new QLabel("下一程，满电出发", hero);
+    title->setObjectName("heroTitle");
+    auto *subtitle = new QLabel("发现身边好站 · 选桩即充 · 从容出发", hero);
+    subtitle->setObjectName("heroSubtitle");
+    intro->addWidget(eyebrow); intro->addWidget(title); intro->addWidget(subtitle);
+    heroRow->addLayout(intro, 1);
+    auto *art = new QLabel(hero);
+    art->setObjectName("heroArt");
+    const QIcon plug(":/icons/lucide/plug-zap.svg");
+    art->setPixmap(plug.isNull() ? IconFactory::icon(IconFactory::IconPile, QColor("#8BF0CE"), 90).pixmap(90, 90)
+                                  : plug.pixmap(90, 90));
+    heroRow->addWidget(art);
+    layout->addWidget(hero);
+
+    m_summary = new QLabel("正在发现附近充电站…", this);
+    m_summary->setObjectName("discoverySummary");
+    layout->addWidget(m_summary);
 
     QHBoxLayout *topRow = new QHBoxLayout();
-    QLabel *regionLabel = new QLabel("当前位置:", this);
     m_regionCombo = new QComboBox(this);
     m_regionCombo->setObjectName("regionCombo");
+    m_regionCombo->setAccessibleName("演示位置区域");
     for (const RegionCoord &r : kRegions)
         m_regionCombo->addItem(QString::fromUtf8(r.name));
-
-    QLabel *addrLabel = new QLabel("或输入地址:", this);
     m_addrEdit = new QLineEdit(this);
     m_addrEdit->setObjectName("addrEdit");
-    m_addrEdit->setPlaceholderText("演示地标：五道口 / 国贸 / 鸟巢 / 北京站");
+    m_addrEdit->setPlaceholderText("输入演示地标：五道口 / 国贸 / 鸟巢");
+    m_addrEdit->setAccessibleName("演示地标");
     m_addrEdit->setClearButtonEnabled(true);
     QPushButton *locateBtn = new QPushButton("定位", this);
-    locateBtn->setObjectName("primaryBtn");
-    QPushButton *refreshBtn = new QPushButton("查询", this);
-    refreshBtn->setObjectName("searchButton");
-
-    topRow->addWidget(regionLabel);
+    QPushButton *refreshBtn = new QPushButton("刷新站点", this);
+    refreshBtn->setObjectName("secondaryBtn");
+    topRow->addWidget(new QLabel("演示位置", this));
     topRow->addWidget(m_regionCombo);
-    topRow->addSpacing(8);
-    topRow->addWidget(addrLabel);
     topRow->addWidget(m_addrEdit, 1);
     topRow->addWidget(locateBtn);
     topRow->addWidget(refreshBtn);
-
-    m_table = new QTableWidget(this);
-    m_table->setObjectName("stationTable");
-    m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_table->setSelectionMode(QAbstractItemView::SingleSelection);
-    m_table->setAlternatingRowColors(true);
-    m_table->verticalHeader()->setVisible(false);
-    m_table->setColumnCount(6);
-    m_table->setHorizontalHeaderLabels(
-        { "站名", "地址", "电价(元/度)", "电桩总数", "空闲", "距离" });
-
-    layout->addWidget(title);
     layout->addLayout(topRow);
-    layout->addWidget(m_table, 1);
+
+    auto *filters = new QHBoxLayout;
+    m_search = new QLineEdit(this);
+    m_search->setPlaceholderText("搜索站名或地址");
+    m_search->setAccessibleName("搜索站名或地址");
+    m_search->setClearButtonEnabled(true);
+    m_idleOnly = new QCheckBox("仅看有空闲", this);
+    m_sort = new QComboBox(this);
+    m_sort->addItems({"距离优先", "空闲优先", "价格优先"});
+    m_sort->setAccessibleName("站点排序");
+    filters->addWidget(m_search, 1);
+    filters->addWidget(m_idleOnly);
+    filters->addWidget(m_sort);
+    layout->addLayout(filters);
+    m_count = new QLabel(this);
+    m_count->setObjectName("pageHint");
+    layout->addWidget(m_count);
+
+    auto *scroll = new QScrollArea(this);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setWidgetResizable(true);
+    auto *host = new QWidget(scroll);
+    host->setObjectName("stationCardHost");
+    m_cards = new QVBoxLayout(host);
+    m_cards->setContentsMargins(0, 0, 8, 0);
+    m_cards->setSpacing(12);
+    m_cards->setAlignment(Qt::AlignTop);
+    scroll->setWidget(host);
+    layout->addWidget(scroll, 1);
+    connect(m_search, &QLineEdit::textChanged, this, &NearbyStationsPage::renderStations);
+    connect(m_idleOnly, &QCheckBox::toggled, this, &NearbyStationsPage::renderStations);
+    connect(m_sort, qOverload<int>(&QComboBox::currentIndexChanged), this, &NearbyStationsPage::renderStations);
 
     connect(refreshBtn, &QPushButton::clicked, this, &NearbyStationsPage::refresh);
     connect(locateBtn, &QPushButton::clicked, this, &NearbyStationsPage::onLocate);
     connect(m_addrEdit, &QLineEdit::returnPressed, this, &NearbyStationsPage::onLocate);
     connect(m_regionCombo, qOverload<int>(&QComboBox::currentIndexChanged),
             this, &NearbyStationsPage::onRegionChanged);
-    connect(m_table, &QTableWidget::cellDoubleClicked, this, &NearbyStationsPage::showPileDetail);
+
+}
+
+void NearbyStationsPage::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    // 小屏优先留出站点与操作空间。
+    findChild<QFrame *>("discoveryHero")->setVisible(height() >= 560);
 }
 
 void NearbyStationsPage::showEvent(QShowEvent *event)
@@ -174,44 +222,102 @@ void NearbyStationsPage::onLocate()
 
 void NearbyStationsPage::refresh()
 {
+    if (m_refreshing) return;
+    m_refreshing = true;
+    m_summary->setText("正在更新站点状态…");
     const QJsonObject reply = TcpClient::instance().request(
         Protocol::ReqStationList, QJsonObject{{"lon", m_lon}, {"lat", m_lat}});
+    m_refreshing = false;
+    m_stations.clear();
     if (!reply.value("ok").toBool()) {
-        m_stations.clear();
-        m_table->setRowCount(0);
-        QMessageBox::warning(this, "查询失败", reply.value("error").toString());
+        renderStations();
+        m_summary->setText("站点加载失败 · 请检查连接后点击「刷新站点」重试");
+        m_summary->setToolTip(reply.value("error").toString());
         return;
     }
-
-    m_stations.clear();
-    const QJsonArray arr = reply.value("stations").toArray();
-    for (const QJsonValue &v : arr) {
+    int idle = 0;
+    for (const QJsonValue &v : reply.value("stations").toArray()) {
         const StationInfo station = StationInfo::fromJson(v.toObject());
-        if (station.totalPiles > 0)
-            m_stations.append(station);
+        m_stations.append(station);
+        idle += station.idlePiles;
     }
+    m_summary->setToolTip(QString());
+    m_summary->setText(QString("%1 座充电站    /    %2 个空闲桩    /    状态更新于 %3")
+        .arg(m_stations.size()).arg(idle).arg(QTime::currentTime().toString("HH:mm:ss")));
+    renderStations();
+}
 
-    m_table->setRowCount(m_stations.size());
-    for (int i = 0; i < m_stations.size(); ++i) {
-        const StationInfo &s = m_stations[i];
-        auto *nameItem = new QTableWidgetItem(s.name);
-        nameItem->setData(Qt::UserRole, s.id);
-        nameItem->setToolTip("双击查看站内电桩详情");
-        m_table->setItem(i, 0, nameItem);
-        m_table->setItem(i, 1, new QTableWidgetItem(s.address));
-        m_table->setItem(i, 2, new QTableWidgetItem(QString::number(s.price, 'f', 2)));
-        m_table->setItem(i, 3, new QTableWidgetItem(QString::number(s.totalPiles)));
-        auto *idleItem = new QTableWidgetItem(QString::number(s.idlePiles));
-        idleItem->setForeground(QBrush(s.idlePiles > 0 ? QColor("#1F9D67") : QColor("#C5525A")));
-        m_table->setItem(i, 4, idleItem);
-        m_table->setItem(i, 5, new QTableWidgetItem(QString::number(s.distance, 'f', 1) + " km"));
-
-        // 预计空闲率(负荷预测): 有数据时附在地址下方提示
-        if (s.predictIdle >= 0)
-            nameItem->setToolTip(QString("双击查看电桩详情\n预计1小时后空闲率: %1%")
-                                     .arg(qRound(s.predictIdle * 100)));
+void NearbyStationsPage::renderStations()
+{
+    while (auto *item = m_cards->takeAt(0)) {
+        if (item->widget()) { item->widget()->hide(); item->widget()->deleteLater(); }
+        delete item;
     }
-    m_table->resizeColumnsToContents();
+    QList<StationInfo> visible;
+    const QString query = m_search->text().trimmed();
+    for (const auto &s : m_stations) {
+        if (m_idleOnly->isChecked() && s.idlePiles <= 0) continue;
+        if (!s.name.contains(query, Qt::CaseInsensitive) && !s.address.contains(query, Qt::CaseInsensitive)) continue;
+        visible.append(s);
+    }
+    const int sort = m_sort->currentIndex();
+    std::stable_sort(visible.begin(), visible.end(), [sort](const StationInfo &a, const StationInfo &b) {
+        if (sort == 1 && a.idlePiles != b.idlePiles) return a.idlePiles > b.idlePiles;
+        if (sort == 2 && a.price != b.price) return a.price < b.price;
+        return (a.distance < 0 ? 1e10 : a.distance) < (b.distance < 0 ? 1e10 : b.distance);
+    });
+    m_count->setText(QString("附近充电站 · %1 个结果    查找站点 → 选择电桩 → 导航 / 充电").arg(visible.size()));
+    if (visible.isEmpty()) {
+        auto *empty = new QLabel("暂无符合条件的站点\n试试更换位置、清空搜索或关闭空闲筛选", this);
+        empty->setObjectName("emptyState");
+        empty->setAlignment(Qt::AlignCenter);
+        empty->setMinimumHeight(120);
+        m_cards->addWidget(empty);
+    }
+    for (const StationInfo &s : visible) {
+        auto *card = new QFrame(this);
+        card->setObjectName("stationCard");
+        auto *body = new QVBoxLayout(card);
+        body->setContentsMargins(18, 14, 18, 14);
+        body->setSpacing(10);
+        auto *top = new QHBoxLayout;
+        auto *name = new QLabel(s.name, card);
+        name->setTextFormat(Qt::PlainText);
+        name->setWordWrap(true);
+        name->setObjectName("stationName");
+        auto *badge = new QLabel(s.idlePiles > 0 ? QString("空闲 %1 / %2").arg(s.idlePiles).arg(s.totalPiles)
+                                                  : (s.totalPiles > 0 ? "暂无空闲" : "暂无电桩"), card);
+        badge->setObjectName(s.idlePiles > 0 ? "availableBadge" : "busyBadge");
+        top->addWidget(name, 1); top->addWidget(badge);
+        body->addLayout(top);
+        auto *address = new QLabel(s.address, card);
+        address->setTextFormat(Qt::PlainText);
+        address->setWordWrap(true);
+        address->setObjectName("pageHint");
+        body->addWidget(address);
+        auto *facts = new QHBoxLayout;
+        auto *price = new QLabel(QString("¥ %1 / 度").arg(s.price, 0, 'f', 2), card);
+        price->setObjectName("stationPrice");
+        facts->addWidget(price);
+        facts->addSpacing(16);
+        facts->addWidget(new QLabel(s.distance >= 0 ? QString("直线 %1 km").arg(s.distance, 0, 'f', 1) : "距离未知", card));
+        facts->addStretch();
+        body->addLayout(facts);
+        auto *actions = new QHBoxLayout;
+        auto *detail = new QPushButton("查看详情", card);
+        auto *navigate = new QPushButton("导航", card);
+        auto *charge = new QPushButton(s.idlePiles > 0 ? "立即充电" : "预约 / 排队", card);
+        charge->setObjectName("primaryBtn");
+        charge->setEnabled(s.totalPiles > 0);
+        charge->setToolTip("进入本站选择电桩；以最新电桩状态为准");
+        for (auto *btn : {detail, navigate, charge}) btn->setCursor(Qt::PointingHandCursor);
+        actions->addWidget(detail); actions->addWidget(navigate); actions->addStretch(); actions->addWidget(charge);
+        body->addLayout(actions);
+        connect(detail, &QPushButton::clicked, this, [this, id = s.id] { showPileDetail(id); });
+        connect(navigate, &QPushButton::clicked, this, [this, id = s.id] { emit navigationRequested(id, m_lon, m_lat); });
+        connect(charge, &QPushButton::clicked, this, [this, id = s.id] { emit chargeRequested(id); });
+        m_cards->addWidget(card);
+    }
 }
 
 void NearbyStationsPage::onRegionChanged(int index)
@@ -223,17 +329,13 @@ void NearbyStationsPage::onRegionChanged(int index)
     refresh();
 }
 
-void NearbyStationsPage::onStationSelected()
+void NearbyStationsPage::showPileDetail(int stationId)
 {
-    // 预留: 单击选中时的处理(详情通过双击打开)
-}
-
-void NearbyStationsPage::showPileDetail()
-{
-    const int row = m_table->currentRow();
-    if (row < 0 || row >= m_stations.size())
-        return;
-    const StationInfo &s = m_stations[row];
+    StationInfo s;
+    bool found = false;
+    for (const auto &station : m_stations)
+        if (station.id == stationId) { s = station; found = true; break; }
+    if (!found) return;
 
     const QJsonObject reply = TcpClient::instance().request(
         Protocol::ReqStationPiles, QJsonObject{{"stationId", s.id}});
@@ -245,7 +347,7 @@ void NearbyStationsPage::showPileDetail()
     QDialog dlg(this);
     dlg.setWindowTitle(QString("站内电桩详情 - %1").arg(s.name));
     dlg.setModal(true);
-    dlg.resize(560, 430);
+    dlg.resize(740, 480);
     QVBoxLayout *layout = new QVBoxLayout(&dlg);
     layout->setContentsMargins(24, 22, 24, 22);
     layout->setSpacing(14);
@@ -258,6 +360,8 @@ void NearbyStationsPage::showPileDetail()
             .arg(s.address).arg(s.price, 0, 'f', 2).arg(s.totalPiles).arg(s.idlePiles),
         &dlg);
     info->setObjectName("pageHint");
+    info->setWordWrap(true);
+    info->setTextFormat(Qt::PlainText);
     layout->addWidget(section);
     layout->addWidget(info);
 
@@ -268,6 +372,8 @@ void NearbyStationsPage::showPileDetail()
     table->setAlternatingRowColors(true);
     table->verticalHeader()->setVisible(false);
     table->setColumnCount(4);
+    table->horizontalHeader()->setStretchLastSection(true);
+    table->horizontalHeader()->setMinimumSectionSize(80);
     table->setHorizontalHeaderLabels({ "编号", "类型", "功率(kW)", "状态" });
     layout->addWidget(table, 1);
 
@@ -293,7 +399,19 @@ void NearbyStationsPage::showPileDetail()
 
     QPushButton *closeBtn = new QPushButton("关闭", &dlg);
     closeBtn->setObjectName("secondaryBtn");
-    layout->addWidget(closeBtn, 0, Qt::AlignRight);
+    auto *actions = new QHBoxLayout;
+    auto *navigate = new QPushButton("导航到此站", &dlg);
+    auto *charge = new QPushButton("选择电桩 / 预约排队", &dlg);
+    charge->setObjectName("primaryBtn");
+    charge->setEnabled(!piles.isEmpty());
+    actions->addWidget(navigate); actions->addWidget(charge); actions->addStretch(); actions->addWidget(closeBtn);
+    layout->addLayout(actions);
+    connect(navigate, &QPushButton::clicked, &dlg, [&] {
+        dlg.accept(); emit navigationRequested(s.id, m_lon, m_lat);
+    });
+    connect(charge, &QPushButton::clicked, &dlg, [&] {
+        dlg.accept(); emit chargeRequested(s.id);
+    });
     connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
 
     dlg.exec();
