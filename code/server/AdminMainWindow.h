@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 
+class QTcpServer;
 class QLabel;
 class QListWidget;
 class QStackedWidget;
@@ -20,6 +21,8 @@ public:
     explicit AdminMainWindow(const QString &serverInfo = QString(),
                              const QString &webUrl = QString(),
                              QWidget *parent = nullptr);
+
+    void showConnectionInfo(QTcpServer *server);
 
 private slots:
     void onNavChanged(int row);

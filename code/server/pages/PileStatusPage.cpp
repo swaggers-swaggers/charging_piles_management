@@ -1,4 +1,5 @@
 #include "PileStatusPage.h"
+#include "DonutChart.h"
 
 #include "PileDao.h"
 
@@ -14,16 +15,6 @@
 #include <QVBoxLayout>
 #include <QtGlobal>
 
-#ifdef HAVE_QTCHARTS
-#include <QtCharts/QChart>
-#include <QtCharts/QChartView>
-#include <QtCharts/QPieSeries>
-#include <QtCharts/QPieSlice>
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-QT_CHARTS_USE_NAMESPACE
-#endif
-#endif
-
 namespace {
 QString percentText(int part, int total)
 {
@@ -32,92 +23,6 @@ QString percentText(int part, int total)
     return QString::number(part * 100.0 / total, 'f', 1) + "%";
 }
 
-// 无 Qt Charts 时的降级方案: 用 QPainter 自绘环形占比图
-class PlainPieChart : public QWidget
-{
-public:
-    PlainPieChart(int inUse, int idle, int fault, QWidget *parent = nullptr)
-        : QWidget(parent)
-        , m_inUse(inUse)
-        , m_idle(idle)
-        , m_fault(fault)
-    {
-        setMinimumSize(280, 200);
-    }
-
-protected:
-    void paintEvent(QPaintEvent *) override
-    {
-        QPainter p(this);
-        p.setRenderHint(QPainter::Antialiasing);
-        const int total = m_inUse + m_idle + m_fault;
-        const QRectF ring = QRectF(rect()).adjusted(24, 24, -150, -24);
-
-        // 画环形扇区
-        if (total > 0) {
-            struct Seg { int v; QColor c; };
-            const Seg segs[] = {
-                { m_inUse, QColor("#B0863F") },
-                { m_idle,  QColor("#1F9D67") },
-                { m_fault, QColor("#C5525A") },
-            };
-            // drawPie 角度单位 = 1/16 度, 0 在 3 点方向, 顺时针
-            qreal start = 90.0 * 16.0;
-            for (const Seg &s : segs) {
-                if (s.v <= 0)
-                    continue;
-                const qreal span = s.v * 360.0 * 16.0 / total;
-                p.setBrush(s.c);
-                p.setPen(Qt::NoPen);
-                p.drawPie(ring, int(start), int(-span));
-                start -= span;
-            }
-            // 挖空中心成环形
-            p.setBrush(palette().color(QPalette::Base));
-            p.drawEllipse(ring.adjusted(ring.width() * 0.28, ring.height() * 0.28,
-                                        -ring.width() * 0.28, -ring.height() * 0.28));
-            // 中心显示总数
-            p.setPen(QColor("#1F2A3C"));
-            QFont f = p.font();
-            f.setPointSize(16);
-            f.setBold(true);
-            p.setFont(f);
-            p.drawText(ring, Qt::AlignCenter, QString::number(total));
-        } else {
-            p.setPen(QColor("#94A3B8"));
-            p.drawText(ring, Qt::AlignCenter, "暂无数据");
-        }
-
-        // 右侧图例
-        struct Legend { const char *name; int v; QColor c; };
-        const Legend legs[] = {
-            { "在用", m_inUse, QColor("#B0863F") },
-            { "闲置", m_idle,  QColor("#1F9D67") },
-            { "故障", m_fault, QColor("#C5525A") },
-        };
-        int y = 30;
-        for (const Legend &l : legs) {
-            p.setPen(Qt::NoPen);
-            p.setBrush(l.c);
-            p.drawRoundedRect(QRect(rect().width() - 130, y, 14, 14), 3, 3);
-            p.setPen(QColor("#475569"));
-            QFont f = p.font();
-            f.setPointSize(10);
-            p.setFont(f);
-            p.drawText(QRect(rect().width() - 110, y - 2, 100, 20),
-                       Qt::AlignLeft | Qt::AlignVCenter,
-                       QString("%1 %2 台 (%3)")
-                           .arg(QString::fromUtf8(l.name)).arg(l.v)
-                           .arg(percentText(l.v, total)));
-            y += 26;
-        }
-    }
-
-private:
-    int m_inUse;
-    int m_idle;
-    int m_fault;
-};
 } // namespace
 
 PileStatusPage::PileStatusPage(QWidget *parent)
@@ -164,11 +69,13 @@ PileStatusPage::PileStatusPage(QWidget *parent)
 
     m_summaryLabel = new QLabel(this);
     m_summaryLabel->setObjectName("summaryLabel");
+    m_summaryLabel->setWordWrap(true);
     m_summaryLabel->setAlignment(Qt::AlignCenter);
 
     // 图表 + 明细表 并排
     QWidget *chartArea = new QWidget(this);
     chartArea->setObjectName("chartArea");
+    chartArea->setAttribute(Qt::WA_StyledBackground);
     m_chartAreaLayout = new QVBoxLayout(chartArea);
     m_chartAreaLayout->setContentsMargins(0, 0, 0, 0);
 
@@ -201,34 +108,7 @@ PileStatusPage::PileStatusPage(QWidget *parent)
 
 QWidget *PileStatusPage::buildChart(int inUse, int idle, int fault)
 {
-#ifdef HAVE_QTCHARTS
-    QPieSeries *series = new QPieSeries();
-    QPieSlice *s1 = series->append("在用", qMax(inUse, 0));
-    QPieSlice *s2 = series->append("闲置", qMax(idle, 0));
-    QPieSlice *s3 = series->append("故障", qMax(fault, 0));
-    s1->setColor(QColor("#B0863F"));
-    s2->setColor(QColor("#1F9D67"));
-    s3->setColor(QColor("#C5525A"));
-    for (QPieSlice *s : series->slices())
-        s->setLabelVisible(false);
-    series->setHoleSize(0.45);
-    series->setPieSize(0.82);
-
-    QChart *chart = new QChart();
-    chart->addSeries(series);
-    chart->legend()->setVisible(true);
-    chart->legend()->setAlignment(Qt::AlignBottom);
-    chart->legend()->setLabelColor(QColor("#475569"));
-    chart->setBackgroundVisible(false);
-    chart->setTitle("电桩状态占比");
-    chart->setTitleBrush(QColor("#1F2A3C"));
-
-    auto *view = new QChartView(chart);
-    view->setRenderHint(QPainter::Antialiasing);
-    return view;
-#else
-    return new PlainPieChart(inUse, idle, fault);
-#endif
+    return new DonutChart(inUse, idle, fault);
 }
 
 void PileStatusPage::refresh()

@@ -73,6 +73,7 @@ int main(int argc, char *argv[])
         return 0;
 
     AdminMainWindow w(serverInfo, webUrl);
+    w.showConnectionInfo(&server);
     w.show();
     return a.exec();
 }

@@ -8,3 +8,5 @@ HEADERS += \
     $$PWD/IconFactory.h
 
 HEADERS += $$PWD/AppTheme.h $$PWD/ChargingPowerModel.h
+
+HEADERS += $$PWD/UiMotion.h $$PWD/AdminTableCard.h $$PWD/DonutChart.h

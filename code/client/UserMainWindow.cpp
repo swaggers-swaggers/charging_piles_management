@@ -1,3 +1,4 @@
+#include "UiMotion.h"
 #include "UserMainWindow.h"
 
 #include "ClientSession.h"
@@ -41,12 +42,13 @@ UserMainWindow::UserMainWindow(QWidget *parent)
            qMin(820, qMax(480, screen.height() - 120)));
 
     initUi();
+    UiMotion::install(this);
 
     statusBar()->showMessage(QString("当前用户: %1 (%2)    |    服务器: %3:%4    |    已连接")
                                  .arg(ClientSession::instance().nickname,
                                       ClientSession::instance().phone,
-                                      Protocol::serverHost(),
-                                      QString::number(Protocol::serverPort())));
+                                      TcpClient::instance().serverHost(),
+                                      QString::number(TcpClient::instance().serverPort())));
 }
 
 void UserMainWindow::initUi()

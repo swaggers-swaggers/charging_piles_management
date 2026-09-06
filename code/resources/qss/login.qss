@@ -116,3 +116,9 @@ QCheckBox::indicator:checked {
 
 QLabel#loginMark { background: #DDF0E4; border: 1px solid #C8E2D1; border-radius: 14px; padding: 10px; }
 QPushButton#userLoginBtn:focus, QPushButton#adminLoginBtn:focus { border: 2px solid #85BB99; }
+
+#serverLabel { color: #456451; font-size: 13px; }
+#connectionStatus { color: #456451; font-size: 12px; }
+QSpinBox { background: #F6FAF7; color: #243E33; border: 1px solid #D3E1D8; border-radius: 6px; padding: 10px 6px; min-width: 74px; }
+#connectBtn { background: #E3F3E8; color: #174F3B; border: 1px solid #83B496; border-radius: 7px; padding: 8px; }
+#connectBtn:disabled { color: #708478; background: #EDF1EE; }

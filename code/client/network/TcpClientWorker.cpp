@@ -3,6 +3,7 @@
 #include "protocol.h"
 
 #include <QDebug>
+#include <QNetworkProxy>
 #include <QJsonDocument>
 #include <QJsonParseError>
 
@@ -11,31 +12,38 @@ TcpClientWorker::TcpClientWorker(QObject *parent)
 {
 }
 
-void TcpClientWorker::connectToServer()
+void TcpClientWorker::cancelConnection(int generation)
 {
-    if (m_socket && m_socket->state() == QAbstractSocket::ConnectedState) {
-        emit connectResult(true, QString());
+    if (generation != m_generation)
         return;
+    if (m_socket) {
+        m_socket->disconnect(this);
+        m_socket->abort();
+        m_socket->deleteLater();
+        m_socket = nullptr;
     }
+    m_buffer.clear();
+}
 
-    if (!m_socket) {
-        m_socket = new QTcpSocket(this);
-        connect(m_socket, &QTcpSocket::readyRead,
-                this, &TcpClientWorker::onReadyRead);
-        connect(m_socket, &QTcpSocket::disconnected,
-                this, &TcpClientWorker::socketDisconnected);
-        connect(m_socket, &QTcpSocket::connected, this, [this] {
-            emit connectResult(true, QString());
-        });
-        connect(m_socket, &QTcpSocket::errorOccurred, this, [this](QAbstractSocket::SocketError) {
-            if (m_socket->error() != QAbstractSocket::RemoteHostClosedError)
-                emit connectResult(false, m_socket->errorString());
-        });
-    }
-
-    m_socket->connectToHost(Protocol::serverHost(),
-                            static_cast<quint16>(Protocol::serverPort()));
-    // 连接结果通过 connected / errorOccurred 信号异步返回
+void TcpClientWorker::connectToServer(const QString &host, int port, int generation)
+{
+    cancelConnection(m_generation);
+    m_generation = generation;
+    m_socket = new QTcpSocket(this);
+    // 局域网业务连接直连，地图请求仍可使用系统代理。
+    m_socket->setProxy(QNetworkProxy::NoProxy);
+    connect(m_socket, &QTcpSocket::readyRead, this, &TcpClientWorker::onReadyRead);
+    connect(m_socket, &QTcpSocket::disconnected, this, [this, generation] {
+        m_buffer.clear();
+        emit socketDisconnected(generation);
+    });
+    connect(m_socket, &QTcpSocket::connected, this, [this, generation] {
+        emit connectResult(generation, true, QString());
+    });
+    connect(m_socket, &QTcpSocket::errorOccurred, this, [this, generation](QAbstractSocket::SocketError) {
+        emit connectResult(generation, false, m_socket->errorString());
+    });
+    m_socket->connectToHost(host, static_cast<quint16>(port));
 }
 
 void TcpClientWorker::doRequest(int type, QJsonObject payload, int timeoutMs)

@@ -22,6 +22,9 @@ private slots:
     void onLoginClicked();
 
 private:
+    bool connectServer();
+    void setBusy(bool busy);
+    bool m_busy = false;
     void initConnections();
     void loadStyleSheet();
     void showWarning(const QString &text);

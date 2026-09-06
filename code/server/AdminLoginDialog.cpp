@@ -1,3 +1,4 @@
+#include "UiMotion.h"
 #include "AdminLoginDialog.h"
 #include "ui_AdminLoginDialog.h"
 
@@ -17,6 +18,7 @@ AdminLoginDialog::AdminLoginDialog(QWidget *parent)
     , ui(new Ui::AdminLoginDialog)
 {
     ui->setupUi(this);
+    UiMotion::install(this);
     setMinimumSize(400, 480);
     const QSize screen = QGuiApplication::primaryScreen()->availableGeometry().size();
     resize(qMin(480, screen.width() - 40), qMin(620, screen.height() - 60));

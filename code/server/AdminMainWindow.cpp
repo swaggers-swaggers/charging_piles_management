@@ -1,3 +1,5 @@
+#include "AdminTableCard.h"
+#include "UiMotion.h"
 #include "AdminMainWindow.h"
 
 #include "DatabaseManager.h"
@@ -11,6 +13,11 @@
 #include "IconFactory.h"
 
 #include <QDesktopServices>
+#include <QNetworkInterface>
+#include <QTcpServer>
+#include <QComboBox>
+#include <QClipboard>
+#include <QTimer>
 #include <QGuiApplication>
 #include <QColor>
 #include <QHBoxLayout>
@@ -39,6 +46,8 @@ AdminMainWindow::AdminMainWindow(const QString &serverInfo, const QString &webUr
            qMin(700, qMax(500, screen.height() - 120)));
 
     initUi();
+    AdminTableCard::decorate(this);
+    UiMotion::install(this);
 
     statusBar()->showMessage(QString("管理员: %1    |    数据库: %2    |    %3")
                                  .arg(ServerSession::instance().adminName,
@@ -181,4 +190,67 @@ void AdminMainWindow::onOpenWebClicked()
     }
     if (!QDesktopServices::openUrl(QUrl(m_webUrl)))
         QMessageBox::warning(this, "提示", "无法自动打开浏览器, 请手动访问: " + m_webUrl);
+}
+
+void AdminMainWindow::showConnectionInfo(QTcpServer *server)
+{
+    auto *panel = new QWidget(this);
+    panel->setObjectName("lanConnectionPanel");
+    auto *row = new QHBoxLayout(panel);
+    auto *label = new QLabel(panel);
+    label->setObjectName("lanStatusLabel");
+    auto *addresses = new QComboBox(panel);
+    addresses->setObjectName("lanAddressCombo");
+    addresses->setAccessibleName("服务器 IP 与端口");
+    addresses->setMinimumContentsLength(24);
+    addresses->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    auto *copy = new QPushButton("复制地址", panel);
+    auto *refresh = new QPushButton("刷新", panel);
+    row->addWidget(label);
+    row->addWidget(addresses, 1);
+    row->addWidget(copy);
+    row->addWidget(refresh);
+    auto *layout = qobject_cast<QVBoxLayout *>(m_stack->parentWidget()->layout());
+    layout->insertWidget(1, panel);
+    panel->setToolTip("另一台电脑在客户端登录页填写对应 IP 和端口。多网卡时选择与客户端同一局域网的地址；127.0.0.1 仅供本机使用。");
+    const auto update = [server, label, addresses, copy] {
+        const QString selected = addresses->currentData().toString();
+        addresses->clear();
+        if (!server->isListening()) {
+            label->setText("客户端服务未启动");
+            addresses->addItem("监听失败：" + server->errorString());
+            copy->setEnabled(false);
+            return;
+        }
+        const auto port = server->serverPort();
+        QStringList seen;
+        for (const auto &iface : QNetworkInterface::allInterfaces()) {
+            if (!(iface.flags() & QNetworkInterface::IsUp)
+                || !(iface.flags() & QNetworkInterface::IsRunning)
+                || (iface.flags() & QNetworkInterface::IsLoopBack)) continue;
+            for (const auto &entry : iface.addressEntries()) {
+                const auto ip = entry.ip();
+                if (ip.protocol() != QAbstractSocket::IPv4Protocol || ip.isLoopback()
+                    || ip.isNull() || ip.isLinkLocal() || seen.contains(ip.toString())) continue;
+                seen.append(ip.toString());
+                const QString endpoint = QString("%1:%2").arg(ip.toString()).arg(port);
+                addresses->addItem(endpoint + "  (" + iface.humanReadableName() + ")", endpoint);
+            }
+        }
+        label->setText(seen.isEmpty() ? "未发现局域网 IP" : "客户端连接地址");
+        const QString local = QString("127.0.0.1:%1").arg(port);
+        addresses->addItem(local + "  (仅本机)", local);
+        const int previous = addresses->findData(selected);
+        if (previous >= 0) addresses->setCurrentIndex(previous);
+        copy->setEnabled(true);
+    };
+    connect(copy, &QPushButton::clicked, this, [addresses] {
+        QGuiApplication::clipboard()->setText(addresses->currentData().toString());
+    });
+    connect(refresh, &QPushButton::clicked, this, update);
+    auto *timer = new QTimer(panel);
+    connect(timer, &QTimer::timeout, this, update);
+    timer->start(10000);
+    update();
+    UiMotion::install(panel);
 }

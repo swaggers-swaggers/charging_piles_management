@@ -16,19 +16,21 @@ public:
     explicit TcpClientWorker(QObject *parent = nullptr);
 
 public slots:
-    void connectToServer();                                   // 建立到服务端的连接
+    void connectToServer(const QString &host, int port, int generation);
+    void cancelConnection(int generation);                                   // 建立到服务端的连接
     void doRequest(int type, QJsonObject payload, int timeoutMs);
 
 signals:
-    void connectResult(bool ok, const QString &error);
+    void connectResult(int generation, bool ok, const QString &error);
     void requestDone(int type, const QJsonObject &reply);
     void pushReceived(const QJsonObject &msg);
-    void socketDisconnected();
+    void socketDisconnected(int generation);
 
 private slots:
     void onReadyRead();
 
 private:
+    int m_generation = 0;
     QTcpSocket *m_socket = nullptr;
     QByteArray m_buffer;
 };

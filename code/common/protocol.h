@@ -99,7 +99,7 @@ inline QString serverHost()
 inline int serverPort()
 {
     const int p = qEnvironmentVariableIntValue("CHARGING_SERVER_PORT");
-    return p > 0 ? p : 9527;
+    return p > 0 && p <= 65535 ? p : 9527;
 }
 
 // ---- 构造应答的小工具 ----

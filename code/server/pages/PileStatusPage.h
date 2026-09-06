@@ -19,7 +19,7 @@ private slots:
     void refresh();
 
 private:
-    // 重建环形占比图(装了 Qt Charts 用 QChart, 否则自绘), 返回可加入布局的控件
+    // 重建等比例环形占比图, 返回可加入布局的控件
     QWidget *buildChart(int inUse, int idle, int fault);
 
     QLabel *m_inUseValue;

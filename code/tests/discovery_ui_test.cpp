@@ -1,3 +1,4 @@
+#include "UiMotion.h"
 #include <QtTest>
 #include <QTcpServer>
 #include <QTcpSocket>
@@ -46,6 +47,16 @@ class DiscoveryTest : public QObject {
         return nullptr;
     }
 private slots:
+    void animationCleanup() {
+        QWidget root;
+        auto *stack = new QStackedWidget(&root);
+        stack->resize(300,200); stack->addWidget(new QWidget); stack->addWidget(new QWidget);
+        UiMotion::install(&root); root.show();
+        stack->setCurrentIndex(1);stack->setCurrentIndex(0);stack->setCurrentIndex(1);
+        QTest::qWait(300);
+        QVERIFY(root.findChildren<QWidget*>("motionOverlay").isEmpty());
+        QCOMPARE(stack->currentIndex(),1);
+    }
     void initTestCase() {
         QVERIFY(server.listen(QHostAddress::LocalHost,0));
         qputenv("CHARGING_SERVER_PORT", QByteArray::number(server.serverPort()));

@@ -19,6 +19,10 @@ class TcpClient : public QObject
 public:
     static TcpClient &instance();
 
+    bool setEndpoint(const QString &host, int port);
+    QString serverHost() const { return m_host; }
+    int serverPort() const { return m_port; }
+
     bool ensureConnected(int timeoutMs = 3000, QString *errMsg = nullptr);
 
     // 发送请求并等待应答; 失败时返回带 ok=false 的对象(网络错误写入 error 字段)
@@ -31,7 +35,8 @@ signals:
     void connectionLost();
 
     // ---- 内部信号: 通过队列连接调度工作线程 ----
-    void doConnect();
+    void doConnect(const QString &host, int port, int generation);
+    void cancelConnect(int generation);
     void sendRequest(int type, QJsonObject payload, int timeoutMs);
     void connectResult(bool ok, const QString &error);
     void replyArrived(int type, const QJsonObject &reply);
@@ -47,6 +52,10 @@ private:
 
     TcpClientWorker *m_worker = nullptr;
     QThread *m_thread = nullptr;
+    QString m_host;
+    int m_port = 9527;
+    int m_generation = 0;
+    bool m_connecting = false;
     bool m_connected = false;
     bool m_busy = false;
 };

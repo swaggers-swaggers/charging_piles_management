@@ -1,3 +1,4 @@
+#include "UiMotion.h"
 #include "LoginDialog.h"
 #include "ui_LoginDialog.h"
 
@@ -15,6 +16,7 @@
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
 #include <QSettings>
+#include <QScopedValueRollback>
 
 namespace {
 // 记住手机号: 用异或混淆后存 hex, 避免明文直接出现在配置文件/注册表中
@@ -60,9 +62,10 @@ LoginDialog::LoginDialog(QWidget *parent)
     , ui(new Ui::LoginDialog)
 {
     ui->setupUi(this);
-    setMinimumSize(400, 480);
+    UiMotion::install(this);
+    setMinimumSize(440, 580);
     const QSize screen = QGuiApplication::primaryScreen()->availableGeometry().size();
-    resize(qMin(480, screen.width() - 40), qMin(620, screen.height() - 60));
+    resize(qMin(520, screen.width() - 40), qMin(740, screen.height() - 60));
     ui->card->setAttribute(Qt::WA_StyledBackground, true);
     ui->titleLabel->setWordWrap(true);
     ui->subtitleLabel->setWordWrap(true);
@@ -81,7 +84,12 @@ LoginDialog::LoginDialog(QWidget *parent)
         new QRegularExpressionValidator(QRegularExpression("^1\\d{0,10}$"), ui->phoneEdit));
 
     ui->hintLabel->setText("找站 · 导航 · 充电，一站完成");
-    ui->hintLabel->setToolTip(QString("登录需连接服务端 %1:%2").arg(Protocol::serverHost()).arg(Protocol::serverPort()));
+    ui->hintLabel->setText("同一局域网：填写服务端显示的 IP；同机测试可填 127.0.0.1");
+    ui->connectBtn->setAutoDefault(false);
+    QSettings endpointSettings;
+    ui->serverHostEdit->setText(endpointSettings.value("network/host", Protocol::serverHost()).toString());
+    const int savedPort = endpointSettings.value("network/port", Protocol::serverPort()).toInt();
+    ui->serverPortSpin->setValue(savedPort >= 1 && savedPort <= 65535 ? savedPort : 9527);
     ui->phoneEdit->setAccessibleName("手机号");
     ui->phoneEdit->setClearButtonEnabled(true);
 
@@ -109,13 +117,63 @@ void LoginDialog::loadStyleSheet()
 
 void LoginDialog::initConnections()
 {
+    connect(ui->connectBtn, &QPushButton::clicked, this, [this] { connectServer(); });
+    const auto changed = [this] {
+        ui->connectionStatus->setText("连接配置已修改，请重新连接或直接登录。");
+    };
+    connect(ui->serverHostEdit, &QLineEdit::textChanged, this, changed);
+    connect(ui->serverPortSpin, qOverload<int>(&QSpinBox::valueChanged), this, changed);
+    connect(&TcpClient::instance(), &TcpClient::connectionLost, this, [this] {
+        ui->connectionStatus->setText("连接已断开，请重新连接服务器。");
+    });
     connect(ui->loginBtn, &QPushButton::clicked, this, &LoginDialog::onLoginClicked);
     connect(ui->phoneEdit, &QLineEdit::returnPressed, ui->loginBtn, &QPushButton::click);
     connect(ui->exitBtn, &QPushButton::clicked, this, &QWidget::close);
 }
 
+void LoginDialog::setBusy(bool busy)
+{
+    ui->serverHostEdit->setEnabled(!busy);
+    ui->serverPortSpin->setEnabled(!busy);
+    ui->connectBtn->setEnabled(!busy);
+    ui->loginBtn->setEnabled(!busy);
+    ui->phoneEdit->setEnabled(!busy);
+    ui->exitBtn->setEnabled(!busy);
+}
+
+bool LoginDialog::connectServer()
+{
+    if (m_busy) return false;
+    QScopedValueRollback<bool> guard(m_busy, true);
+    auto &client = TcpClient::instance();
+    if (!client.setEndpoint(ui->serverHostEdit->text(), ui->serverPortSpin->value())) {
+        ui->connectionStatus->setText("请输入有效的 IPv4 地址，例如 192.168.1.100，端口范围为 1–65535。");
+        ui->serverHostEdit->setFocus();
+        return false;
+    }
+    setBusy(true);
+    ui->connectionStatus->setText("正在连接服务器，请稍候…");
+    QString error;
+    bool ok = client.ensureConnected(3000, &error);
+    if (ok) {
+        const auto reply = client.request(Protocol::ReqHeartbeat, {}, 3000, &ok);
+        if (!ok) error = reply.value("error").toString("服务端未响应");
+    }
+    setBusy(false);
+    if (ok) {
+        QSettings settings;
+        settings.setValue("network/host", client.serverHost());
+        settings.setValue("network/port", client.serverPort());
+        ui->connectionStatus->setText(QString("已连接 %1:%2，可以登录").arg(client.serverHost()).arg(client.serverPort()));
+    } else {
+        ui->connectionStatus->setText(QString("连接失败：%1。请确认服务端已启动、两台电脑在同一局域网，且防火墙允许该端口。").arg(error));
+    }
+    return ok;
+}
+
 void LoginDialog::onLoginClicked()
 {
+    if (m_busy) return;
     const QString phone = ui->phoneEdit->text().trimmed();
 
     static const QRegularExpression phoneReg("^1\\d{10}$");
@@ -125,19 +183,16 @@ void LoginDialog::onLoginClicked()
         return;
     }
 
-    QString connErr;
-    if (!TcpClient::instance().ensureConnected(3000, &connErr)) {
-        showWarning("无法连接服务器:\n" + connErr +
-                    "\n\n请先启动服务端 ChargingServer 再登录");
-        return;
-    }
+    if (!connectServer()) return;
+    QScopedValueRollback<bool> guard(m_busy, true);
+    setBusy(true);
 
     bool ok = false;
     const QJsonObject reply = TcpClient::instance().request(
         Protocol::ReqUserLogin, QJsonObject{{"phone", phone}}, 5000, &ok);
+    setBusy(false);
     if (!ok) {
         showWarning(reply.value("error").toString("登录失败!"));
-        ui->phoneEdit->clear();
         ui->phoneEdit->setFocus();
         return;
     }
