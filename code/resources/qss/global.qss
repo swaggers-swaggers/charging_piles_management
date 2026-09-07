@@ -219,3 +219,15 @@ QFrame#adminDataCard QHeaderView::section {
 QFrame#metricCard, QFrame#statCard { border: 1px solid #DFEAE3; border-radius: 14px; background: #FFFFFF; }
 QFrame#metricCard:hover, QFrame#statCard:hover { border-color: #96BFA7; background: #FBFDFB; }
 QWidget#lanConnectionPanel { background: #EAF4EE; border-bottom: 1px solid #D6E7DC; }
+
+/* Shared card surfaces and focus baseline; animated highlights live in UiMotion. */
+QFrame#pileCard, QFrame#miniCard, QFrame#stationCard, QWidget#profileCard,
+QFrame#adminDataCard, QFrame#metricCard, QFrame#statCard {
+    border-radius: 14px;
+}
+QFrame#pileCard:hover, QFrame#miniCard:hover, QFrame#stationCard:hover,
+QFrame#adminDataCard:hover { border-color: #91BFA7; }
+QPlainTextEdit:focus { border: 2px solid #7CAD90; }
+QWidget#customTitleBar { background: transparent; }
+QWidget#customTitleBar QLabel { background: transparent; color: #365747; font-weight: 600; }
+QStatusBar { border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }

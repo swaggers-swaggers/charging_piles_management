@@ -1,4 +1,5 @@
 #include "UiMotion.h"
+#include "ChargingParticles.h"
 #include <QtTest>
 #include <QTcpServer>
 #include <QTcpSocket>
@@ -47,6 +48,44 @@ class DiscoveryTest : public QObject {
         return nullptr;
     }
 private slots:
+    void interactionEffects() {
+        QWidget root;
+        root.resize(340,180);
+        UiMotion::install(&root);
+        root.show();
+        // Created after installation: dynamic buttons must receive the same feedback.
+        auto *b=new QPushButton("dynamic",&root); b->setGeometry(20,20,180,40); b->show();
+        QTest::mousePress(b,Qt::LeftButton,Qt::NoModifier,QPoint(12,15));
+        auto *ripple=b->findChild<QWidget*>("motionOverlay");
+        QVERIFY(ripple);
+        QCOMPARE(ripple->property("rippleOrigin").toPointF(),QPointF(12,15));
+        QTest::mouseRelease(b,Qt::LeftButton,Qt::NoModifier,QPoint(12,15));
+        auto *edit=new QLineEdit(&root); edit->setGeometry(20,80,180,40); edit->show();
+        root.activateWindow(); edit->setFocus(); QTest::qWait(30);
+        QVERIFY(edit->findChild<QWidget*>("focusBreathingOverlay"));
+        b->setFocus(); QTest::qWait(30);
+        QVERIFY(!edit->findChild<QWidget*>("focusBreathingOverlay"));
+        QTest::qWait(500);
+        QVERIFY(!b->findChild<QWidget*>("motionOverlay"));
+    }
+    void dialogChromeAndParticles() {
+        QDialog dialog;
+        auto *layout=new QVBoxLayout(&dialog);
+        auto *input=new QLineEdit(&dialog); layout->addWidget(input);
+        QTimer::singleShot(100,&dialog,[&]{
+            QVERIFY(dialog.windowFlags().testFlag(Qt::FramelessWindowHint));
+            QVERIFY(dialog.findChild<QWidget*>("customTitleBar"));
+            QVERIFY(input->isVisible());
+            dialog.accept();
+        });
+        QCOMPARE(dialog.exec(),int(QDialog::Accepted));
+        ChargingParticles particles; particles.resize(400,300); particles.show();
+        QVERIFY(particles.animationRunning());
+        QTest::qWait(80); const auto frame=particles.grab().toImage();
+        QTest::qWait(80); QVERIFY(frame!=particles.grab().toImage());
+        particles.hide(); QVERIFY(!particles.animationRunning());
+        particles.show(); QVERIFY(particles.animationRunning());
+    }
     void animationCleanup() {
         QWidget root;
         auto *stack = new QStackedWidget(&root);
@@ -184,6 +223,8 @@ private slots:
         button(window->findChild<NearbyStationsPage*>(),"立即充电")->click();
         auto *stack=window->findChild<ChargingPage*>()->findChild<QStackedWidget*>();
         QCOMPARE(stack->currentIndex(),1);
+        QTest::qWait(250);
+        QVERIFY(window->grab().save("/tmp/charging-active-particles.png"));
     }
     void cleanupTestCase() { delete window; }
 };

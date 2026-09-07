@@ -1,4 +1,5 @@
 #include "ChargingPage.h"
+#include "ChargingParticles.h"
 
 #include "ClientSession.h"
 #include "IconFactory.h"
@@ -469,7 +470,7 @@ void ChargingPage::buildSelectView()
 
 void ChargingPage::buildChargingView()
 {
-    m_chargingView = new QWidget(this);
+    m_chargingView = new ChargingParticles(this);
     QVBoxLayout *lay = new QVBoxLayout(m_chargingView);
     lay->setContentsMargins(24, 20, 24, 24);
     lay->setSpacing(14);
