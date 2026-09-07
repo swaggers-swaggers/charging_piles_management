@@ -79,6 +79,8 @@ private:
     QWidget *host; QPoint offset; bool dragging=false;
 };
 inline void installChrome(QWidget *w) {
+    // WebEngine 窗口使用系统不透明边框，避免透明顶层与 GPU 合成产生黑边。
+    if (w->property("nativeWindowChrome").toBool()) return;
     if (!w->isWindow() || w->property("chromeInstalled").toBool()) return;
     if (!qobject_cast<QMainWindow*>(w) && !qobject_cast<QDialog*>(w)) return;
     w->setProperty("chromeInstalled",true);

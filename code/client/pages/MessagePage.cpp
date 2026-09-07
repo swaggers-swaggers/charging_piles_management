@@ -1,132 +1,125 @@
 #include "MessagePage.h"
 #include "../MessageCenter.h"
-
+#include <QComboBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
+#include <QPainter>
 #include <QPushButton>
+#include <QScrollBar>
+#include <QSignalBlocker>
+#include <QStyledItemDelegate>
+#include <QTimer>
 #include <QVBoxLayout>
 
-static QString typeColor(int type)
-{
-    switch (type) {
-    case 3: return QStringLiteral("#D4380D");   // 退款-红
-    case 2: return QStringLiteral("#1677FF");   // 订单-蓝
-    case 4: return QStringLiteral("#722ED1");   // 预约-紫
-    case 5: return QStringLiteral("#FA8C16");   // 排队-橙
-    default: return QStringLiteral("#595959");
+namespace {
+enum { TitleRole = Qt::UserRole + 1, BodyRole, TimeRole, TypeRole, ReadRole };
+QString typeLabel(int type) {
+    return QStringList{"通知", "系统", "订单", "退款", "预约", "排队"}.value(type,"通知");
+}
+// 原生绘制卡片，按当前宽度计算正文高度，长消息完整换行。
+class MessageDelegate : public QStyledItemDelegate {
+public:
+    explicit MessageDelegate(QObject *parent) : QStyledItemDelegate(parent) {}
+    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override {
+        auto *list = qobject_cast<QListWidget*>(parent());
+        const int width = list ? list->viewport()->width() : option.rect.width();
+        QFont font = option.font; font.setPixelSize(13);
+        const int height = QFontMetrics(font).boundingRect(QRect(0,0,qMax(100,width-48),10000),
+            Qt::TextWordWrap,index.data(BodyRole).toString()).height();
+        return QSize(width,qMax(128, height+104));
     }
+    void paint(QPainter *p, const QStyleOptionViewItem &option, const QModelIndex &index) const override {
+        p->save(); p->setRenderHint(QPainter::Antialiasing);
+        const bool read = index.data(ReadRole).toBool();
+        const QRect card = option.rect.adjusted(0,4,-1,-5);
+        p->setBrush(read ? QColor("#FFFFFF") : QColor("#F3FAF6"));
+        p->setPen(QColor(option.state & QStyle::State_Selected ? "#6AA889" : "#DDE9E2"));
+        p->drawRoundedRect(card,12,12);
+        const int x = card.left()+20, y = card.top()+16;
+        QFont font = option.font; font.setPixelSize(12); p->setFont(font);
+        p->setPen(QColor("#387459"));
+        p->drawText(QRect(x,y,120,20),Qt::AlignLeft|Qt::AlignVCenter,
+                    typeLabel(index.data(TypeRole).toInt()) + (read ? " · 已读" : " · 未读"));
+        p->setPen(QColor("#819389"));
+        p->drawText(QRect(x+120,y,card.width()-160,20),Qt::AlignRight|Qt::AlignVCenter,index.data(TimeRole).toString());
+        font.setPixelSize(16); font.setBold(!read); p->setFont(font); p->setPen(QColor("#203F32"));
+        p->drawText(QRect(x,y+28,card.width()-40,24),Qt::AlignVCenter,
+                    QFontMetrics(font).elidedText(index.data(TitleRole).toString(),Qt::ElideRight,card.width()-40));
+        font.setPixelSize(13); font.setBold(false); p->setFont(font); p->setPen(QColor("#667D70"));
+        p->drawText(QRect(x,y+60,card.width()-40,card.height()-92),Qt::TextWordWrap,index.data(BodyRole).toString());
+        p->restore();
+    }
+};
 }
 
-static QString typeLabel(int type)
-{
-    switch (type) {
-    case 1: return QStringLiteral("系统");
-    case 2: return QStringLiteral("订单");
-    case 3: return QStringLiteral("退款");
-    case 4: return QStringLiteral("预约");
-    case 5: return QStringLiteral("排队");
-    default: return QStringLiteral("通知");
-    }
-}
-
-MessagePage::MessagePage(QWidget *parent)
-    : QWidget(parent)
-{
-    auto *top = new QHBoxLayout;
-    auto *title = new QLabel(QStringLiteral("消息中心"), this);
-    title->setStyleSheet("font-size:18px;font-weight:bold;color:#1A1B1C;");
-    m_clearBtn = new QPushButton(QStringLiteral("清空已读"), this);
-    m_clearBtn->setStyleSheet("QPushButton{background:#F5F5F5;border:1px solid #E4E3DD;"
-                               "border-radius:6px;padding:6px 14px;color:#595959;}"
-                               "QPushButton:hover{background:#EAEAEA;}");
-    top->addWidget(title);
-    top->addStretch();
-    top->addWidget(m_clearBtn);
-
-    m_list = new QListWidget(this);
-    m_list->setStyleSheet("QListWidget{border:1px solid #E4E3DD;border-radius:8px;"
-                           "background:#FFFFFF;outline:none;}"
-                           "QListWidget::item{padding:12px 14px;border-bottom:1px solid #F0F0F0;}"
-                           "QListWidget::item:selected{background:#F0F7FF;}");
-
-    m_emptyLabel = new QLabel(QStringLiteral("暂无消息"), this);
-    m_emptyLabel->setAlignment(Qt::AlignCenter);
-    m_emptyLabel->setStyleSheet("color:#BFBFBF;font-size:14px;padding:40px;");
-    m_emptyLabel->hide();
-
-    auto *lay = new QVBoxLayout(this);
-    lay->setContentsMargins(16, 16, 16, 16);
-    lay->setSpacing(12);
-    lay->addLayout(top);
-    lay->addWidget(m_list, 1);
-    lay->addWidget(m_emptyLabel);
-
-    connect(m_list, &QListWidget::currentRowChanged, this, &MessagePage::onItemClicked);
-    connect(m_clearBtn, &QPushButton::clicked, this, &MessagePage::onClearRead);
-    connect(&MessageCenter::instance(), &MessageCenter::messageReceived,
-            this, &MessagePage::refresh);
-    connect(&MessageCenter::instance(), &MessageCenter::unreadCountChanged,
-            this, &MessagePage::refresh);
-
+MessagePage::MessagePage(QWidget *parent) : QWidget(parent) {
+    setObjectName("messagePage");
+    auto *layout = new QVBoxLayout(this); layout->setContentsMargins(28,24,28,28); layout->setSpacing(16);
+    auto *title = new QLabel("消息中心",this); title->setObjectName("pageTitle");
+    layout->addWidget(title);
+    auto *hint = new QLabel("充电动态与服务通知，都在这里",this); hint->setObjectName("pageHint");
+    layout->addWidget(hint);
+    m_summary = new QLabel(this); m_summary->setObjectName("messageSummary");
+    m_summary->setWordWrap(true); layout->addWidget(m_summary);
+    auto *toolbar = new QHBoxLayout;
+    m_filter = new QComboBox(this); m_filter->setObjectName("messageFilter");
+    m_filter->setAccessibleName("筛选消息");
+    m_filter->addItem("全部消息",-1); m_filter->addItem("只看未读",0);
+    for(int type=1;type<=5;++type) m_filter->addItem(typeLabel(type)+"通知",type);
+    toolbar->addWidget(m_filter); toolbar->addStretch();
+    m_clearBtn = new QPushButton("清空已读",this); m_clearBtn->setObjectName("secondaryBtn");
+    toolbar->addWidget(m_clearBtn); layout->addLayout(toolbar);
+    m_list = new QListWidget(this); m_list->setObjectName("messageList");
+    m_list->setMinimumHeight(320); m_list->setResizeMode(QListView::Adjust);
+    m_list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_list->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    m_list->setItemDelegate(new MessageDelegate(m_list));
+    layout->addWidget(m_list,1);
+    m_emptyLabel = new QLabel(this); m_emptyLabel->setObjectName("messageEmpty");
+    m_emptyLabel->setAlignment(Qt::AlignCenter); m_emptyLabel->setWordWrap(true);
+    m_emptyLabel->setMinimumHeight(320); layout->addWidget(m_emptyLabel,1);
+    auto *note = new QLabel("点击消息标记已读 · 清空已读不会删除未读通知",this);
+    note->setObjectName("pageHint"); note->setWordWrap(true); layout->addWidget(note);
+    auto read = [this](QListWidgetItem *item) { onItemClicked(m_list->row(item)); };
+    connect(m_list,&QListWidget::itemClicked,this,read);
+    connect(m_list,&QListWidget::itemActivated,this,read);
+    connect(m_filter,qOverload<int>(&QComboBox::currentIndexChanged),this,&MessagePage::refresh);
+    connect(m_clearBtn,&QPushButton::clicked,this,&MessagePage::onClearRead);
+    // 合并推送和未读计数通知，避免在点击事件中销毁当前列表项。
+    m_refreshTimer = new QTimer(this); m_refreshTimer->setSingleShot(true);
+    connect(m_refreshTimer,&QTimer::timeout,this,&MessagePage::refresh);
+    connect(&MessageCenter::instance(),&MessageCenter::messageReceived,this,[this]{m_refreshTimer->start(0);});
+    connect(&MessageCenter::instance(),&MessageCenter::unreadCountChanged,this,[this]{m_refreshTimer->start(0);});
     refresh();
 }
-
-void MessagePage::refresh()
-{
+void MessagePage::refresh() {
     const auto msgs = MessageCenter::instance().messages();
+    const int unread = MessageCenter::instance().unreadCount();
+    m_summary->setText(unread ? QString("%1 条未读消息    /    共 %2 条通知").arg(unread).arg(msgs.size())
+                             : QString("消息已全部读完    /    共 %1 条通知").arg(msgs.size()));
+    m_clearBtn->setEnabled(msgs.size()>unread);
+    const int scroll = m_list->verticalScrollBar()->value();
+    const int selected = m_list->currentItem() ? m_list->currentItem()->data(Qt::UserRole).toInt() : -1;
+    const QSignalBlocker blocker(m_list);
     m_list->clear();
-    if (msgs.isEmpty()) {
-        m_emptyLabel->show();
-        m_list->hide();
-        return;
+    const int filter = m_filter->currentData().toInt();
+    for (const auto &m : msgs) {
+        if ((filter==0 && m.read) || (filter>0 && m.type!=filter)) continue;
+        auto *item = new QListWidgetItem(m.title+"\n"+m.content,m_list);
+        item->setData(Qt::UserRole,m.id); item->setData(TitleRole,m.title);
+        item->setData(BodyRole,m.content); item->setData(TimeRole,m.time.toString("MM-dd HH:mm"));
+        item->setData(TypeRole,m.type); item->setData(ReadRole,m.read);
+        if(m.id==selected) m_list->setCurrentItem(item);
     }
-    m_emptyLabel->hide();
-    m_list->show();
-    for (const AppMessage &m : msgs) {
-        const QString color = typeColor(m.type);
-        const QString dot = m.read
-            ? QString()
-            : QStringLiteral("<span style='display:inline-block;width:8px;height:8px;"
-                             "border-radius:4px;background:%1;margin-right:6px;'></span>").arg(color);
-        const QString html =
-            QStringLiteral(
-                "<div style='%1'>"
-                "<div style='display:flex;align-items:center;gap:6px;'>"
-                "%2"
-                "<span style='font-weight:bold;color:%3;'>[%4]</span>"
-                "<span style='font-weight:bold;color:#1A1B1C;'>%5</span>"
-                "<span style='flex:1;'></span>"
-                "<span style='color:#BFBFBF;font-size:11px;'>%6</span>"
-                "</div>"
-                "<div style='color:%7;margin-top:4px;font-size:13px;'>%8</div>"
-                "</div>")
-                .arg(m.read ? QString() : QStringLiteral("background:#FAFAFA;"),
-                     dot, color, typeLabel(m.type), m.title.toHtmlEscaped(),
-                     m.time.toString(QStringLiteral("MM-dd HH:mm")),
-                     m.read ? QStringLiteral("#8C8C8C") : QStringLiteral("#434343"),
-                     m.content.toHtmlEscaped());
-        auto *item = new QListWidgetItem;
-        item->setData(Qt::UserRole, m.id);
-        m_list->addItem(item);
-        auto *lbl = new QLabel(html, m_list);
-        lbl->setWordWrap(true);
-        lbl->setTextFormat(Qt::RichText);
-        m_list->setItemWidget(item, lbl);
-    }
+    m_list->verticalScrollBar()->setValue(scroll);
+    const bool empty = m_list->count()==0;
+    m_list->setVisible(!empty); m_emptyLabel->setVisible(empty);
+    m_emptyLabel->setText(msgs.isEmpty() ? "暂时没有新消息\n\n充电进度、预约提醒和退款通知将在这里展示"
+                                      : "当前分类暂无消息\n\n切换到全部消息，查看其他通知");
 }
-
-void MessagePage::onItemClicked(int row)
-{
-    if (row < 0) return;
+void MessagePage::onItemClicked(int row) {
     auto *item = m_list->item(row);
-    if (!item) return;
-    const int id = item->data(Qt::UserRole).toInt();
-    MessageCenter::instance().markRead(id);
+    if(item && !item->data(ReadRole).toBool()) MessageCenter::instance().markRead(item->data(Qt::UserRole).toInt());
 }
-
-void MessagePage::onClearRead()
-{
-    MessageCenter::instance().clearRead();
-    refresh();
-}
+void MessagePage::onClearRead() { MessageCenter::instance().clearRead(); }

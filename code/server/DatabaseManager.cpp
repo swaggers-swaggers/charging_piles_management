@@ -98,6 +98,27 @@ bool DatabaseManager::init(QString *errMsg)
 
     // 修复历史数据: 哈希算法变更导致同一手机号被重复注册, 启动时自动合并
     deduplicateUsers();
+
+    // 兼容旧库可能已有的重复充电单，不擅自删单或结算；阻止新增重复单。
+    // SQLite 写事务串行执行，触发器检查与插入/更新原子完成。
+    const QStringList orderGuards = {
+        "CREATE TRIGGER IF NOT EXISTS guard_one_active_order_insert "
+        "BEFORE INSERT ON charge_order WHEN NEW.status=0 AND EXISTS "
+        "(SELECT 1 FROM charge_order WHERE user_id=NEW.user_id AND status=0) "
+        "BEGIN SELECT RAISE(ABORT,'user already has an active order'); END",
+        "CREATE TRIGGER IF NOT EXISTS guard_one_active_order_update "
+        "BEFORE UPDATE OF user_id,status ON charge_order WHEN NEW.status=0 AND EXISTS "
+        "(SELECT 1 FROM charge_order WHERE user_id=NEW.user_id AND status=0 AND id<>OLD.id) "
+        "BEGIN SELECT RAISE(ABORT,'user already has an active order'); END"
+    };
+    for (const auto &sql : orderGuards) {
+        QSqlQuery guard(m_db);
+        if (!guard.exec(sql)) {
+            if (errMsg) *errMsg = "创建充电订单保护失败: " + guard.lastError().text();
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -633,10 +654,11 @@ void DatabaseManager::seedDemoOrders()
     const int userId = uq.value(0).toInt();
 
     QDateTime now = QDateTime::currentDateTime();
-    int rng = 7;
+    quint32 rng = 7;
     auto nextRand = [&rng](int mod) {
-        rng = (rng * 1103515245 + 12345) & 0x7fffffff;
-        return rng % mod;
+        // 无符号回绕有明确定义，避免有符号溢出导致错误数组索引。
+        rng = (rng * 1103515245u + 12345u) & 0x7fffffffu;
+        return int(rng % quint32(mod));
     };
 
     for (int day = 29; day >= 0; --day) {

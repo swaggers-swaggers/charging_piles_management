@@ -4,6 +4,7 @@
 #include <QWidget>
 
 class QLabel;
+class QBoxLayout;
 class QLineEdit;
 class QDoubleSpinBox;
 class QPushButton;
@@ -17,6 +18,7 @@ public:
     explicit UserInfoPage(QWidget *parent = nullptr);
 
 protected:
+    void resizeEvent(QResizeEvent *event) override;
     void showEvent(QShowEvent *event) override;
 
 private slots:
@@ -26,6 +28,9 @@ private slots:
     void onRecharge();
 
 private:
+    QBoxLayout *m_overview;
+    QBoxLayout *m_settings;
+    QLabel *m_nameLabel;
     QLabel *m_avatarLabel;
     QLabel *m_phoneLabel;
     QLabel *m_balanceLabel;

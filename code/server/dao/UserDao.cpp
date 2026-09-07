@@ -135,12 +135,16 @@ bool UserDao::recharge(int userId, double amount, double *newBalance,
 bool UserDao::adjustBalance(int userId, double delta, QString *errMsg, const QString &connName)
 {
     QSqlQuery query(QSqlDatabase::database(connName));
-    query.prepare("UPDATE user SET balance = balance + :d WHERE id = :id");
+    query.prepare("UPDATE user SET balance = balance + :d WHERE id = :id AND balance + :d >= 0");
     query.bindValue(":d", delta);
     query.bindValue(":id", userId);
     if (!query.exec()) {
         if (errMsg)
             *errMsg = "更新余额失败: " + query.lastError().text();
+        return false;
+    }
+    if (query.numRowsAffected() != 1) {
+        if (errMsg) *errMsg = "用户不存在或余额不足，冻结失败";
         return false;
     }
     return true;

@@ -6,6 +6,8 @@
 class QListWidget;
 class QPushButton;
 class QLabel;
+class QComboBox;
+class QTimer;
 
 // 用户端消息中心: 展示服务端推送的所有通知(订单结束/退款/预约/排队),
 // 未读高亮, 点击标记已读, 支持清空已读. 数据来自 MessageCenter 单例.
@@ -21,6 +23,9 @@ private slots:
     void onClearRead();
 
 private:
+    QComboBox *m_filter;
+    QLabel *m_summary;
+    QTimer *m_refreshTimer;
     QListWidget *m_list = nullptr;
     QPushButton *m_clearBtn = nullptr;
     QLabel *m_emptyLabel = nullptr;

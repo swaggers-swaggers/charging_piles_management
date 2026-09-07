@@ -122,3 +122,24 @@ QPushButton#userLoginBtn:focus, QPushButton#adminLoginBtn:focus { border: 2px so
 QSpinBox { background: #F6FAF7; color: #243E33; border: 1px solid #D3E1D8; border-radius: 6px; padding: 10px 6px; min-width: 74px; }
 #connectBtn { background: #E3F3E8; color: #174F3B; border: 1px solid #83B496; border-radius: 7px; padding: 8px; }
 #connectBtn:disabled { color: #708478; background: #EDF1EE; }
+
+/* 用户登录输入框保留完整文字高度，避免窗口压缩时上下裁切。 */
+QPushButton#userLoginBtn {
+    min-height: 22px;
+}
+QLineEdit#serverHostEdit, QLineEdit#phoneEdit, QSpinBox#serverPortSpin {
+    min-height: 22px;
+    padding: 6px 12px;
+    font-size: 14px;
+}
+QLineEdit#serverHostEdit:focus, QLineEdit#phoneEdit:focus, QSpinBox#serverPortSpin:focus {
+    border: 2px solid #6DA385;
+    padding: 5px 11px;
+}
+/* SpinBox 自己已有边框和内边距，内部编辑器不能再叠加一层。 */
+QSpinBox#serverPortSpin QLineEdit {
+    border: none;
+    border-radius: 0px;
+    padding: 0px;
+    background: transparent;
+}

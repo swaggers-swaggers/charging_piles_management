@@ -12,6 +12,7 @@ class QLabel;
 class QNetworkAccessManager;
 class QNetworkReply;
 class QPushButton;
+class QTimer;
 #ifdef CHARGING_HAS_WEBENGINE
 class QWebEngineView;
 #endif
@@ -40,6 +41,8 @@ private slots:
     void onRouteReplyFinished();
 
 private:
+    QTimer *m_refreshTimer;
+    bool m_refreshing = false;
     QComboBox *m_startCombo;
     QComboBox *m_destCombo;
     QComboBox *m_modeCombo;

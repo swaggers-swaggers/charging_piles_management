@@ -17,6 +17,15 @@
 #include <QStackedWidget>
 #include <QTableWidget>
 #include <QHeaderView>
+#include <QMessageBox>
+#include <QTemporaryDir>
+#include <QSettings>
+#include <QDoubleSpinBox>
+#include "MessageCenter.h"
+#include "MessagePage.h"
+#include "UserInfoPage.h"
+#include "TcpClient.h"
+#include "protocol.h"
 #include "AppTheme.h"
 #include "ChargingPowerModel.h"
 #include "UserMainWindow.h"
@@ -27,6 +36,7 @@
 
 class DiscoveryTest : public QObject {
     Q_OBJECT
+    QTemporaryDir settingsDir;
     QTcpServer server;
     UserMainWindow *window = nullptr;
     bool failed = false;
@@ -34,6 +44,7 @@ class DiscoveryTest : public QObject {
     int lastPileStation = -1;
     double lastLon = 0;
     double lastLat = 0;
+    int replyDelay = 0;
     QJsonArray stations() {
         QJsonArray result;
         const QStringList names{"中关村绿色能源站", "五道口城市快充站", "学院路社区充电站"};
@@ -97,6 +108,11 @@ private slots:
         QCOMPARE(stack->currentIndex(),1);
     }
     void initTestCase() {
+        QVERIFY(settingsDir.isValid());
+        QSettings::setDefaultFormat(QSettings::IniFormat);
+        QSettings::setPath(QSettings::IniFormat,QSettings::UserScope,settingsDir.path());
+        QCoreApplication::setOrganizationName("ChargingUiTests");
+        QCoreApplication::setApplicationName("Isolated");
         QVERIFY(server.listen(QHostAddress::LocalHost,0));
         qputenv("CHARGING_SERVER_PORT", QByteArray::number(server.serverPort()));
         qputenv("CHARGING_SERVER_HOST", "127.0.0.1");
@@ -107,6 +123,7 @@ private slots:
                     auto req=QJsonDocument::fromJson(socket->readLine()).object();
                     int type=req["type"].toInt();
                     QJsonObject reply{{"type",type},{"ok",true}};
+                    if(type==Protocol::ReqGetUserInfo) { reply["nickname"]="体验用户"; reply["balance"]=128.50; }
                     if(type==6) { reply["stations"]=stations(); lastLon=req["lon"].toDouble(); lastLat=req["lat"].toDouble();
                         if(failed) { reply["ok"]=false; reply["error"]="test unavailable"; } }
                     if(type==7) { lastPileStation=req["stationId"].toInt();
@@ -115,7 +132,8 @@ private slots:
                     if(type==8) { reply["hasOrder"]=activeOrder;
                         reply["order"]=QJsonObject{{"id",99},{"pileId",101},{"pileCode","DC-01"},{"stationName","正在充电的站点"},{"status",0}}; }
                     if(type==17) reply["reservations"]=QJsonArray{};
-                    socket->write(QJsonDocument(reply).toJson(QJsonDocument::Compact)+'\n');
+                    const auto bytes = QJsonDocument(reply).toJson(QJsonDocument::Compact)+'\n';
+                    QTimer::singleShot(replyDelay, socket, [socket, bytes] { socket->write(bytes); });
                 }
             });
         });
@@ -128,6 +146,7 @@ private slots:
         QCOMPARE(qApp->palette().color(QPalette::Base), QColor("#FFFFFF"));
         ClientSession::instance().userId=1;
         ClientSession::instance().nickname="体验用户";
+        ClientSession::instance().phone="138****8000";
         ClientSession::instance().balance=128.50;
         window=new UserMainWindow;
         window->resize(1200,820); window->show();
@@ -171,6 +190,47 @@ private slots:
         for(auto *c:page.findChildren<QComboBox*>()) if(c->currentText().contains("五道口")) selected=true;
         QVERIFY(selected);
     }
+    void navigationWhileRequestPending() {
+        auto *nearby = window->findChild<NearbyStationsPage*>();
+        for (int attempt = 0; attempt < 2; ++attempt) {
+            replyDelay = 120;
+            QTimer::singleShot(10, nearby, [nearby] {
+                emit nearby->navigationRequested(12, 116.461, 39.9087);
+            });
+            const auto reply = TcpClient::instance().request(Protocol::ReqStationList);
+            replyDelay = 0;
+            QVERIFY(reply.value("ok").toBool());
+            auto *dialog = window->findChild<QDialog*>();
+            QVERIFY(dialog);
+            QVERIFY(!dialog->testAttribute(Qt::WA_TranslucentBackground));
+            QVERIFY(!dialog->windowFlags().testFlag(Qt::FramelessWindowHint));
+            QVERIFY(!dialog->findChild<QWidget*>("customTitleBar"));
+            auto *page = dialog->findChild<NavigationPage*>();
+            QVERIFY(page);
+            auto *dest = page->findChild<QComboBox*>("destCombo");
+            QTRY_COMPARE(dest->currentData().toInt(), 12);
+            QCOMPARE(lastLon, 116.461);
+            QCOMPARE(lastLat, 39.9087);
+            QVERIFY(dialog->findChildren<QMessageBox*>().isEmpty());
+            QVERIFY(dialog->grab().save("/tmp/charging-navigation-fixed.png"));
+            dialog->accept();
+            QTRY_VERIFY(window->findChildren<QDialog*>().isEmpty());
+        }
+    }
+    void navigationFailureRetry() {
+        NavigationPage page;
+        page.setDestination(12, 116.461, 39.9087);
+        failed = true;
+        page.show();
+        auto *status = page.findChild<QLabel*>("navResult");
+        QTRY_VERIFY(status->text().contains("站点加载失败"));
+        QVERIFY(page.findChildren<QMessageBox*>().isEmpty());
+        QVERIFY(!button(&page, "开始导航")->isEnabled());
+        failed = false;
+        page.findChild<QPushButton*>("navigationRefresh")->click();
+        QTRY_COMPARE(page.findChild<QComboBox*>("destCombo")->currentData().toInt(), 12);
+        QVERIFY(button(&page, "开始导航")->isEnabled());
+    }
     void failureAndRecovery() {
         failed=true;
         window->findChild<QListWidget*>("navList")->setCurrentRow(0); QTest::qWait(30);
@@ -192,6 +252,45 @@ private slots:
             QCOMPARE(table->viewport()->palette().color(QPalette::Base), QColor("#FFFFFF"));
         }
         nav->setCurrentRow(0); QTest::qWait(15);
+    }
+    void accountAndMessageCards() {
+        auto *nav = window->findChild<QListWidget*>("navList");
+        nav->setCurrentRow(4); QTest::qWait(250);
+        auto *account = window->findChild<UserInfoPage*>();
+        QCOMPARE(account->findChild<QLabel*>("walletAmount")->text(),QString("128.50"));
+        button(account,"200 元")->click();
+        QCOMPARE(account->findChild<QDoubleSpinBox*>("rechargeSpin")->value(),200.0);
+        QVERIFY(window->grab().save("/tmp/charging-account-redesign.png"));
+        nav->setCurrentRow(3); QTest::qWait(250);
+        auto *page = window->findChild<MessagePage*>();
+        QVERIFY(window->grab().save("/tmp/charging-messages-empty.png"));
+        const int before = MessageCenter::instance().unreadCount();
+        QTimer popupCloser;
+        connect(&popupCloser,&QTimer::timeout,this,[]{
+            for(auto *w : QApplication::topLevelWidgets())
+                if(auto *box=qobject_cast<QMessageBox*>(w)) box->accept();
+        });
+        popupCloser.start(10);
+        for(int event : {2,6,8}) emit TcpClient::instance().pushReceived(QJsonObject{
+            {"type",Protocol::PushOrderEvent},{"event",event},
+            {"message",event==2 ? "本次充电已完成，订单已结算。预授权剩余金额已退回钱包，可前往我的订单查看电量与费用明细。" : "服务状态已更新，请查看最新通知。"}});
+        popupCloser.stop();
+        auto *list = page->findChild<QListWidget*>("messageList");
+        QTRY_COMPARE(list->count(),3);
+        QCOMPARE(MessageCenter::instance().unreadCount(),before+3);
+        QVERIFY(list->visualItemRect(list->item(0)).height()>=120);
+        QVERIFY(window->grab().save("/tmp/charging-messages-redesign.png"));
+        QTest::mouseClick(list->viewport(),Qt::LeftButton,Qt::NoModifier,list->visualItemRect(list->item(0)).center());
+        QTRY_COMPARE(MessageCenter::instance().unreadCount(),before+2);
+        page->findChild<QComboBox*>("messageFilter")->setCurrentIndex(1);
+        QCOMPARE(list->count(),2);
+        button(page,"清空已读")->click(); QTest::qWait(20);
+        QCOMPARE(list->count(),2);
+        window->resize(800,600); QTest::qWait(20);
+        QVERIFY(window->grab().save("/tmp/charging-messages-compact.png"));
+        nav->setCurrentRow(4); QTest::qWait(20);
+        QVERIFY(window->grab().save("/tmp/charging-account-compact.png"));
+        window->resize(1200,820);
     }
     void variablePowerModel() {
         double energy = 0, minimum = 120, maximum = 0;

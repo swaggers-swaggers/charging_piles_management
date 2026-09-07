@@ -145,6 +145,17 @@ ChargingEngine::StartResult ChargingEngine::startCharging(int userId, int pileId
     QSqlDatabase db = connName.isEmpty() ? DatabaseManager::instance().database()
                                          : QSqlDatabase::database(connName);
 
+    // 读余额和已有订单之前取得写锁，其他连接等待后读取提交后的最新状态。
+    QSqlQuery begin(db);
+    if (!begin.exec("BEGIN IMMEDIATE")) {
+        r.errorCode = ErrDbError; r.error = begin.lastError().text(); return r;
+    }
+    struct RollbackGuard {
+        QSqlDatabase &db;
+        bool active = true;
+        ~RollbackGuard() { if (active) db.rollback(); }
+    } transaction{db};
+
     UserInfo user;
     if (!UserDao::getById(userId, &user, nullptr, connName)) {
         r.errorCode = ErrNotFound; r.error = "用户不存在"; return r;
@@ -162,7 +173,11 @@ ChargingEngine::StartResult ChargingEngine::startCharging(int userId, int pileId
     }
 
     bool hasOrder = false;
-    OrderDao::getUnfinishedByUser(userId, &hasOrder, nullptr, connName);
+    QString orderError;
+    OrderDao::getUnfinishedByUser(userId, &hasOrder, &orderError, connName);
+    if (!orderError.isEmpty()) {
+        r.errorCode = ErrDbError; r.error = orderError; return r;
+    }
     if (hasOrder) {
         r.errorCode = ErrOrderExists; r.error = "您已有正在充电的订单, 请先结束"; return r;
     }
@@ -191,25 +206,21 @@ ChargingEngine::StartResult ChargingEngine::startCharging(int userId, int pileId
         return r;
     }
 
-    if (!db.transaction()) {
-        r.errorCode = ErrDbError; r.error = db.lastError().text(); return r;
-    }
     QString err;
     // 1) 原子抢桩: 仅空闲能抢到
     if (!PileDao::acquire(pileId, &err, connName)) {
-        db.rollback();
         r.errorCode = ErrPileBusy; r.error = "手慢了, 该桩刚被占用"; return r;
     }
     // 2) 冻结预授权额
     if (!UserDao::adjustBalance(userId, -freeze, &err, connName)) {
-        db.rollback(); r.errorCode = ErrDbError; r.error = err; return r;
+        r.errorCode = ErrDbError; r.error = err; return r;
     }
     // 3) 建单
     const int orderId = OrderDao::create(userId, pileId, pile.stationId,
                                          qRound(unitPrice * 1000) / 1000.0, freeze,
                                          targetType, targetValue, &err, connName);
     if (orderId <= 0) {
-        db.rollback(); r.errorCode = ErrDbError; r.error = err; return r;
+        r.errorCode = ErrDbError; r.error = err; return r;
     }
     // 4) 若该用户今日预约了此桩, 预约置为已履约; 待确认的现场排队同样置履约
     ReservationDao::fulfillTodayAppoint(userId, pileId, nullptr, connName);
@@ -221,9 +232,10 @@ ChargingEngine::StartResult ChargingEngine::startCharging(int userId, int pileId
     fulfillQueue.exec();
 
     if (!db.commit()) {
-        db.rollback(); r.errorCode = ErrDbError; r.error = db.lastError().text(); return r;
+        r.errorCode = ErrDbError; r.error = db.lastError().text(); return r;
     }
 
+    transaction.active = false;
     r.ok = true;
     r.freezeAmount = freeze;
     r.unitPrice = unitPrice;
@@ -257,7 +269,9 @@ ChargingEngine::SettleResult ChargingEngine::settleOrder(int orderId, int finish
     QSqlDatabase db = connName.isEmpty() ? DatabaseManager::instance().database()
                                          : QSqlDatabase::database(connName);
 
-    if (!db.transaction()) { r.error = db.lastError().text(); return r; }
+    // 先获取写锁，再读取结算金额，避免读快照升级写事务时与心跳竞争。
+    QSqlQuery begin(db);
+    if (!begin.exec("BEGIN IMMEDIATE")) { r.error = begin.lastError().text(); return r; }
 
     int userId = -1, pileId = -1, simMin = 0, curStatus = -1;
     double energy = 0, amount = 0, freeze = 0;
@@ -487,15 +501,17 @@ void ChargingEngine::sweepActiveOrders()
         newEnergy = qRound(newEnergy * 1000.0) / 1000.0;
         newAmount = qRound(newAmount * 100.0) / 100.0;
 
+        // 只有成功写入本次进度，才能继续结算或发送进度推送。
+        // 已结束订单及数据库写入失败均不再使用本地计算值。
+        if (!OrderDao::updateProgress(o.id, newEnergy, newAmount, newMin))
+            continue;
+
         if (finish >= 0) {
-            OrderDao::updateProgress(o.id, newEnergy, newAmount, newMin);
             SettleResult sr = settleOrder(o.id, finish, reason);
             if (sr.ok)
                 notifyOrderEnded(sr.order, finish, reason);
             continue;
         }
-
-        OrderDao::updateProgress(o.id, newEnergy, newAmount, newMin);
 
         double progress = 0.0;
         if (ctx.targetType == TargetEnergy && ctx.targetValue > 0)

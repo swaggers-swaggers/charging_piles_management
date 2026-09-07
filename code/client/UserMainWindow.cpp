@@ -162,17 +162,20 @@ void UserMainWindow::initUi()
         m_navList->setCurrentRow(1);
     });
     connect(nearby, &NearbyStationsPage::navigationRequested, this, [this](int id, double lon, double lat) {
-        QDialog dialog(this);
-        dialog.setWindowTitle("站点导航");
-        dialog.resize(qMin(1000, width()), qMin(720, height()));
-        auto *layout = new QVBoxLayout(&dialog);
-        auto *back = new QPushButton("返回充电站", &dialog);
+        auto *dialog = new QDialog(this);
+        dialog->setProperty("nativeWindowChrome", true);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->setWindowTitle("站点导航");
+        dialog->resize(qMin(1000, width()), qMin(720, height()));
+        auto *layout = new QVBoxLayout(dialog);
+        auto *back = new QPushButton("返回充电站", dialog);
         layout->addWidget(back, 0, Qt::AlignLeft);
-        auto *navigation = new NavigationPage(&dialog);
+        auto *navigation = new NavigationPage(dialog);
         navigation->setDestination(id, lon, lat);
         layout->addWidget(navigation, 1);
-        connect(back, &QPushButton::clicked, &dialog, &QDialog::accept);
-        dialog.exec();
+        connect(back, &QPushButton::clicked, dialog, &QDialog::accept);
+        // 不用 exec 嵌套阻塞正在等待应答的首页请求。
+        dialog->open();
     });
     auto *balanceTimer = new QTimer(this);
     connect(balanceTimer, &QTimer::timeout, this, [this] {

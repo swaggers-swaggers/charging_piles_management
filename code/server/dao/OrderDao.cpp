@@ -155,7 +155,7 @@ bool OrderDao::updateProgress(int orderId, double energy, double amount, int sim
                               QString *errMsg, const QString &connName)
 {
     QSqlQuery q(daoDb(connName));
-    q.prepare("UPDATE charge_order SET energy=?, amount=?, sim_minutes=? WHERE id=?");
+    q.prepare("UPDATE charge_order SET energy=?, amount=?, sim_minutes=? WHERE id=? AND status=0");
     q.addBindValue(energy);
     q.addBindValue(amount);
     q.addBindValue(simMinutes);
@@ -163,6 +163,10 @@ bool OrderDao::updateProgress(int orderId, double energy, double amount, int sim
     if (!q.exec()) {
         if (errMsg)
             *errMsg = q.lastError().text();
+        return false;
+    }
+    if (q.numRowsAffected() != 1) {
+        if (errMsg) *errMsg = "订单不存在或已结束，无法更新充电进度";
         return false;
     }
     return true;

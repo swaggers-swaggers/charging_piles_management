@@ -13,6 +13,7 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QMessageBox>
+#include <QPointer>
 #include <QMouseEvent>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -66,6 +67,9 @@ NavigationPage::NavigationPage(QWidget *parent)
     : QWidget(parent),
       m_networkManager(new QNetworkAccessManager(this))
 {
+    m_refreshTimer = new QTimer(this);
+    m_refreshTimer->setSingleShot(true);
+    connect(m_refreshTimer, &QTimer::timeout, this, &NavigationPage::refresh);
     QVBoxLayout *layout = new QVBoxLayout(this);
     layout->setContentsMargins(24, 20, 24, 24);
     layout->setSpacing(16);
@@ -97,10 +101,12 @@ NavigationPage::NavigationPage(QWidget *parent)
     zoomInBtn->setObjectName("secondaryBtn");
     zoomInBtn->setToolTip("放大地图");
     zoomInBtn->setFixedWidth(32);
+    zoomInBtn->setStyleSheet("padding: 0px; min-height: 30px;");
     QPushButton *zoomOutBtn = new QPushButton("－", this);
     zoomOutBtn->setObjectName("secondaryBtn");
     zoomOutBtn->setToolTip("缩小地图");
     zoomOutBtn->setFixedWidth(32);
+    zoomOutBtn->setStyleSheet("padding: 0px; min-height: 30px;");
     planRow->addWidget(startLabel);
     planRow->addWidget(m_startCombo);
     planRow->addWidget(destLabel);
@@ -120,11 +126,18 @@ NavigationPage::NavigationPage(QWidget *parent)
     m_resultLabel = new QLabel("选择终点后点击\"开始导航\"规划路线", this);
     m_resultLabel->setObjectName("navResult");
     m_resultLabel->setAlignment(Qt::AlignCenter);
+    m_resultLabel->setWordWrap(true);
 
     layout->addWidget(title);
     layout->addLayout(planRow);
     layout->addWidget(m_canvas, 1);
-    layout->addWidget(m_resultLabel);
+    auto *resultRow = new QHBoxLayout;
+    resultRow->addWidget(m_resultLabel, 1);
+    auto *retry = new QPushButton("刷新站点", this);
+    retry->setObjectName("navigationRefresh");
+    resultRow->addWidget(retry);
+    layout->addLayout(resultRow);
+    connect(retry, &QPushButton::clicked, this, [this] { m_refreshTimer->start(0); });
 
     connect(m_startCombo, qOverload<int>(&QComboBox::currentIndexChanged),
             this, &NavigationPage::onStartChanged);
@@ -137,6 +150,7 @@ NavigationPage::NavigationPage(QWidget *parent)
     connect(m_modeCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, &NavigationPage::onPlanChanged);
 
     onStartChanged(0);
+    onPlanChanged();
 }
 
 void NavigationPage::setDestination(int stationId, double lon, double lat)
@@ -155,7 +169,7 @@ void NavigationPage::showEvent(QShowEvent *event)
 {
     QWidget::showEvent(event);
     // 延迟到界面显示完成后查询站点；不再进入页面就消耗一次第三方定位额度。
-    QTimer::singleShot(0, this, &NavigationPage::refresh);
+    m_refreshTimer->start(0);
 }
 
 void NavigationPage::onStartChanged(int index)
@@ -180,15 +194,30 @@ void NavigationPage::onStartChanged(int index)
     }
     m_routePolyline.clear();
     if (isVisible())
-        refresh();
+        m_refreshTimer->start(0);
 }
 
 void NavigationPage::refresh()
 {
+    if (!isVisible()) return;
+    // showEvent、起点切换和首页请求可能重入；合并刷新并等待连接空闲。
+    if (m_refreshing || TcpClient::instance().isBusy()) {
+        m_refreshTimer->start(50);
+        return;
+    }
+    m_refreshing = true;
+    m_previewButton->setEnabled(false);
+    m_externalButton->setEnabled(false);
+    m_resultLabel->setText("正在加载站点……");
+    const QPointer<NavigationPage> guard(this);
     const QJsonObject reply = TcpClient::instance().request(
         Protocol::ReqStationList, QJsonObject{{"lon", m_lon}, {"lat", m_lat}});
+    if (!guard) return; // 用户可在应答到达前关闭非阻塞导航窗口。
+    m_refreshing = false;
+    if (m_refreshTimer->isActive()) return; // 起点已变化，等待最新查询。
     if (!reply.value("ok").toBool()) {
-        QMessageBox::warning(this, "查询失败", reply.value("error").toString());
+        m_resultLabel->setText(QString("站点加载失败：%1。请点击“刷新站点”重试。")
+                                  .arg(reply.value("error").toString()));
         return;
     }
 

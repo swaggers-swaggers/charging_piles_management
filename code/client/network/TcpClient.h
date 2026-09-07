@@ -22,6 +22,7 @@ public:
     bool setEndpoint(const QString &host, int port);
     QString serverHost() const { return m_host; }
     int serverPort() const { return m_port; }
+    bool isBusy() const { return m_busy || m_connecting; }
 
     bool ensureConnected(int timeoutMs = 3000, QString *errMsg = nullptr);
 
