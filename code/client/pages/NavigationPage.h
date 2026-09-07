@@ -76,6 +76,7 @@ public:
 
     void zoomIn();    // 放大
     void zoomOut();   // 缩小
+    void reloadMap();
 
 protected:
     void paintEvent(QPaintEvent *event) override;

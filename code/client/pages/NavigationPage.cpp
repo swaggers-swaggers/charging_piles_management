@@ -3,6 +3,7 @@
 #include "GeoUtil.h"
 #include "protocol.h"
 #include "network/TcpClient.h"
+#include "network/MapNetwork.h"
 
 #include <QComboBox>
 #include <QDesktopServices>
@@ -136,6 +137,16 @@ NavigationPage::NavigationPage(QWidget *parent)
     auto *retry = new QPushButton("刷新站点", this);
     retry->setObjectName("navigationRefresh");
     resultRow->addWidget(retry);
+    auto *reloadMap = new QPushButton("重新连接地图", this);
+    resultRow->addWidget(reloadMap);
+    connect(reloadMap, &QPushButton::clicked, this, [this] {
+        if (m_routeReply)
+            m_routeReply->abort();
+        MapNetwork::configure();
+        m_networkManager->clearAccessCache();
+        m_canvas->reloadMap();
+        m_resultLabel->setText("已重新检测网络并加载地图，可再次点击路线预览。外部浏览器需单独刷新。");
+    });
     layout->addLayout(resultRow);
     connect(retry, &QPushButton::clicked, this, [this] { m_refreshTimer->start(0); });
 
@@ -419,6 +430,15 @@ void NavigationPage::onOpenExternalNavigation()
 }
 
 // ---------- MapCanvas ----------
+
+void MapCanvas::reloadMap()
+{
+#ifdef CHARGING_HAS_WEBENGINE
+    m_webReady = false;
+    updateWebMap(true);
+    m_webView->reload();
+#endif
+}
 
 MapCanvas::MapCanvas(QWidget *parent)
     : QWidget(parent)

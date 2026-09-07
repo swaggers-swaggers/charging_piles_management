@@ -1,7 +1,7 @@
 #include <QApplication>
 #include "AppTheme.h"
 #include <QFile>
-#include <QNetworkProxyFactory>
+#include "network/MapNetwork.h"
 #include <QtGlobal>
 
 #include "ClientSession.h"
@@ -19,9 +19,7 @@ int main(int argc, char *argv[])
     a.setApplicationName("ChargingClient");
     QApplication::setStyle("Fusion");
 
-    // 使 QNetworkAccessManager 跟随 Linux 桌面/环境的系统代理设置。
-    // v2rayN 开启时地图与路线请求走代理，关闭时自动直连。
-    QNetworkProxyFactory::setUseSystemConfiguration(true);
+    MapNetwork::configure();
 
     AppTheme::apply(a);
 

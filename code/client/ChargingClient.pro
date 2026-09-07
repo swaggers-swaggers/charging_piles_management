@@ -43,6 +43,7 @@ SOURCES += \
     network/TcpClientWorker.cpp
 
 HEADERS += \
+    network/MapNetwork.h \
     ClientSession.h \
     MessageCenter.h \
     LoginDialog.h \
