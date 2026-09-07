@@ -1,142 +1,139 @@
-# 东软电动汽车充电桩应用管理平台 — Qt5/Qt6 双程序工程
+# 开发与运行说明
 
-按《开发计划书》（见 `docs/开发计划书.md`）拆分为 **服务端 + 用户客户端 + Web 大屏**：
+项目功能概览见 [仓库 README](../README.md)。本文说明工程构建、配置和代码入口。
 
-| 程序 | 说明 |
-| ---- | ---- |
-| **ChargingServer** 服务端 | 管理后台（管理员登录/销售业绩/电桩状态/充电桩管理/充电站管理/用户管理）+ TCP 服务端（处理客户端业务）+ **数据库唯一持有者** |
-| **ChargingClient** 用户客户端 | 手机端体验（手机号免密登录/附近充电站/一键导航/用户信息/充电），**不直接访问数据库**，业务全部经 Socket 与服务端交互 |
+## 构建准备
 
-## 开发环境
+| 依赖 | 用途 | 是否必需 |
+| --- | --- | --- |
+| C++17 编译器、qmake、构建工具 | 编译 Qt 工程 | 是 |
+| Qt Core / Gui / Widgets / Network | 两端界面与通信 | 是 |
+| Qt Sql 与 QSQLITE 驱动 | 服务端数据库访问 | 服务端必需 |
+| Qt Charts | 销售业绩图表；缺失时使用自绘图表 | 否 |
+| Qt WebEngine Widgets | 应用内地图；缺失时使用原生降级画布 | 否 |
+| Qt Test | 自动化回归测试 | 运行测试时必需 |
 
-- 虚拟机：VMware 17 + Ubuntu 22.04（及以上）
-- 开发工具：Qt Creator 6.2 及以上
-- Qt 版本：Qt 5.15 与 Qt 6 均可编译（代码做了双版本兼容；Ubuntu 22.04 默认源下 `qt6-base-dev` / `qt5-default` 装哪个就用哪个 Kit）
-- 数据库：SQLite（QSQLITE 驱动随 Qt 自带，无需服务端进程）
-- 地图：安装 Qt WebEngine 后使用 MapLibre + OpenFreeMap；未安装时自动使用降级画布
+使用同一个 Qt Kit 的头文件、库和 qmake。Qt Creator 可打开 [根工程](ChargingPlatform.pro)，也可分别打开 [服务端工程](server/ChargingServer.pro) 与 [客户端工程](client/ChargingClient.pro)。新增可选模块后，重新运行 qmake 并构建。
 
-## 编译运行
+### 命令行构建
 
-Qt Creator：打开根目录 `ChargingPlatform.pro`（subdirs 工程，会同时配置两个子项目），分别构建运行；也可单独打开 `server/ChargingServer.pro` 或 `client/ChargingClient.pro`。
-
-命令行：
+以下为 Linux / Qt 6 示例，从**仓库根目录**执行，使用独立构建目录：
 
 ```bash
-cd code
-qmake && make            # 根工程会同时构建两个子项目
-./server/ChargingServer  # 1. 先启动服务端
-./client/ChargingClient  # 2. 再启动客户端
+mkdir -p build/server build/client
+cd build/server
+qmake6 ../../code/server/ChargingServer.pro
+make -j4
+cd ../client
+qmake6 ../../code/client/ChargingClient.pro
+make -j4
+cd ../..
 ```
 
-> **Qt Charts 说明**：销售业绩页的营收折线图优先使用 QChart（需 `sudo apt install libqt5charts5-dev` 或 `libqt6charts6-dev`）；未安装该组件时工程会自动降级为自绘折线图，两种情况下都能正常编译运行（详见 `docs/开发计划书.md` 风险应对）。
+Qt 5 使用所选 Kit 对应的 `qmake` 替代 `qmake6`。Windows 等平台使用对应 Kit 的构建工具及程序路径。
 
-> **真实地图说明**：Qt5 安装 `sudo apt install qtwebengine5-dev`，Qt6 安装 `sudo apt install qt6-webengine-dev`，然后重新运行 qmake。工程会自动检测该模块；未安装时仍能编译和使用高德外部导航，但应用内只显示降级画布。
-
-**运行顺序**：客户端登录时才需要服务端在线，但演示请先启动服务端。默认服务器地址 `127.0.0.1:9527`（同机），可用环境变量覆盖：
+运行两个程序时分别使用一个终端，以下命令均从仓库根目录执行：
 
 ```bash
-export CHARGING_SERVER_HOST=127.0.0.1
-export CHARGING_SERVER_PORT=9527
-export CHARGING_DB=/path/to/test.db    # 服务端数据库文件位置(可选)
-export CHARGING_WEB_PORT=8080          # Web 大屏 HTTP 端口(可选)
+# 终端一：先启动服务端
+./build/server/ChargingServer
 ```
 
-### Web 大数据可视化大屏
-
-服务端**内置 HTTP 服务器**，直接把大屏页面和 `data.json` 数据一起托管，无需另起 Web 服务。服务端启动后，浏览器访问：
-
-```
-http://服务器IP:8080
+```bash
+# 终端二：启动用户客户端
+./build/client/ChargingClient
 ```
 
-即可看到 4 块图表的大屏（营收趋势 / 电桩状态 / 各站营收 / 24h 负荷预测），每 5 秒自动刷新。请**不要**双击 `web/index.html` 打开——`file://` 协议下浏览器会拦截数据请求导致空白。
+Qt Creator 中分别选择两个可执行目标运行即可；日常连接可完全通过登录界面完成。
 
-### 开放地图与导航
+## 登录与局域网连接
 
-- 应用内地图：MapLibre GL JS + OpenFreeMap 矢量底图，不需要地图 Key；显示充电站、空闲桩、价格、当前演示位置和路线折线。
-- 路线预览：仅在点击按钮时调用 FOSSGIS/OSRM 公共演示服务，客户端限制为每秒最多一次并设置 10 秒超时；服务不可用时不影响站点查询和外部导航。
-- 开始导航：通过高德 URI API 打开驾车/步行路线，不使用高德 WebService Key。
-- 坐标：数据库中的腾讯来源坐标按 GCJ-02 保存；显示到 OpenStreetMap、请求 OSRM 前在客户端转换为 WGS-84，高德导航继续使用原始 GCJ-02。
-- 定位：桌面演示环境没有真实 GPS，改为用户显式选择演示起点；附近站点页支持城区和内置地标，不再自动消耗 IP 定位或地理编码额度。
-- 合规：地图页面保留 OpenFreeMap、OpenMapTiles、OpenStreetMap、FOSSGIS/OSRM 署名和“报告地图问题”链接。公共服务只适合课程演示，正式上线应换成自托管或有 SLA 的服务。
+1. 服务端启动后完成管理员登录，默认新库账号为 `admin / 123456`。
+2. 管理后台顶部显示可供客户端使用的 IP 和实际 TCP 监听端口，可选择网卡、复制地址或刷新。
+3. 客户端登录页输入 IP、端口，点击“连接服务器”。程序验证服务端响应，成功后保存连接配置。
+4. 输入 `1` 开头的 11 位手机号并登录。未注册手机号自动注册，被冻结账号会被拦截。
 
-## 测试账号
+同机使用 `127.0.0.1`；跨电脑使用服务端的局域网 IP。默认 TCP 端口为 `9527`，监听所有 IPv4 接口。具体排查方法见 [局域网连接说明](../docs/局域网连接说明.md)。
 
-| 身份 | 程序 | 账号 | 说明 |
-| ---- | ---- | ---- | ---- |
-| 管理员 | ChargingServer | admin / 123456 | 首次运行自动写入 admin 表，本机数据库校验 |
-| 用户 | ChargingClient | 任意 1 开头的 11 位手机号 | 经服务端校验；未注册自动注册（昵称"用户+手机号后4位"），被冻结账号拦截 |
+## 配置项
 
-## 数据库
+| 配置项 | 作用范围 | 默认行为 |
+| --- | --- | --- |
+| `CHARGING_SERVER_HOST` | 客户端首次填写地址的默认值 | `127.0.0.1` |
+| `CHARGING_SERVER_PORT` | 服务端 TCP 监听端口；客户端首次填写端口的默认值 | `9527`，非法端口回退到默认值 |
+| `CHARGING_DB` | 服务端数据库文件路径 | 按下面的查找顺序选择 |
+| `CHARGING_WEB_PORT` | 服务端 HTTP 端口 | `8080` |
+| `CHARGING_WEB_DIR` | 大屏页面和数据导出目录 | 自动寻找 Web 目录 |
 
-- 仅**服务端**访问数据库；文件查找顺序：`CHARGING_DB` → 工作目录 `test.db` → 可执行文件目录附近 → 都没有则在工作目录新建。
-- 启动时自动建表（admin / user / station / pile / charge_order，字段约定见 `server/DatabaseManager.cpp`）。
-- **首次运行即自动生成完整演示数据**（克隆后无需任何手动配置，开箱即用）：
-  - 默认管理员 `admin / 123456`
-  - 12 个北京真实充电站（海淀/朝阳/东城/西城/大兴/通州/丰台，坐标来自地图POI公开信息）+ 88 个电桩（含少量"在用/故障"样例）
-  - **近 30 天滚动演示订单**（约 800 笔 + 10 个演示用户，确定性生成：金额/电量分布固定；订单按真实充电规律分布——早晚通勤双高峰、晚高峰 17-19 点最忙、深夜低谷，工作日/周末单量不同；随运行日滚动到今天，保证今日/本月/总营收和 7/30 日趋势图始终有数据）
-- **数据安全**：`admin.password` 使用加盐 SHA-256 摘要存储，并兼容旧 MD5/明文记录后自动升级；`user.phone` 仅存 **SHA-256 哈希**（不可逆），另存 `phone_masked` 脱敏列（如 `138****5678`）供管理端展示/搜索；旧库明文手机号启动时自动迁移。客户端"记住手机号"也加密存储。
-- SQLite 已开启 WAL 模式 + busy_timeout，支持管理界面与网络线程并发读写。
-- 客户端状态栏/登录页会显示实际使用的服务器地址，服务端状态栏显示数据库路径与大屏地址，便于排查。
+客户端已经保存过成功连接的地址时，登录页优先恢复保存值；本次输入决定本次连接目标。修改服务端端口后，客户端直接在登录页填写新端口即可。
 
-## 目录结构
+需要指定数据库位置时，先创建可写的父目录，再设置 `CHARGING_DB`。服务端状态栏显示实际数据库路径。以上环境变量应在程序启动前设置；Qt Creator 可通过项目的运行环境配置。
 
-```
-code/
-├── ChargingPlatform.pro          # subdirs 根工程
-├── common/                       # 双端共享
-│   ├── common.pri
-│   ├── protocol.h                # 通信协议: 消息类型/字段/错误码(即协议文档)
-│   └── types.h                   # 业务枚举 + DTO(JSON 互转)
-├── server/                       # 服务端(管理后台 + TCP 服务端)
-│   ├── main.cpp                  # 初始化数据库 → 启动监听 → 管理员登录 → 后台
-│   ├── DatabaseManager.*         # 数据库单例(打开/建表/种子/登录查询, 支持指定连接名)
-│   ├── ServerSession.*           # 管理员会话
-│   ├── AdminLoginDialog.*        # 管理员登录(本机校验)
-│   ├── AdminMainWindow.*         # 管理后台主窗口
-│   ├── pages/                    # 5 个管理功能页(占位, 注释含计划功能)
-│   └── network/                  # TcpServer(每连接一线程) + ClientHandler(业务处理)
-├── client/                       # 用户客户端(不含 sql 模块)
-│   ├── main.cpp
-│   ├── ClientSession.*           # 用户会话
-│   ├── LoginDialog.*             # 手机号登录(Socket 校验)
-│   ├── UserMainWindow.* / pages/ # 4 个用户功能页(占位)
-│   └── network/                  # TcpClient(请求-响应+超时+推送分发, 独立线程)
-├── resources/                    # 共享 qss / qrc
-└── web/                          # (阶段4) 大屏页面
-```
+## 数据库与演示模式
 
-登录页使用 **`.ui` 文件**（Qt Designer 可视化布局，见 `LoginDialog.ui` / `AdminLoginDialog.ui`），其余页面代码构建 + 全局/登录 QSS 主题（`resources/qss/`），源码为 UTF-8 编码。
+[DatabaseManager.cpp](server/DatabaseManager.cpp) 按以下顺序选择数据库：
 
-## 通信协议速览
+1. `CHARGING_DB` 指定的文件。
+2. 当前工作目录已存在的 `test.db`。
+3. 从可执行文件目录开始，最多检查三层目录中的 `test.db` 和 `database/test.db`。
+4. 未找到时，在当前工作目录创建 `test.db`。
 
-TCP 长连接，UTF-8 单行 JSON，`\n` 分帧；请求/应答回显相同 `type`，统一 `ok`/`error` 字段，`type>=100` 为服务端推送。完整定义见 `common/protocol.h`。
+服务端使用 SQLite WAL、3 秒 busy timeout 和外键约束。主要表包括 `admin`、`user`、`station`、`pile`、`charge_order`、`price_rule`、`charge_reservation`、`recharge_log` 和 `op_log`。
 
-## 开发进度（对照开发计划书）
+启动时执行建表、已有迁移逻辑和种子数据初始化。默认站点种子为 12 个示例站点、96 个电桩；订单为空时生成近 30 天模拟订单，已有订单不会自动刷新为当天数据。仓库自带数据库会随演示操作改变，不能将种子数量当作运行时固定数量。
 
-| 阶段 | 内容 | 状态 |
-| ---- | ---- | ---- |
-| 0 | 计划书落盘 + 双程序工程拆分 + Socket 登录 | ✅ 已验收 |
-| 1 | 服务端框架完善 + 管理端 4 个数据页面 | ✅ 代码完成, 待验收 |
-| 2 | 用户客户端 4 大功能 | ✅ 代码完成, 待验收 |
-| 3 | 销售业绩 QChart + 大屏数据导出 | ✅ 代码完成, 待验收 |
-| 4 | Web 可视化大屏 | ✅ 代码完成, 待验收 |
-| 5 | 负荷预测（简化） | ✅ 代码完成, 待验收 |
-| 6 | 错误处理/安全/测试/文档收尾 | ✅ 代码完成, 待回归测试（见 docs/测试清单.md） |
+管理员密码保存在 `password_hash` 与 `salt` 字段，验证使用 SHA-256；用户手机号保存哈希与脱敏展示列。客户端记住手机号使用 XOR 混淆后编码保存，这不是强加密。项目采用免密手机号登录和模拟充值，面向课程演示。
 
-## 局域网连接
+需要重新演示时，优先指定一个新的数据库文件，保留已有库用于追溯，不必删除原始数据。
 
-服务端登录后，管理后台顶部显示可复制的 IP 和实际监听端口。另一台电脑直接在客户端登录页输入 IP、端口并点击“连接服务器”，无需命令行；成功连接的地址会自动记住。详见 [局域网连接说明](../docs/局域网连接说明.md)。
+## 地图与 Web 大屏
+
+### 地图和导航
+
+- MapLibre GL JS + OpenFreeMap：应用内地图，需要 Qt WebEngine 和可用的外部网络。
+- OSRM：路线预览；失败时界面提供提示和重试入口。
+- 高德链接：由系统浏览器打开外部导航，不需要 WebService Key。
+- 用户选择演示起点；坐标转换逻辑见 [GeoUtil.h](common/GeoUtil.h)。
+
+局域网业务 TCP 固定直连；地图网络配置见 [MapNetwork.h](client/network/MapNetwork.h)。地图连接异常时可使用导航页的重新连接入口；外部浏览器的代理由系统或浏览器管理。
+
+### Web 大屏
+
+服务端内置 HTTP 服务，默认浏览器地址为 [http://127.0.0.1:8080](http://127.0.0.1:8080)。页面大约每 5 秒请求数据，`/data.json` 优先实时从数据库聚合；服务端另按 10 秒间隔导出数据文件。
+
+页面及 ECharts 位于 [web/](web/)。自定义部署路径时，可通过 `CHARGING_WEB_DIR` 指定包含 `index.html` 和 `echarts.min.js` 的目录。HTTP 资源处理见 [HttpServer.cpp](server/HttpServer.cpp)，导出目录选择见 [DataExporter.cpp](server/DataExporter.cpp)。
+
+## 代码导航
+
+| 入口 | 职责 |
+| --- | --- |
+| [protocol.h](common/protocol.h)、[types.h](common/types.h) | 消息类型、错误码、业务枚举和数据结构 |
+| [LoginDialog.cpp](client/LoginDialog.cpp) | 客户端地址配置、连接检查和登录 |
+| [TcpClient.cpp](client/network/TcpClient.cpp)、[TcpClientWorker.cpp](client/network/TcpClientWorker.cpp) | 独立网络线程、连接切换、超时处理和推送分发 |
+| [ClientHandler.cpp](server/network/ClientHandler.cpp) | 服务端请求处理与客户端会话 |
+| [ChargingEngine.cpp](server/ChargingEngine.cpp) | 模拟充电推进、结算、恢复、排队和预约扫描 |
+| [dao/](server/dao/) | 数据库读写 |
+| [AdminMainWindow.cpp](server/AdminMainWindow.cpp) | 六个管理页面和局域网信息面板 |
+| [UserMainWindow.cpp](client/UserMainWindow.cpp) | 用户页面导航和会话信息 |
+| [AdminTableCard.h](common/AdminTableCard.h)、[DonutChart.h](common/DonutChart.h)、[UiMotion.h](common/UiMotion.h) | 表格卡片、等比例环状图和轻量动效 |
+| [resources/qss/](resources/qss/) | 全局、客户端和登录页样式 |
+
+登录界面使用 Qt Designer `.ui` 文件，其余主要页面通过 C++ 布局构建。源码使用 UTF-8。
+
+TCP 采用 UTF-8 单行 JSON，每条消息以换行符 `\n` 结束。请求与应答带 `type`，应答使用 `ok` 和可选的 `error`；`type >= 100` 为服务端推送。具体参数以 [协议头文件](common/protocol.h) 和处理代码为准。
+
+## 测试
+
+构建和执行方法见 [自动化测试说明](tests/README.md)，完整业务验收参考 [手工测试清单](../docs/测试清单.md)。新增功能应补充对应的交互或业务验证，不将历史测试结果作为当前版本已通过的证明。
 
 ## 常见问题
 
-- **客户端提示"无法连接服务器"**：先启动 ChargingServer；检查地址端口（登录页下方有提示）；虚拟机内如有防火墙放行 9527 端口。
-- **服务端报"端口监听失败"**：9527 被占用，可用 `CHARGING_SERVER_PORT` 换端口（两端都要设）。
-- **登录报"无法打开数据库"**：查看服务端状态栏路径；必要时 `export CHARGING_DB=/path/test.db`。
-- **大屏打不开 / 空白**：用 `http://IP:8080` 访问（不要双击 index.html）；确认服务端已启动且状态栏显示"大屏访问: http://localhost:8080"；端口被占用可用 `CHARGING_WEB_PORT` 换。
-- **销售业绩 / 大屏没数据**：确认服务端启动日志出现"已生成近30天固定演示订单数据"；若数据被改动，删除 `test.db` 后重启服务端即可重新生成演示数据。
-- **导航页仍是网格画布**：没有安装 Qt WebEngine；安装对应版本的开发包后重新运行 qmake 并全量构建。
-- **真实地图空白 / 路线预览超时**：检查能否访问 `unpkg.com`、`tiles.openfreemap.org` 和 `routing.openstreetmap.de`；外部网络失败时仍可使用站点列表和“开始导航”。
-- **代理拒绝连接**：客户端启动时检测系统配置的本地代理；端口明确拒绝连接时改为直连。代理开关变化后，点击导航页“重新连接地图”重新检测并加载底图，再点击“路线预览”。直连仍需要能访问上述地图服务。外部高德导航由系统浏览器打开，其代理设置需在浏览器或系统中调整。
-- **提示 QSQLITE driver not loaded**：确认 .pro 有 `QT += sql` 并重新 qmake。
-- **中文乱码**：确认源文件为 UTF-8 编码。
+| 现象 | 检查方法 |
+| --- | --- |
+| 客户端连接失败 | 检查服务端是否监听、IP/端口是否一致、防火墙是否允许连接；虚拟机跨电脑访问参考局域网说明 |
+| TCP 端口监听失败 | 检查端口占用，必要时修改服务端端口，并在客户端登录页更新 |
+| QSQLITE 驱动不可用 | 确认当前 Qt Kit 安装了 SQLite 驱动且运行时可加载插件，仅添加 Sql 编译模块不足以解决插件缺失 |
+| 数据库打不开 | 查看状态栏或错误提示中的路径，检查文件及父目录权限 |
+| 大屏空白或没有数据 | 使用 HTTP 地址访问，检查 HTTP 服务状态和数据；演示历史订单不会每天重新生成 |
+| 地图显示降级画布 | 检查 Qt WebEngine Widgets 是否可用，安装对应模块后重新运行 qmake 并构建 |
+| 底图或路线请求失败 | 检查网络和代理，使用界面重试入口；该问题与局域网 TCP 连接独立 |

@@ -1,33 +1,78 @@
-# 用户首页交互回归
+# 自动化测试说明
 
-QtTest 在临时本机端口启动模拟服务端，不使用实际账号、数据库或地图接口。
+本目录包含三个独立的 Qt 回归测试工程。构建需要 Qt Widgets、Network、Test；服务端集成测试还需要 Qt Sql 和 QSQLITE 驱动。
+
+## 测试范围
+
+| 工程 | 可执行程序 | 主要覆盖 |
+| --- | --- | --- |
+| [discovery_ui.pro](discovery_ui.pro) | `discovery_ui_test` | 首页搜索与筛选、站点选择、导航传参与失败重试、账户与消息卡片、已有充电订单保留、主题与布局、功率模型、动画清理 |
+| [lan_connection.pro](lan_connection.pro) | `lan_connection_test` | 服务器切换、无效地址与端口、失败重试、连接取消、登录页配置保存、无协议响应、绕过不可用系统代理 |
+| [server_ui.pro](server_ui.pro) | `server_ui_smoke` | 真实 TCP 登录、局域网地址显示与复制、充电推进与结算、六个管理页面、表格卡片、环状图比例及动画清理 |
+
+测试条目会随功能变化，以当前源码和执行输出为准。
+
+## 构建与运行
+
+以下命令从**仓库根目录**执行，适用于 Linux / Qt 6。Qt 5 请改用对应 Kit 的 qmake。
+
+### 客户端交互
 
 ```bash
-mkdir -p /tmp/discovery-test-build
-cd /tmp/discovery-test-build
-qmake6 /path/to/charging/code/tests/discovery_ui.pro
+mkdir -p build/tests/discovery
+cd build/tests/discovery
+qmake6 ../../../code/tests/discovery_ui.pro
 make -j4
 QT_QPA_PLATFORM=offscreen ./discovery_ui_test
 ```
 
-覆盖首页入口、站点搜索与空闲筛选、无桩禁用、满桩选站传递、刷新保留站点、导航起点及终点传递、加载失败恢复、已有充电订单保留，以及 800×600 窗口尺寸。测试截图保存到 `/tmp/charging-*.png`。
+### 局域网连接
 
-该测试编译原生地图降级视图，不连接外部导航、执行真实扣费或创建真实预约；正式客户端构建仍自动检测并启用 Qt WebEngine。
+重新从仓库根目录执行：
 
-## 浅色主题与功率模型回归
+```bash
+mkdir -p build/tests/lan
+cd build/tests/lan
+qmake6 ../../../code/tests/lan_connection.pro
+make -j4
+QT_QPA_PLATFORM=offscreen ./lan_connection_test
+```
 
-`discovery_ui_test` 现包含 9 项检查（含初始化和清理）：强制深色调色板后应用浅色主题、遍历全部客户端页面、检查表格末列自动补宽、功率范围和可重复性、波动与后段降功率。
+### 服务端集成
 
-服务端集成验证：在独立构建目录中使用 `qmake6 /path/to/charging/code/tests/server_ui.pro && make -j4`，然后运行 `QT_QPA_PLATFORM=offscreen ./server_ui_smoke`。它会创建临时数据库，模拟 12 次充电推进，检查累计电量与功率积分、金额一致性和结算，并遍历六个管理页面。成功返回 0，临时数据库自动清理，截图输出到 `/tmp/charging-admin-*.png`。
+重新从仓库根目录执行：
 
-## 局域网连接回归
+```bash
+mkdir -p build/tests/server
+cd build/tests/server
+qmake6 ../../../code/tests/server_ui.pro
+make -j4
+QT_QPA_PLATFORM=offscreen ./server_ui_smoke
+```
 
-在独立目录使用 `qmake6 /path/to/charging/code/tests/lan_connection.pro` 和 `make -j4` 构建，运行 `QT_QPA_PLATFORM=offscreen ./lan_connection_test`。
+`offscreen` 用于无桌面窗口的界面测试。运行环境仍必须允许监听本机临时端口；沙箱禁止 socket 监听时，不能将环境失败视为业务测试结果。
 
-测试使用临时本机端口和隔离的 QSettings 目录，覆盖服务器切换、失败重试、连接取消、无效 IP、端口范围、成功配置保存、无协议响应以及绕过不可用系统代理。登录页截图保存到 `/tmp/charging-lan-login.png`。运行环境必须允许监听本机端口。
+## 数据隔离与结果
 
-`server_ui_smoke` 还验证真实 TCP 手机号登录、服务端显示实际监听端口、地址复制，以及关闭监听后的状态刷新。
+- 客户端交互测试启动本机模拟服务端，不访问实际业务数据库。
+- 局域网测试使用本机临时端口和隔离的 QSettings 配置目录。
+- 服务端测试通过 `QTemporaryDir` 创建临时数据库，验证真实 TCP 登录及模拟充电结算。
+- QtTest 程序输出各条测试结果；服务端集成程序成功返回 `0`，失败返回非零值。
+- 修改共享头文件、资源或工程依赖后，重新运行 qmake 并构建，确保测试二进制包含最新改动。
 
-## 界面修饰与动效
+## 截图输出
 
-服务端回归还检查所有管理表格的卡片包装、环状图在 260×520、700×300、360×360 下保持圆形，以及连续切页后动画覆盖层自动清理。环状图截图输出至 `/tmp/charging-donut-宽x高.png`。客户端回归增加连续切页清理检查，现为 10 项（含初始化和清理）。
+| 路径 | 内容 |
+| --- | --- |
+| `/tmp/charging-*.png` | 客户端页面及相关预览 |
+| `/tmp/charging-lan-login.png` | 客户端服务器连接配置界面 |
+| `/tmp/charging-admin-*.png` | 六个服务端管理页面 |
+| `/tmp/charging-donut-宽x高.png` | 环状图在不同尺寸下的绘制结果 |
+
+服务端测试检查环状图在 260×520、700×300 和 360×360 尺寸下保持等比例，并检查连续切页后的动画覆盖层清理。
+
+## 验证边界
+
+这些测试不连接真实充电设备或支付渠道。客户端交互测试使用原生地图降级视图，不验证 Qt WebEngine、外部地图和导航服务的实际可达性；本机连接测试也不能替代两台实体电脑的局域网验证。
+
+实际演示前，请结合 [手工测试清单](../../docs/测试清单.md) 和 [局域网连接说明](../../docs/局域网连接说明.md) 验证目标环境。
