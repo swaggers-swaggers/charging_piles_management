@@ -4,6 +4,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
+#include <QFile>
 #include <QSet>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -93,6 +94,7 @@ bool DatabaseManager::init(QString *errMsg)
     migrateAdminSchema();
 
     seedDefaultData();
+    if (!importBundledStations(errMsg)) return false;
     seedDefaultFeeRules();
     seedDemoOrders();
 
@@ -701,4 +703,26 @@ void DatabaseManager::seedDemoOrders()
             pu.exec();
         }
     }
+}
+
+// 数据包内包含事务和版本标记；已有库与新库均可导入，管理员后续修改不会被覆盖。
+bool DatabaseManager::importBundledStations(QString *errMsg)
+{
+    QFile file(":/data/beijing_real_stations.sql");
+    if (!file.open(QIODevice::ReadOnly)) {
+        if (errMsg) *errMsg = "无法读取内置站点数据包";
+        return false;
+    }
+    // 受控 SQL 资源不包含分号字符串或触发器。
+    const auto statements = QString::fromUtf8(file.readAll()).split(';');
+    for (const auto &statement : statements) {
+        if (statement.trimmed().isEmpty()) continue;
+        QSqlQuery query(m_db);
+        if (!query.exec(statement)) {
+            if (errMsg) *errMsg = "导入站点失败: " + query.lastError().text();
+            m_db.rollback();
+            return false;
+        }
+    }
+    return true;
 }

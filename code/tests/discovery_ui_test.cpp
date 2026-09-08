@@ -86,6 +86,14 @@ private slots:
         QTimer::singleShot(100,&dialog,[&]{
             QVERIFY(dialog.windowFlags().testFlag(Qt::FramelessWindowHint));
             QVERIFY(dialog.findChild<QWidget*>("customTitleBar"));
+            QVERIFY(!dialog.testAttribute(Qt::WA_TranslucentBackground));
+            QVERIFY(dialog.windowFlags().testFlag(Qt::NoDropShadowWindowHint));
+            QCOMPARE(dialog.contentsMargins(),QMargins(0,0,0,0));
+            QVERIFY(!dialog.mask().contains(QPoint(0,0)));
+            QVERIFY(dialog.mask().contains(QPoint(dialog.width()/2,0)));
+            dialog.resize(dialog.width()+60,dialog.height()+30);
+            QVERIFY(dialog.mask().contains(QPoint(dialog.width()-1,dialog.height()/2)));
+            QVERIFY(!dialog.mask().contains(dialog.rect().bottomRight()));
             QVERIFY(input->isVisible());
             dialog.accept();
         });
@@ -180,6 +188,27 @@ private slots:
         QVERIFY(button(page,"排队等待")); QVERIFY(button(page,"预约时段"));
         button(page,"刷新")->click(); QCOMPARE(combo->currentData().toInt(),12);
         QVERIFY(window->grab().save("/tmp/charging-pile-selection.png"));
+    }
+    void chargingDialogContrast() {
+        auto *page=window->findChild<ChargingPage*>();
+        page->selectStation(11);
+        window->findChild<QListWidget*>("navList")->setCurrentRow(1);
+        QTest::qWait(250);
+        auto *start=button(page,"立即充电");
+        QVERIFY(start);
+        bool checked=false;
+        QTimer::singleShot(150,page,[&]{
+            auto *dialog=page->findChild<QDialog*>();
+            if (!dialog) return;
+            checked=dialog->property("dialogSurface").toBool()
+                && !dialog->testAttribute(Qt::WA_TranslucentBackground)
+                && button(dialog,"开始充电")->objectName()=="primaryBtn"
+                && !dialog->mask().contains(QPoint(0,0));
+            dialog->grab().save("/tmp/charging-dialog-contrast.png");
+            dialog->reject();
+        });
+        start->click();
+        QVERIFY(checked);
     }
     void navigationContext() {
         NavigationPage page;
