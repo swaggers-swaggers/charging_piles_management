@@ -71,3 +71,6 @@ code/.vscode
 # ---------- Python 缓存(勿上传) ----------
 __pycache__/
 *.pyc
+
+# 自动生成的数据库导入备份保留在本机
+*.db.before-stations-*.bak
