@@ -24,7 +24,10 @@
 #include <QLayoutItem>
 #include <QMessageBox>
 #include <QPainter>
+#include <QPainterPath>
 #include <QPen>
+#include <QLinearGradient>
+#include <QVariantAnimation>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSet>
@@ -111,6 +114,254 @@ void ChargeRingWidget::paintEvent(QPaintEvent *)
     p.setFont(small);
     p.drawText(QRectF(c.x() - r, c.y() + 14, r * 2, 24), Qt::AlignCenter, m_small);
 }
+
+// ============================================================================
+// 预约凭证(电子票券)自绘部件
+// 设计语言: 登机牌/票根 —— 顶部墨绿渐变色带、齿孔虚线与两侧半圆撕口、
+// 浅底存根, 搭配细线呼吸状态标记; 仅用于排队/预约等待视图。
+// ============================================================================
+namespace VoucherUi {
+constexpr qreal kRadius = 16.0;
+
+QPainterPath topRoundedRect(const QRectF &r, qreal rad)
+{
+    QPainterPath p;
+    p.moveTo(r.left(), r.bottom());
+    p.lineTo(r.left(), r.top() + rad);
+    p.arcTo(QRectF(r.left(), r.top(), rad * 2, rad * 2), 180, -90);
+    p.lineTo(r.right() - rad, r.top());
+    p.arcTo(QRectF(r.right() - rad * 2, r.top(), rad * 2, rad * 2), 90, -90);
+    p.lineTo(r.right(), r.bottom());
+    p.closeSubpath();
+    return p;
+}
+
+QPainterPath bottomRoundedRect(const QRectF &r, qreal rad)
+{
+    QPainterPath p;
+    p.moveTo(r.left(), r.top());
+    p.lineTo(r.right(), r.top());
+    p.lineTo(r.right(), r.bottom() - rad);
+    p.arcTo(QRectF(r.right() - rad * 2, r.bottom() - rad * 2, rad * 2, rad * 2), 0, -90);
+    p.lineTo(r.left() + rad, r.bottom());
+    p.arcTo(QRectF(r.left(), r.bottom() - rad * 2, rad * 2, rad * 2), 270, -90);
+    p.lineTo(r.left(), r.top());
+    p.closeSubpath();
+    return p;
+}
+
+// 色带描边: 仅左竖边 -> 左上圆角 -> 顶边 -> 右上圆角 -> 右竖边(不画底边横线)
+QPainterPath topStrokePath(const QRectF &r, qreal rad)
+{
+    QPainterPath p;
+    p.moveTo(r.left(), r.bottom());
+    p.lineTo(r.left(), r.top() + rad);
+    p.arcTo(QRectF(r.left(), r.top(), rad * 2, rad * 2), 180, -90);
+    p.lineTo(r.right() - rad, r.top());
+    p.arcTo(QRectF(r.right() - rad * 2, r.top(), rad * 2, rad * 2), 90, -90);
+    p.lineTo(r.right(), r.bottom());
+    return p;
+}
+
+// 存根描边: 仅左竖边 -> 左下圆角 -> 底边 -> 右下圆角 -> 右竖边(不画顶边横线)
+QPainterPath bottomStrokePath(const QRectF &r, qreal rad)
+{
+    QPainterPath p;
+    p.moveTo(r.left(), r.top());
+    p.lineTo(r.left(), r.bottom() - rad);
+    p.arcTo(QRectF(r.left(), r.bottom() - rad * 2, rad * 2, rad * 2), 180, 90);
+    p.lineTo(r.right() - rad, r.bottom());
+    p.arcTo(QRectF(r.right() - rad * 2, r.bottom() - rad * 2, rad * 2, rad * 2), 270, 90);
+    p.lineTo(r.right(), r.top());
+    return p;
+}
+} // namespace VoucherUi
+
+// 顶部品牌色带: 墨绿纵向渐变, 仅上方圆角
+class VoucherBand : public QWidget
+{
+public:
+    explicit VoucherBand(QWidget *parent = nullptr) : QWidget(parent)
+    {
+        setAttribute(Qt::WA_TranslucentBackground);
+        setFixedHeight(72);
+    }
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(Qt::NoPen);
+        QLinearGradient g(0, 0, 0, height());
+        g.setColorAt(0.0, QColor("#1D5C3F"));
+        g.setColorAt(1.0, QColor("#309168"));
+        p.setBrush(g);
+        p.drawPath(VoucherUi::topRoundedRect(rect(), VoucherUi::kRadius));
+        QPen edge(QColor("#1A5739"));
+        edge.setWidthF(1.0);
+        p.setBrush(Qt::NoBrush);
+        p.setPen(edge);
+        p.drawPath(VoucherUi::topStrokePath(
+            QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), VoucherUi::kRadius));
+    }
+};
+
+// 齿孔撕口: 上半承接白色主体、下半承接浅底存根, 两侧半圆缺口 + 居中虚线
+class VoucherPerforation : public QWidget
+{
+public:
+    explicit VoucherPerforation(QWidget *parent = nullptr) : QWidget(parent)
+    {
+        setAttribute(Qt::WA_TranslucentBackground);
+        setFixedHeight(20);
+    }
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor("#FFFFFF"));
+        p.drawRect(QRectF(0, 0, width(), height() / 2.0));
+        p.setBrush(QColor("#F5F9F6"));
+        p.drawRect(QRectF(0, height() / 2.0, width(), height() / 2.0));
+        // 两侧半圆缺口, 取页面窗口色, 形成票根撕口
+        p.setBrush(palette().color(QPalette::Window));
+        const qreal rr = height() / 2.0;
+        p.drawEllipse(QPointF(0, height() / 2.0), rr, rr);
+        p.drawEllipse(QPointF(width(), height() / 2.0), rr, rr);
+        QPen dash(QColor("#C4CFC7"));
+        dash.setWidthF(1.5);
+        dash.setCapStyle(Qt::RoundCap);
+        dash.setDashPattern(QVector<qreal>{3.0, 4.0});
+        p.setPen(dash);
+        p.drawLine(QPointF(20, height() / 2.0), QPointF(width() - 20, height() / 2.0));
+    }
+};
+
+// 底部存根: 极浅绿灰底, 仅下方圆角
+class VoucherStub : public QWidget
+{
+public:
+    explicit VoucherStub(QWidget *parent = nullptr) : QWidget(parent)
+    {
+        setAttribute(Qt::WA_TranslucentBackground);
+    }
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor("#F5F9F6"));
+        p.drawPath(VoucherUi::bottomRoundedRect(rect(), VoucherUi::kRadius));
+        QPen edge(QColor("#DFE8E1"));
+        edge.setWidthF(1.0);
+        p.setBrush(Qt::NoBrush);
+        p.setPen(edge);
+        p.drawPath(VoucherUi::bottomStrokePath(
+            QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), VoucherUi::kRadius));
+    }
+};
+
+// 时段连接器: 虚线贯穿, 中央墨绿圆底白色闪电
+class TimeConnector : public QWidget
+{
+public:
+    explicit TimeConnector(QWidget *parent = nullptr) : QWidget(parent)
+    {
+        setAttribute(Qt::WA_TranslucentBackground);
+        setFixedSize(92, 32);
+    }
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        const qreal cy = height() / 2.0;
+        QPen dash(QColor("#AFC4B8"));
+        dash.setWidthF(1.4);
+        dash.setCapStyle(Qt::RoundCap);
+        dash.setDashPattern(QVector<qreal>{2.5, 4.0});
+        p.setPen(dash);
+        p.drawLine(QPointF(2, cy), QPointF(width() - 2, cy));
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor("#237653"));
+        p.drawEllipse(QPointF(width() / 2.0, cy), 12.5, 12.5);
+        const QPixmap bolt = IconFactory::icon(IconFactory::IconBolt, QColor("#FFFFFF"), 18).pixmap(18, 18);
+        p.drawPixmap(int(width() / 2.0 - 9), int(cy - 9), bolt);
+    }
+};
+
+// 状态标记: 细线圆环 + 对勾(预约)/时钟指针(排队), 外环缓慢呼吸扩散
+class WaitingStatusMark : public QWidget
+{
+public:
+    enum Kind { Appoint = 0, Queue = 1 };
+    explicit WaitingStatusMark(QWidget *parent = nullptr) : QWidget(parent)
+    {
+        setAttribute(Qt::WA_TranslucentBackground);
+        setFixedSize(56, 56);
+        m_anim.setDuration(2300);
+        m_anim.setStartValue(0.0);
+        m_anim.setEndValue(1.0);
+        m_anim.setLoopCount(-1);
+        m_anim.setEasingCurve(QEasingCurve::Linear);
+        connect(&m_anim, &QVariantAnimation::valueChanged, this, [this] { update(); });
+        m_anim.start();
+    }
+    void setKind(Kind k) { m_kind = k; update(); }
+protected:
+    void showEvent(QShowEvent *) override
+    {
+        if (m_anim.state() != QAbstractAnimation::Running)
+            m_anim.resume();
+    }
+    void hideEvent(QHideEvent *) override { m_anim.pause(); }
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        const QColor main = m_kind == Appoint ? QColor("#237653") : QColor("#C28A2E");
+        const qreal cx = width() / 2.0, cy = height() / 2.0;
+
+        const qreal t = m_anim.currentValue().toReal();
+        QColor halo = main;
+        halo.setAlphaF(0.20 * (1.0 - t));
+        QPen hp(halo);
+        hp.setWidthF(2.0);
+        hp.setCapStyle(Qt::RoundCap);
+        p.setPen(hp);
+        p.setBrush(Qt::NoBrush);
+        p.drawEllipse(QPointF(cx, cy), 16.0 + t * 10.0, 16.0 + t * 10.0);
+
+        QPen ring(main);
+        ring.setWidthF(2.2);
+        ring.setCapStyle(Qt::RoundCap);
+        p.setPen(ring);
+        p.drawEllipse(QPointF(cx, cy), 15.0, 15.0);
+
+        QPen ic(main);
+        ic.setWidthF(2.3);
+        ic.setCapStyle(Qt::RoundCap);
+        ic.setJoinStyle(Qt::RoundJoin);
+        p.setPen(ic);
+        if (m_kind == Appoint) {
+            QPainterPath ck;
+            ck.moveTo(cx - 6.5, cy + 0.8);
+            ck.lineTo(cx - 1.6, cy + 5.6);
+            ck.lineTo(cx + 7.0, cy - 5.2);
+            p.drawPath(ck);
+        } else {
+            p.drawEllipse(QPointF(cx, cy), 7.4, 7.4);
+            p.drawLine(QPointF(cx, cy), QPointF(cx, cy - 5.2));
+            p.drawLine(QPointF(cx, cy), QPointF(cx + 3.8, cy + 1.6));
+        }
+    }
+private:
+    QVariantAnimation m_anim;
+    Kind m_kind = Appoint;
+};
 
 // ============================================================================
 // 充电设置对话框
@@ -543,40 +794,215 @@ void ChargingPage::buildChargingView()
 void ChargingPage::buildWaitingView()
 {
     m_waitingView = new QWidget(this);
-    QVBoxLayout *lay = new QVBoxLayout(m_waitingView);
-    lay->setContentsMargins(24, 20, 24, 24);
-    lay->setSpacing(16);
+    m_waitingView->setStyleSheet(QStringLiteral(
+        "QLabel{background:transparent;}"
+        "QPushButton#voucherCancel{background:#FFFFFF;color:#67736B;border:1px solid #D5DED8;"
+        "border-radius:10px;font-size:13px;}"
+        "QPushButton#voucherCancel:hover{background:#FDF1F1;color:#C5525A;border:1px solid #E6C2C5;}"
+        "QPushButton#voucherCancel:pressed{background:#F9E3E4;border:1px solid #E0B3B7;}"));
 
-    QLabel *title = new QLabel(QStringLiteral("排队 / 预约"), m_waitingView);
-    title->setObjectName("pageTitle");
-    lay->addWidget(title);
-    lay->addStretch();
+    QVBoxLayout *page = new QVBoxLayout(m_waitingView);
+    page->setContentsMargins(24, 16, 24, 24);
+    page->setSpacing(0);
+    page->addStretch();
 
-    QLabel *icon = new QLabel(m_waitingView);
-    icon->setAlignment(Qt::AlignCenter);
-    icon->setPixmap(IconFactory::icon(IconFactory::IconBattery, QColor("#237653")).pixmap(56, 56));
-    m_waitTitle = new QLabel(m_waitingView);
-    m_waitTitle->setAlignment(Qt::AlignCenter);
-    QFont tf = m_waitTitle->font();
-    tf.setPointSize(16);
-    tf.setBold(true);
-    m_waitTitle->setFont(tf);
-    m_waitDesc = new QLabel(m_waitingView);
-    m_waitDesc->setAlignment(Qt::AlignCenter);
-    m_waitDesc->setStyleSheet("color:#6B7280;font-size:13px;");
-    m_waitDesc->setWordWrap(true);
+    // 单层固定宽度卡片; 不使用 QGraphicsEffect, 避免与全局交互动效叠加时产生错位/漏底
+    m_voucherCard = new QWidget(m_waitingView);
+    m_voucherCard->setFixedWidth(440);
+    QVBoxLayout *card = new QVBoxLayout(m_voucherCard);
+    card->setContentsMargins(0, 0, 0, 0);
+    card->setSpacing(0);
 
-    m_cancelWaitBtn = new QPushButton(m_waitingView);
-    m_cancelWaitBtn->setObjectName("warnBtn");
+    // —— 顶部色带 ——
+    auto *band = new VoucherBand(m_voucherCard);
+    QHBoxLayout *bandLay = new QHBoxLayout(band);
+    bandLay->setContentsMargins(24, 0, 22, 0);
+    bandLay->setSpacing(10);
+    auto *bolt = new QLabel(band);
+    bolt->setPixmap(IconFactory::icon(IconFactory::IconBolt, QColor("#FFFFFF"), 22).pixmap(22, 22));
+    auto *brand = new QLabel(QStringLiteral("东软充电"), band);
+    QFont bf = brand->font();
+    bf.setPointSize(13);
+    bf.setBold(true);
+    brand->setFont(bf);
+    brand->setStyleSheet("color:#FFFFFF;font-size:14px;font-weight:700;");
+    auto *bandSep = new QFrame(band);
+    bandSep->setFixedSize(1, 22);
+    bandSep->setStyleSheet("background:rgba(255,255,255,0.35);");
+    m_bandTitle = new QLabel(band);
+    m_bandTitle->setStyleSheet("color:rgba(255,255,255,0.85);font-size:11px;");
+    m_bandEn = new QLabel(band);
+    QFont enTop = m_bandEn->font();
+    enTop.setPointSize(8);
+    enTop.setLetterSpacing(QFont::AbsoluteSpacing, 2.6);
+    m_bandEn->setFont(enTop);
+    m_bandEn->setStyleSheet("color:rgba(255,255,255,0.62);font-size:9px;");
+    bandLay->addWidget(bolt);
+    bandLay->addWidget(brand);
+    bandLay->addSpacing(6);
+    bandLay->addWidget(bandSep);
+    bandLay->addSpacing(4);
+    bandLay->addWidget(m_bandTitle);
+    bandLay->addStretch();
+    bandLay->addWidget(m_bandEn);
+
+    // —— 白色主体 ——
+    auto *body = new QWidget(m_voucherCard);
+    body->setObjectName(QStringLiteral("voucherBody"));
+    body->setStyleSheet(QStringLiteral(
+        "#voucherBody{background:#FFFFFF;border-left:1px solid #DFE8E1;"
+        "border-right:1px solid #DFE8E1;}"));
+    QVBoxLayout *bl = new QVBoxLayout(body);
+    bl->setContentsMargins(34, 24, 34, 24);
+    bl->setSpacing(12);
+
+    // 状态行: 呼吸标记 + 主/副标题
+    auto *statusRow = new QHBoxLayout();
+    statusRow->setSpacing(12);
+    m_waitMark = new WaitingStatusMark(body);
+    auto *statusText = new QVBoxLayout();
+    statusText->setSpacing(2);
+    m_waitStatusTitle = new QLabel(body);
+    QFont stf = m_waitStatusTitle->font();
+    stf.setPointSize(15);
+    stf.setBold(true);
+    m_waitStatusTitle->setFont(stf);
+    m_waitStatusTitle->setStyleSheet("color:#18263D;font-size:16px;font-weight:700;");
+    m_waitStatusEn = new QLabel(body);
+    QFont sef = m_waitStatusEn->font();
+    sef.setPointSize(8);
+    sef.setLetterSpacing(QFont::AbsoluteSpacing, 2.2);
+    m_waitStatusEn->setFont(sef);
+    m_waitStatusEn->setStyleSheet("color:#9AA7B2;font-size:9px;");
+    statusText->addStretch();
+    statusText->addWidget(m_waitStatusTitle);
+    statusText->addWidget(m_waitStatusEn);
+    statusText->addStretch();
+    statusRow->addStretch();
+    statusRow->addWidget(m_waitMark);
+    statusRow->addLayout(statusText);
+    statusRow->addStretch();
+    bl->addLayout(statusRow);
+
+    bl->addSpacing(4);
+    m_waitPileCode = new QLabel(body);
+    QFont pf = m_waitPileCode->font();
+    pf.setPointSize(19);
+    pf.setBold(true);
+    m_waitPileCode->setFont(pf);
+    m_waitPileCode->setAlignment(Qt::AlignCenter);
+    m_waitPileCode->setStyleSheet("color:#13231A;font-size:21px;font-weight:700;");
+    m_waitStation = new QLabel(body);
+    m_waitStation->setAlignment(Qt::AlignCenter);
+    m_waitStation->setStyleSheet("color:#8493A0;font-size:11px;");
+    bl->addWidget(m_waitPileCode);
+    bl->addWidget(m_waitStation);
+
+    // 时段核心(预约)
+    m_appointCore = new QWidget(body);
+    m_appointCore->setObjectName(QStringLiteral("appointCore"));
+    m_appointCore->setStyleSheet(QStringLiteral("#appointCore{background:transparent;}"));
+    auto *ap = new QVBoxLayout(m_appointCore);
+    ap->setContentsMargins(0, 6, 0, 2);
+    ap->setSpacing(14);
+    m_waitDate = new QLabel(m_appointCore);
+    m_waitDate->setAlignment(Qt::AlignCenter);
+    m_waitDate->setFixedHeight(28);
+    m_waitDate->setStyleSheet("background:#EAF4EE;color:#237653;border-radius:9px;"
+                              "padding:4px 16px;font-size:11px;font-weight:bold;");
+    auto *dateRow = new QHBoxLayout();
+    dateRow->addStretch();
+    dateRow->addWidget(m_waitDate);
+    dateRow->addStretch();
+    auto *timeRow = new QHBoxLayout();
+    timeRow->setSpacing(0);
+    auto makeTimeCol = [body](const QString &cap, QLabel **out) -> QVBoxLayout * {
+        auto *c = new QVBoxLayout();
+        c->setSpacing(4);
+        auto *v = new QLabel(QStringLiteral("--:--"), body);
+        v->setAlignment(Qt::AlignCenter);
+        QFont vf = v->font();
+        vf.setPointSize(25);
+        vf.setBold(true);
+        v->setFont(vf);
+        v->setStyleSheet("color:#18263D;font-size:27px;font-weight:700;");
+        auto *cp = new QLabel(cap, body);
+        cp->setAlignment(Qt::AlignCenter);
+        QFont cf = cp->font();
+        cf.setPointSize(8);
+        cf.setLetterSpacing(QFont::AbsoluteSpacing, 1.6);
+        cp->setFont(cf);
+        cp->setStyleSheet("color:#9AA6B2;font-size:9px;");
+        c->addWidget(v);
+        c->addWidget(cp);
+        *out = v;
+        return c;
+    };
+    timeRow->addLayout(makeTimeCol(QStringLiteral("开始  START"), &m_waitStart), 1);
+    timeRow->addWidget(new TimeConnector(body), 0, Qt::AlignVCenter);
+    timeRow->addLayout(makeTimeCol(QStringLiteral("结束  END"), &m_waitEnd), 1);
+    ap->addLayout(dateRow);
+    ap->addLayout(timeRow);
+    bl->addWidget(m_appointCore);
+
+    // 位置核心(排队)
+    m_queueCore = new QWidget(body);
+    m_queueCore->setObjectName(QStringLiteral("queueCore"));
+    m_queueCore->setStyleSheet(QStringLiteral("#queueCore{background:transparent;}"));
+    m_queueCore->hide();
+    auto *qz = new QVBoxLayout(m_queueCore);
+    qz->setContentsMargins(0, 6, 0, 2);
+    qz->setSpacing(4);
+    m_waitQueuePos = new QLabel(m_queueCore);
+    m_waitQueuePos->setAlignment(Qt::AlignCenter);
+    QFont qf = m_waitQueuePos->font();
+    qf.setPointSize(32);
+    qf.setBold(true);
+    m_waitQueuePos->setFont(qf);
+    m_waitQueuePos->setStyleSheet("color:#B07E2E;font-size:34px;font-weight:700;");
+    auto *qcap = new QLabel(QStringLiteral("当前排队位置 · 请留意叫号提醒"), m_queueCore);
+    qcap->setAlignment(Qt::AlignCenter);
+    qcap->setStyleSheet("color:#9AA6B2;font-size:11px;");
+    qz->addWidget(m_waitQueuePos);
+    qz->addWidget(qcap);
+    bl->addWidget(m_queueCore);
+
+    card->addWidget(band);
+    card->addWidget(body);
+    card->addWidget(new VoucherPerforation(m_voucherCard));
+
+    // —— 底部存根 ——
+    auto *stub = new VoucherStub(m_voucherCard);
+    auto *sl = new QVBoxLayout(stub);
+    sl->setContentsMargins(30, 16, 30, 20);
+    sl->setSpacing(12);
+    auto *tipRow = new QHBoxLayout();
+    tipRow->setSpacing(10);
+    auto *accentBar = new QFrame(stub);
+    accentBar->setFixedSize(3, 30);
+    accentBar->setStyleSheet("background:#237653;border-radius:1.5px;");
+    m_waitTip = new QLabel(stub);
+    m_waitTip->setWordWrap(true);
+    m_waitTip->setStyleSheet("color:#56665C;font-size:12px;");
+    tipRow->addWidget(accentBar, 0, Qt::AlignVCenter);
+    tipRow->addWidget(m_waitTip, 1);
+    sl->addLayout(tipRow);
+    m_waitVoucherNo = new QLabel(stub);
+    m_waitVoucherNo->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    QFont nf = m_waitVoucherNo->font();
+    nf.setLetterSpacing(QFont::AbsoluteSpacing, 1.2);
+    m_waitVoucherNo->setFont(nf);
+    m_waitVoucherNo->setStyleSheet("color:#A9B5AE;font-size:10px;");
+    sl->addWidget(m_waitVoucherNo);
+    m_cancelWaitBtn = new QPushButton(stub);
+    m_cancelWaitBtn->setObjectName("voucherCancel");
     m_cancelWaitBtn->setCursor(Qt::PointingHandCursor);
-    m_cancelWaitBtn->setFixedWidth(220);
+    m_cancelWaitBtn->setFixedSize(212, 40);
+    sl->addWidget(m_cancelWaitBtn, 0, Qt::AlignHCenter);
+    card->addWidget(stub);
 
-    lay->addWidget(icon, 0, Qt::AlignHCenter);
-    lay->addWidget(m_waitTitle);
-    lay->addWidget(m_waitDesc);
-    lay->addSpacing(10);
-    lay->addWidget(m_cancelWaitBtn, 0, Qt::AlignHCenter);
-    lay->addStretch();
+    page->addWidget(m_voucherCard, 0, Qt::AlignHCenter);
+    page->addStretch();
 
     connect(m_cancelWaitBtn, &QPushButton::clicked, this, &ChargingPage::onCancelWaiting);
 }
@@ -888,19 +1314,61 @@ void ChargingPage::enterWaitingView(const ReservationInfo &r)
     m_waitingId = r.id;
     m_waitingPileId = r.pileId;
     m_waitingType = r.type;
+
+    auto *mark = static_cast<WaitingStatusMark *>(m_waitMark);
+    m_waitPileCode->setText(r.pileCode);
+    if (r.stationName.trimmed().isEmpty())
+        m_waitStation->hide();
+    else {
+        m_waitStation->setText(r.stationName);
+        m_waitStation->show();
+    }
+
     if (r.type == ReserveAppoint) {
-        m_waitTitle->setText(QStringLiteral("时段预约成功"));
-        m_waitDesc->setText(QStringLiteral(
-            "电桩 %1\n预约时段: %2 %3 ~ %4\n开始前 10 分钟将提醒您, 请按时到场扫码充电")
-            .arg(r.pileCode, r.reserveDate, r.reserveStart, r.reserveEnd));
+        mark->setKind(WaitingStatusMark::Appoint);
+        m_bandTitle->setText(QStringLiteral("充电预约凭证"));
+        m_bandEn->setText(QStringLiteral("RESERVATION"));
+        m_waitStatusTitle->setText(QStringLiteral("时段预约成功"));
+        m_waitStatusEn->setText(QStringLiteral("RESERVATION CONFIRMED"));
+
+        QString dateText = r.reserveDate;
+        const QDate d = QDate::fromString(r.reserveDate, QStringLiteral("yyyy-MM-dd"));
+        if (d.isValid()) {
+            const QStringList week = {QStringLiteral("周一"), QStringLiteral("周二"),
+                                      QStringLiteral("周三"), QStringLiteral("周四"),
+                                      QStringLiteral("周五"), QStringLiteral("周六"),
+                                      QStringLiteral("周日")};
+            dateText = QStringLiteral("%1  ·  %2").arg(
+                r.reserveDate, week.value(d.dayOfWeek() - 1));
+        }
+        m_waitDate->setText(dateText);
+        m_waitStart->setText(r.reserveStart);
+        m_waitEnd->setText(r.reserveEnd);
+        m_appointCore->show();
+        m_queueCore->hide();
+
+        m_waitTip->setText(QStringLiteral("开始前 10 分钟将推送提醒，请按时到场扫码启动充电"));
+        m_waitVoucherNo->setText(
+            QStringLiteral("预约编号  NO.%1").arg(r.id, 6, 10, QChar('0')));
         m_cancelWaitBtn->setText(QStringLiteral("取消预约"));
     } else {
-        m_waitTitle->setText(QStringLiteral("现场排队中"));
-        m_waitDesc->setText(QStringLiteral(
-            "电桩 %1\n当前排队第 %2 位\n电桩释放轮到您时, 将在 30 秒内提醒确认")
-            .arg(r.pileCode).arg(qMax(1, r.queuePos)));
+        mark->setKind(WaitingStatusMark::Queue);
+        m_bandTitle->setText(QStringLiteral("现场排队凭证"));
+        m_bandEn->setText(QStringLiteral("QUEUE PASS"));
+        m_waitStatusTitle->setText(QStringLiteral("现场排队中"));
+        m_waitStatusEn->setText(QStringLiteral("WAITING IN QUEUE"));
+        m_waitQueuePos->setText(
+            QStringLiteral("第 %1 位").arg(qMax(1, r.queuePos)));
+        m_appointCore->hide();
+        m_queueCore->show();
+
+        m_waitTip->setText(
+            QStringLiteral("电桩释放轮到您时，将在 30 秒内提醒确认，超时自动顺延下一位"));
+        m_waitVoucherNo->setText(
+            QStringLiteral("排队编号  NO.%1").arg(r.id, 6, 10, QChar('0')));
         m_cancelWaitBtn->setText(QStringLiteral("退出排队"));
     }
+
     m_stack->setCurrentIndex(2);
 }
 

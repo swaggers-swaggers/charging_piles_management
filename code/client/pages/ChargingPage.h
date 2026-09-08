@@ -94,10 +94,24 @@ private:
     ChargeChartWidget *m_chart;
     QPushButton *m_chartModeBtn;
 
-    // ---- 排队/预约等待视图 ----
+    // ---- 排队/预约等待视图(票券式预约凭证) ----
     QWidget *m_waitingView;
-    QLabel *m_waitTitle;
-    QLabel *m_waitDesc;
+    QWidget *m_voucherCard;       // 凭证卡片本体, 承载淡入动效
+    QWidget *m_waitMark;          // 状态标记(自绘, 文件内类)
+    QLabel *m_bandTitle;          // 色带副标题: 充电预约凭证 / 现场排队凭证
+    QLabel *m_bandEn;             // 色带英文眉题
+    QLabel *m_waitStatusTitle;    // 状态主标题
+    QLabel *m_waitStatusEn;       // 状态英文副题
+    QLabel *m_waitPileCode;       // 电桩编号
+    QLabel *m_waitStation;        // 站点名
+    QWidget *m_appointCore;       // 预约时段核心区
+    QLabel *m_waitDate;           // 预约日期(胶囊)
+    QLabel *m_waitStart;          // 开始时间
+    QLabel *m_waitEnd;            // 结束时间
+    QWidget *m_queueCore;         // 排队核心区
+    QLabel *m_waitQueuePos;       // 排队位置
+    QLabel *m_waitTip;            // 存根提示语
+    QLabel *m_waitVoucherNo;      // 凭证编号
     QPushButton *m_cancelWaitBtn;
 
     int m_requestedStationId = -1;
