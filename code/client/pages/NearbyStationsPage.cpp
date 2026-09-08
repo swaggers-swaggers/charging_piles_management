@@ -65,9 +65,8 @@ NearbyStationsPage::NearbyStationsPage(QWidget *parent)
     heroRow->addLayout(intro, 1);
     auto *art = new QLabel(hero);
     art->setObjectName("heroArt");
-    const QIcon plug(":/icons/lucide/plug-zap.svg");
-    art->setPixmap(plug.isNull() ? IconFactory::icon(IconFactory::IconPile, QColor("#8BF0CE"), 90).pixmap(90, 90)
-                                  : plug.pixmap(90, 90));
+    // 直接用代码绘制插头图标, 不依赖外部 svg 文件与 QtSvg 模块
+    art->setPixmap(IconFactory::icon(IconFactory::IconPlug, QColor("#8BF0CE"), 90).pixmap(90, 90));
     heroRow->addWidget(art);
     layout->addWidget(hero);
 

@@ -103,16 +103,6 @@ NavigationPage::NavigationPage(QWidget *parent)
     m_previewButton->setObjectName("secondaryBtn");
     m_externalButton = new QPushButton("开始导航", this);
     m_externalButton->setObjectName("primaryBtn");
-    QPushButton *zoomInBtn = new QPushButton("＋", this);
-    zoomInBtn->setObjectName("secondaryBtn");
-    zoomInBtn->setToolTip("放大地图");
-    zoomInBtn->setFixedWidth(32);
-    zoomInBtn->setStyleSheet("padding: 0px; min-height: 30px;");
-    QPushButton *zoomOutBtn = new QPushButton("－", this);
-    zoomOutBtn->setObjectName("secondaryBtn");
-    zoomOutBtn->setToolTip("缩小地图");
-    zoomOutBtn->setFixedWidth(32);
-    zoomOutBtn->setStyleSheet("padding: 0px; min-height: 30px;");
     planRow->addWidget(startLabel);
     planRow->addWidget(m_startCombo);
     planRow->addWidget(destLabel);
@@ -121,8 +111,6 @@ NavigationPage::NavigationPage(QWidget *parent)
     planRow->addWidget(m_modeCombo);
     planRow->addWidget(m_previewButton);
     planRow->addWidget(m_externalButton);
-    planRow->addWidget(zoomInBtn);
-    planRow->addWidget(zoomOutBtn);
     planRow->addStretch();
 
     m_canvas = new MapCanvas(this);
@@ -160,8 +148,6 @@ NavigationPage::NavigationPage(QWidget *parent)
     connect(m_previewButton, &QPushButton::clicked, this, &NavigationPage::onPreviewRoute);
     connect(m_externalButton, &QPushButton::clicked,
             this, &NavigationPage::onOpenExternalNavigation);
-    connect(zoomInBtn, &QPushButton::clicked, m_canvas, &MapCanvas::zoomIn);
-    connect(zoomOutBtn, &QPushButton::clicked, m_canvas, &MapCanvas::zoomOut);
     connect(m_destCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, &NavigationPage::onPlanChanged);
     connect(m_modeCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, &NavigationPage::onPlanChanged);
 

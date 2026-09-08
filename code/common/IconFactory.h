@@ -25,6 +25,7 @@ public:
         IconUser,          // 单人: 用户信息
         IconLocation,      // 定位针: 附近充电站
         IconCompass,       // 罗盘: 一键导航
+        IconPlug,          // 插头+闪电: 附近充电站顶部艺术图标(替代外部 svg, 免依赖 QtSvg)
     };
 
     static QIcon icon(IconType type, const QColor &color = QColor("#D8E4F0"), int px = 48)
@@ -132,6 +133,21 @@ private:
             needle << QPointF(12, 6.5) << QPointF(14.5, 12) << QPointF(12, 17.5) << QPointF(9.5, 12);
             p->setBrush(c);
             p->drawPolygon(needle);
+            p->setBrush(Qt::NoBrush);
+            break;
+        }
+        case IconPlug: {
+            // 插头本体 + 两个引脚
+            p->drawRoundedRect(QRectF(3, 13, 6, 7.5), 1.2, 1.2);
+            p->drawRect(QRectF(4.8, 8.2, 1.7, 5));
+            p->drawRect(QRectF(7.8, 8.2, 1.7, 5));
+            p->drawLine(3, 20.5, 2, 22);       // 电线钩
+            // 右侧闪电(实心)
+            QPolygonF zap;
+            zap << QPointF(15.5, 2.5) << QPointF(10.3, 12.5) << QPointF(13.7, 12.5)
+                 << QPointF(14.1, 21.5) << QPointF(20, 10.5) << QPointF(15.7, 10.5);
+            p->setBrush(c);
+            p->drawPolygon(zap);
             p->setBrush(Qt::NoBrush);
             break;
         }
