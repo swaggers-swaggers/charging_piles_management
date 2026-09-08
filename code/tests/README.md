@@ -9,6 +9,7 @@
 | [discovery_ui.pro](discovery_ui.pro) | `discovery_ui_test` | 首页搜索与筛选、站点选择、导航传参与失败重试、账户与消息卡片、已有充电订单保留、主题与布局、功率模型、动画清理 |
 | [lan_connection.pro](lan_connection.pro) | `lan_connection_test` | 服务器切换、无效地址与端口、失败重试、连接取消、登录页配置保存、无协议响应、绕过不可用系统代理 |
 | [server_ui.pro](server_ui.pro) | `server_ui_smoke` | 真实 TCP 登录、局域网地址显示与复制、充电推进与结算、六个管理页面、表格卡片、环状图比例及动画清理 |
+| [database_seed_recovery.pro](database_seed_recovery.pro) | `database_seed_recovery` | 验证全新数据库自动填充；模拟有导入标记但无充电桩的旧库，验证启动时自动恢复站点、充电桩、用户和演示订单 |
 
 测试条目会随功能变化，以当前源码和执行输出为准。
 

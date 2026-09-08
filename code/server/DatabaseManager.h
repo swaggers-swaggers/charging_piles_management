@@ -10,7 +10,7 @@
 // - 启动时建表、写入默认管理员 admin/admin123 与 12 个演示充电站
 // - SQLite WAL 模式, 避免管理端写入时大屏只读查询锁库
 // - 数据库文件查找顺序: CHARGING_DB 环境变量 → 工作目录 test.db
-//   → 可执行文件目录向上查找 → 都没有则在工作目录新建 test.db
+//   → 工作目录/可执行文件目录逐级向上查找 → 都没有则在工作目录新建 test.db
 class DatabaseManager
 {
 public:

@@ -50,18 +50,28 @@ QString DatabaseManager::resolveDatabaseFile() const
     if (QFileInfo::exists(cwd))
         return cwd;
 
-    // 3. 从可执行文件目录向上最多 3 级查找 test.db / database/test.db
-    QDir dir(QCoreApplication::applicationDirPath());
-    for (int i = 0; i < 3; ++i) {
-        const QString direct = dir.filePath("test.db");
-        if (QFileInfo::exists(direct))
-            return direct;
-        const QString under = dir.filePath("database/test.db");
-        if (QFileInfo::exists(under))
-            return under;
-        if (!dir.cdUp())
-            break;
-    }
+    // 3. Qt Creator 通常从多层 shadow build 目录启动。分别从工作目录和
+    //    可执行文件目录一直向上查找，避免在新电脑上错过仓库的演示数据库。
+    const auto findInParents = [](const QString &startPath) {
+        QDir dir(startPath);
+        while (true) {
+            const QString direct = dir.filePath("test.db");
+            if (QFileInfo::exists(direct))
+                return QFileInfo(direct).absoluteFilePath();
+            const QString under = dir.filePath("database/test.db");
+            if (QFileInfo::exists(under))
+                return QFileInfo(under).absoluteFilePath();
+            if (!dir.cdUp())
+                break;
+        }
+        return QString();
+    };
+    const QString fromWorkingDir = findInParents(QDir::currentPath());
+    if (!fromWorkingDir.isEmpty())
+        return fromWorkingDir;
+    const QString fromExecutable = findInParents(QCoreApplication::applicationDirPath());
+    if (!fromExecutable.isEmpty())
+        return fromExecutable;
 
     // 4. 都没有: 在工作目录新建
     return cwd;
@@ -70,6 +80,7 @@ QString DatabaseManager::resolveDatabaseFile() const
 bool DatabaseManager::init(QString *errMsg)
 {
     m_dbPath = resolveDatabaseFile();
+    qInfo() << "[database] 使用数据库:" << m_dbPath;
     m_db = QSqlDatabase::addDatabase("QSQLITE");   // 默认无名连接
     m_db.setDatabaseName(m_dbPath);
     if (!m_db.open()) {
@@ -518,6 +529,19 @@ void DatabaseManager::seedDefaultData()
         q.exec();
     }
 
+    // 演示用户与站点分别检查。旧版本在“有站点、无用户”时会提前返回，
+    // 导致充电桩修复后仍无法生成演示订单。
+    check.exec("SELECT COUNT(*) FROM user");
+    if (check.next() && check.value(0).toInt() == 0) {
+        QSqlQuery uq(m_db);
+        uq.prepare("INSERT INTO user(phone, phone_masked, nickname, balance) VALUES(?,?,?,?)");
+        uq.addBindValue(hashPhone("13800000001"));
+        uq.addBindValue(maskPhone("13800000001"));
+        uq.addBindValue("演示用户");
+        uq.addBindValue(200.0);
+        uq.exec();
+    }
+
     check.exec("SELECT COUNT(*) FROM station");
     if (check.next() && check.value(0).toInt() > 0)
         return;   // 已有站点数据, 不重复种子
@@ -574,15 +598,6 @@ void DatabaseManager::seedDefaultData()
         }
     }
 
-    // 演示用户: 手机号 13800000001 (免密登录直接可用), 初始余额 200
-    // 注意: 手机号必须与历史版本一致, 否则旧库演示订单会关联到错误用户
-    QSqlQuery uq(m_db);
-    uq.prepare("INSERT INTO user(phone, phone_masked, nickname, balance) VALUES(?,?,?,?)");
-    uq.addBindValue(hashPhone("13800000001"));
-    uq.addBindValue(maskPhone("13800000001"));
-    uq.addBindValue("演示用户");
-    uq.addBindValue(200.0);
-    uq.exec();
 }
 
 void DatabaseManager::seedDefaultFeeRules()
@@ -708,6 +723,17 @@ void DatabaseManager::seedDemoOrders()
 // 数据包内包含事务和版本标记；已有库与新库均可导入，管理员后续修改不会被覆盖。
 bool DatabaseManager::importBundledStations(QString *errMsg)
 {
+    // 修复曾经中断或被手工清空的数据库：旧版仅凭迁移标记跳过导入，
+    // 会出现站点存在但“充电桩管理”完全无数据。仅在桩表为空时撤销标记，
+    // 内置 SQL 的 NOT EXISTS 仍会保护已有站点和桩不被覆盖。
+    QSqlQuery pileCount(m_db);
+    if (pileCount.exec("SELECT COUNT(*) FROM pile") && pileCount.next()
+        && pileCount.value(0).toInt() == 0) {
+        QSqlQuery repair(m_db);
+        repair.exec("DELETE FROM app_data_migration "
+                    "WHERE version='beijing_real_stations_20260908_v1'");
+    }
+
     QFile file(":/data/beijing_real_stations.sql");
     if (!file.open(QIODevice::ReadOnly)) {
         if (errMsg) *errMsg = "无法读取内置站点数据包";
@@ -723,6 +749,13 @@ bool DatabaseManager::importBundledStations(QString *errMsg)
             m_db.rollback();
             return false;
         }
+    }
+
+    QSqlQuery verify(m_db);
+    if (!verify.exec("SELECT COUNT(*) FROM pile") || !verify.next()
+        || verify.value(0).toInt() == 0) {
+        if (errMsg) *errMsg = "内置站点数据导入后仍没有充电桩数据";
+        return false;
     }
     return true;
 }
