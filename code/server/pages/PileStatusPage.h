@@ -1,13 +1,14 @@
 #ifndef PILESTATUSPAGE_H
 #define PILESTATUSPAGE_H
 
+#include <QList>
 #include <QWidget>
 
 class QLabel;
 class QTableWidget;
 class QVBoxLayout;
 
-// 电桩状态页: 统计卡片(在用/闲置/故障/在线率) + 环形占比图 + 明细表格, 反映设备运行健康度
+// 电桩状态页: 统计卡片(在用/闲置/故障/在线率) + 设备状态点阵图 + 明细表格, 反映设备运行健康度
 class PileStatusPage : public QWidget
 {
     Q_OBJECT
@@ -22,8 +23,8 @@ private slots:
     void refresh();
 
 private:
-    // 重建等比例环形占比图, 返回可加入布局的控件
-    QWidget *buildChart(int inUse, int idle, int fault);
+    // 按充电站分组重建点阵图(站内桩连续/站间首尾相接), 返回可加入布局的控件
+    QWidget *buildChart(const QList<QList<int>> &byStation);
 
     QLabel *m_inUseValue;
     QLabel *m_idleValue;
