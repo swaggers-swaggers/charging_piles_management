@@ -1,4 +1,7 @@
 #include "ReservationDao.h"
+#include "ServerDataLock.h"
+#include "LogDao.h"
+#include "ServerSession.h"
 
 #include "DatabaseManager.h"
 
@@ -47,6 +50,7 @@ ReservationInfo readRes(QSqlQuery &q)
 int ReservationDao::enqueue(int userId, int pileId, int stationId,
                             QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlDatabase db = daoDb(connName);
 
     QSqlQuery dup(db);
@@ -87,6 +91,7 @@ int ReservationDao::enqueue(int userId, int pileId, int stationId,
 bool ReservationDao::cancelByUser(int reservationId, int userId,
                                   QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlQuery q(daoDb(connName));
     q.prepare("UPDATE charge_reservation SET status=2 WHERE id=? AND user_id=? AND status IN (0,1)");
     q.addBindValue(reservationId);
@@ -100,6 +105,7 @@ bool ReservationDao::cancelByUser(int reservationId, int userId,
 
 bool ReservationDao::cancelByAdmin(int reservationId, QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlQuery q(daoDb(connName));
     q.prepare("UPDATE charge_reservation SET status=2 WHERE id=? AND status IN (0,1)");
     q.addBindValue(reservationId);
@@ -107,11 +113,18 @@ bool ReservationDao::cancelByAdmin(int reservationId, QString *errMsg, const QSt
         if (errMsg) *errMsg = q.lastError().text();
         return false;
     }
-    return q.numRowsAffected() >= 1;
+    if (q.numRowsAffected() < 1)
+        return false;
+    const QString actor = ServerSession::instance().adminName.isEmpty()
+                              ? QStringLiteral("system") : ServerSession::instance().adminName;
+    LogDao::record(actor, QStringLiteral("取消排队/预约"),
+                   QStringLiteral("记录 #%1").arg(reservationId), nullptr, connName);
+    return true;
 }
 
 int ReservationDao::queuePosition(int reservationId, QString *errMsg, const QString &connName)
 {
+    SERVER_READ_LOCK;
     QSqlDatabase db = daoDb(connName);
     QSqlQuery self(db);
     self.prepare("SELECT pile_id, status FROM charge_reservation WHERE id=?");
@@ -141,6 +154,7 @@ int ReservationDao::queuePosition(int reservationId, QString *errMsg, const QStr
 
 int ReservationDao::pendingCount(int pileId, QString *errMsg, const QString &connName)
 {
+    SERVER_READ_LOCK;
     QSqlQuery q(daoDb(connName));
     q.prepare("SELECT COUNT(*) FROM charge_reservation WHERE pile_id=? AND type=0 AND status=0");
     q.addBindValue(pileId);
@@ -153,6 +167,7 @@ int ReservationDao::pendingCount(int pileId, QString *errMsg, const QString &con
 
 ReservationInfo ReservationDao::nextPending(int pileId, QString *errMsg, const QString &connName)
 {
+    SERVER_READ_LOCK;
     QSqlQuery q(daoDb(connName));
     q.prepare("SELECT " + kResFields +
               " WHERE r.pile_id=? AND r.type=0 AND r.status=0 ORDER BY r.id LIMIT 1");
@@ -171,6 +186,7 @@ ReservationInfo ReservationDao::nextPending(int pileId, QString *errMsg, const Q
 bool ReservationDao::markAssigned(int reservationId, int confirmSec,
                                   QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlQuery q(daoDb(connName));
     q.prepare("UPDATE charge_reservation SET status=1,"
               " assign_time=datetime('now','localtime'),"
@@ -187,6 +203,7 @@ bool ReservationDao::markAssigned(int reservationId, int confirmSec,
 
 bool ReservationDao::markFulfilled(int reservationId, QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlQuery q(daoDb(connName));
     q.prepare("UPDATE charge_reservation SET status=4 WHERE id=? AND status IN (0,1)");
     q.addBindValue(reservationId);
@@ -200,6 +217,7 @@ bool ReservationDao::markFulfilled(int reservationId, QString *errMsg, const QSt
 bool ReservationDao::setStatus(int reservationId, int status,
                                QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlQuery q(daoDb(connName));
     q.prepare("UPDATE charge_reservation SET status=? WHERE id=?");
     q.addBindValue(status);
@@ -216,6 +234,7 @@ int ReservationDao::appointCreate(int userId, int pileId, int stationId,
                                   const QString &end, QString *errMsg,
                                   const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlDatabase db = daoDb(connName);
 
     // 时段已过校验
@@ -271,6 +290,7 @@ int ReservationDao::appointCreate(int userId, int pileId, int stationId,
 QList<ReservationInfo> ReservationDao::bookedSlots(int pileId, const QString &date,
                                                    QString *errMsg, const QString &connName)
 {
+    SERVER_READ_LOCK;
     QList<ReservationInfo> list;
     QSqlQuery q(daoDb(connName));
     q.prepare("SELECT " + kResFields +
@@ -290,6 +310,7 @@ QList<ReservationInfo> ReservationDao::bookedSlots(int pileId, const QString &da
 ReservationInfo ReservationDao::fulfillTodayAppoint(int userId, int pileId,
                                                     QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlDatabase db = daoDb(connName);
     const QString today = QDate::currentDate().toString("yyyy-MM-dd");
     QSqlQuery q(db);
@@ -316,6 +337,7 @@ ReservationInfo ReservationDao::fulfillTodayAppoint(int userId, int pileId,
 QList<ReservationInfo> ReservationDao::myList(int userId, QString *errMsg,
                                               const QString &connName)
 {
+    SERVER_READ_LOCK;
     QList<ReservationInfo> list;
     QSqlQuery q(daoDb(connName));
     q.prepare("SELECT " + kResFields +
@@ -337,6 +359,7 @@ QList<ReservationInfo> ReservationDao::myList(int userId, QString *errMsg,
 QList<ReservationInfo> ReservationDao::listAll(int statusFilter, int typeFilter,
                                                QString *errMsg, const QString &connName)
 {
+    SERVER_READ_LOCK;
     QList<ReservationInfo> list;
     QStringList where;
     if (statusFilter >= 0)
@@ -366,6 +389,7 @@ QList<ReservationInfo> ReservationDao::listAll(int statusFilter, int typeFilter,
 
 ReservationInfo ReservationDao::getById(int id, QString *errMsg, const QString &connName)
 {
+    SERVER_READ_LOCK;
     QSqlQuery q(daoDb(connName));
     q.prepare("SELECT " + kResFields + " WHERE r.id=?");
     q.addBindValue(id);
@@ -381,6 +405,7 @@ ReservationInfo ReservationDao::getById(int id, QString *errMsg, const QString &
 QList<ReservationInfo> ReservationDao::listAssignedExpired(QString *errMsg,
                                                            const QString &connName)
 {
+    SERVER_READ_LOCK;
     QList<ReservationInfo> list;
     QSqlQuery q(daoDb(connName));
     if (!q.exec("SELECT " + kResFields +
@@ -398,6 +423,7 @@ QList<ReservationInfo> ReservationDao::listAssignedExpired(QString *errMsg,
 QList<ReservationInfo> ReservationDao::listAppointRemindDue(QString *errMsg,
                                                             const QString &connName)
 {
+    SERVER_READ_LOCK;
     QList<ReservationInfo> list;
     QSqlQuery q(daoDb(connName));
     // 开始前 10 分钟进入提醒窗口, 且尚未到开始时间, 未提醒过
@@ -419,6 +445,7 @@ QList<ReservationInfo> ReservationDao::listAppointRemindDue(QString *errMsg,
 QList<ReservationInfo> ReservationDao::listAppointExpired(QString *errMsg,
                                                           const QString &connName)
 {
+    SERVER_READ_LOCK;
     QList<ReservationInfo> list;
     QSqlQuery q(daoDb(connName));
     if (!q.exec("SELECT " + kResFields +
@@ -436,6 +463,7 @@ QList<ReservationInfo> ReservationDao::listAppointExpired(QString *errMsg,
 
 bool ReservationDao::markRemindSent(int reservationId, QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlQuery q(daoDb(connName));
     q.prepare("UPDATE charge_reservation SET remind_sent=1 WHERE id=?");
     q.addBindValue(reservationId);

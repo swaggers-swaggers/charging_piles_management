@@ -1,4 +1,5 @@
 #include "DatabaseManager.h"
+#include "ServerDataLock.h"
 
 #include <QCoreApplication>
 #include <QDateTime>
@@ -102,6 +103,7 @@ bool DatabaseManager::init(QString *errMsg)
     migratePhoneEncryption();
     // v2: 订单扩展列(旧库平滑升级, 新库建表时已包含)
     migrateV2Schema();
+    migrateLogSchema();
     migrateAdminSchema();
 
     seedDefaultData();
@@ -139,6 +141,7 @@ bool DatabaseManager::loginOrRegisterUser(const QString &rawPhone, UserInfo *out
                                           bool *isNew, QString *errMsg,
                                           const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlDatabase db = connName.isEmpty() ? m_db : QSqlDatabase::database(connName);
     const QString hashed = hashPhone(rawPhone);
 
@@ -190,6 +193,7 @@ bool DatabaseManager::loginOrRegisterUser(const QString &rawPhone, UserInfo *out
 bool DatabaseManager::verifyAdmin(const QString &username, const QString &password,
                                   int *adminId, QString *errMsg)
 {
+    SERVER_READ_LOCK;
     QSqlQuery q(m_db);
     q.prepare("SELECT id, password_hash, salt FROM admin WHERE username=?");
     q.addBindValue(username);
@@ -370,6 +374,24 @@ void DatabaseManager::migratePhoneEncryption()
         up.addBindValue(r.id);
         up.exec();
     }
+}
+
+void DatabaseManager::migrateLogSchema()
+{
+    QSet<QString> existing;
+    QSqlQuery ti(m_db);
+    if (ti.exec("PRAGMA table_info(op_log)"))
+        while (ti.next()) existing.insert(ti.value(1).toString().toLower());
+    const QList<QPair<QString,QString>> need = {
+        {"undo_type","TEXT DEFAULT ''"}, {"target_id","INTEGER DEFAULT 0"},
+        {"before_value","TEXT DEFAULT ''"}, {"after_value","TEXT DEFAULT ''"},
+        {"reverted","INTEGER DEFAULT 0"}, {"reverted_at","TEXT DEFAULT ''"},
+        {"reverted_by","TEXT DEFAULT ''"}
+    };
+    for (const auto &col : need) if (!existing.contains(col.first)) {
+        QSqlQuery q(m_db); q.exec("ALTER TABLE op_log ADD COLUMN " + col.first + " " + col.second);
+    }
+    QSqlQuery idx(m_db); idx.exec("CREATE INDEX IF NOT EXISTS idx_op_log_time ON op_log(op_time)");
 }
 
 void DatabaseManager::migrateV2Schema()

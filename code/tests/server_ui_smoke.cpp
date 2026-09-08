@@ -22,8 +22,10 @@
 #include "DatabaseManager.h"
 #include "ChargingEngine.h"
 #include "ChargingPowerModel.h"
+#include "ServerDataLock.h"
 #include "dao/OrderDao.h"
 #include "dao/UserDao.h"
+#include "dao/LogDao.h"
 #include <QSemaphore>
 #include <thread>
 int main(int argc,char **argv) {
@@ -34,6 +36,9 @@ int main(int argc,char **argv) {
     qputenv("CHARGING_DB", (temp.path()+"/test.db").toUtf8());
     QString error;
     if(!DatabaseManager::instance().init(&error)) {qCritical()<<error;return 1;}
+    { ServerDataLock read(ServerDataLock::Read);
+      ServerDataLock nestedRead(ServerDataLock::Read);
+      ServerDataLock upgradedWrite(ServerDataLock::Write); }
     QSqlQuery q;
     if (!q.exec("SELECT COUNT(*) FROM charge_order") || !q.next()
         || q.value(0).toInt() < 90 || q.value(0).toInt() > 240) return 23;
@@ -43,6 +48,15 @@ int main(int argc,char **argv) {
     q.finish();
     if(!q.exec("SELECT id FROM user WHERE status=0 LIMIT 1")||!q.next()) return 2;
     const int userId=q.value(0).toInt();
+    if (!LogDao::recordReversible("tester", "冻结用户", "日志回退测试",
+                                  "user_status", userId, "0", "1")) return 56;
+    if (!UserDao::setStatus(userId, UserFrozen, &error)) return 57;
+    const auto auditRows = LogDao::search("日志回退测试");
+    if (auditRows.size()!=1 || auditRows.first().reverted) return 58;
+    if (!LogDao::undo(auditRows.first().id, "tester", &error)) { qCritical()<<error; return 59; }
+    UserInfo auditUser;
+    if (!UserDao::getById(userId,&auditUser) || auditUser.status!=UserNormal) return 60;
+    if (LogDao::undo(auditRows.first().id,"tester",&error)) return 61;
     q.exec(QString("UPDATE user SET balance=10000 WHERE id=%1").arg(userId));
     if(!q.exec("SELECT id,power FROM pile WHERE status=0 AND power>0 LIMIT 1")||!q.next()) return 3;
     const int pileId=q.value(0).toInt(); const double rated=q.value(1).toDouble();

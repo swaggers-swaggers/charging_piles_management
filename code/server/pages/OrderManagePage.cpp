@@ -1,8 +1,6 @@
 #include "OrderManagePage.h"
 
 #include "ChargingEngine.h"
-#include "LogDao.h"
-#include "ServerSession.h"
 #include "dao/OrderDao.h"
 #include "dao/ReservationDao.h"
 #include "types.h"
@@ -292,9 +290,6 @@ void OrderManagePage::onForceFinish()
         QMessageBox::warning(this, QStringLiteral("操作失败"), sr.error);
         return;
     }
-    LogDao::record(ServerSession::instance().adminName, QStringLiteral("强制结束订单"),
-                   QStringLiteral("订单 #%1, 金额 %2 元")
-                       .arg(m_selectedOrderId).arg(sr.order.amount, 0, 'f', 2));
     QMessageBox::information(this, QStringLiteral("已结束"),
                              QStringLiteral("订单 #%1 已结算, 消费 %2 元")
                                  .arg(m_selectedOrderId).arg(sr.order.amount, 0, 'f', 2));
@@ -321,9 +316,6 @@ void OrderManagePage::onRefund()
         QMessageBox::warning(this, QStringLiteral("退款失败"), err);
         return;
     }
-    LogDao::record(ServerSession::instance().adminName, QStringLiteral("订单退款"),
-                   QStringLiteral("订单 #%1 退款 %2 元")
-                       .arg(m_selectedOrderId).arg(amount, 0, 'f', 2));
     QMessageBox::information(this, QStringLiteral("退款成功"),
                              QStringLiteral("已向用户退回 %1 元").arg(amount, 0, 'f', 2));
     refreshOrders();
@@ -414,7 +406,5 @@ void OrderManagePage::onCancelReservation()
                              err.isEmpty() ? QStringLiteral("记录不存在或已结束") : err);
         return;
     }
-    LogDao::record(ServerSession::instance().adminName, QStringLiteral("取消排队/预约"),
-                   QStringLiteral("记录 #%1").arg(m_selectedResId));
     refreshReservations();
 }

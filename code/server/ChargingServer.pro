@@ -30,6 +30,7 @@ SOURCES += \
     DatabaseManager.cpp \
     ChargingEngine.cpp \
     ServerSession.cpp \
+    ServerDataLock.cpp \
     AdminLoginDialog.cpp \
     AdminMainWindow.cpp \
     Predictor.cpp \
@@ -55,6 +56,7 @@ HEADERS += \
     DatabaseManager.h \
     ChargingEngine.h \
     ServerSession.h \
+    ServerDataLock.h \
     AdminLoginDialog.h \
     AdminMainWindow.h \
     Predictor.h \

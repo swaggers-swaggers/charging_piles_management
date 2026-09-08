@@ -1,8 +1,6 @@
 #include "PileManagePage.h"
 
-#include "LogDao.h"
 #include "PileDao.h"
-#include "ServerSession.h"
 
 #include <QBrush>
 #include <QColor>
@@ -154,8 +152,6 @@ void PileManagePage::onRestartClicked()
         return;
     }
 
-    LogDao::record(ServerSession::instance().adminName, "远程重启",
-                   QString("电桩 %1 重启成功, 状态恢复闲置").arg(m_selectedCode));
     QMessageBox::information(this, "提示",
                              QString("重启指令已执行, 电桩 %1 状态恢复闲置").arg(m_selectedCode));
     refresh();

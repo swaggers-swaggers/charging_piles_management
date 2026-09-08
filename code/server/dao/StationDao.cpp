@@ -1,4 +1,5 @@
 #include "StationDao.h"
+#include "ServerDataLock.h"
 
 #include <QSqlDatabase>
 #include <QSqlError>
@@ -7,6 +8,7 @@
 
 QList<StationInfo> StationDao::list(const QString &connName)
 {
+    SERVER_READ_LOCK;
     QList<StationInfo> stations;
     QSqlQuery query(QSqlDatabase::database(connName));
     const QString sql =
@@ -37,6 +39,7 @@ QList<StationInfo> StationDao::list(const QString &connName)
 
 bool StationDao::add(StationInfo *inOut, int pileCount, QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     if (!inOut || inOut->name.trimmed().isEmpty() || inOut->address.trimmed().isEmpty()) {
         if (errMsg)
             *errMsg = "站名和详细地址不能为空";

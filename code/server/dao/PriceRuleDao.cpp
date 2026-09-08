@@ -1,4 +1,5 @@
 #include "PriceRuleDao.h"
+#include "ServerDataLock.h"
 
 #include "DatabaseManager.h"
 
@@ -38,6 +39,7 @@ int PriceRuleDao::hhmmToMinutes(const QString &hhmm)
 QList<FeeRule> PriceRuleDao::listByStation(int stationId, QString *errMsg,
                                            const QString &connName)
 {
+    SERVER_READ_LOCK;
     QList<FeeRule> list;
     QSqlQuery q(daoDb(connName));
     q.prepare("SELECT id, station_id, period, start_time, end_time, price, service_fee"
@@ -56,6 +58,7 @@ QList<FeeRule> PriceRuleDao::listByStation(int stationId, QString *errMsg,
 bool PriceRuleDao::currentPrice(int stationId, double *totalPrice, double *serviceFee,
                                 const QTime &when, QString *errMsg, const QString &connName)
 {
+    SERVER_READ_LOCK;
     const QTime t = when.isValid() ? when : QTime::currentTime();
     const int nowMin = t.hour() * 60 + t.minute();
 
@@ -85,6 +88,7 @@ bool PriceRuleDao::currentPrice(int stationId, double *totalPrice, double *servi
 bool PriceRuleDao::replaceForStation(int stationId, const QList<FeeRule> &rules,
                                      QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlDatabase db = daoDb(connName);
     if (!db.transaction()) {
         if (errMsg)

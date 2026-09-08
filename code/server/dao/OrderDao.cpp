@@ -1,4 +1,5 @@
 #include "OrderDao.h"
+#include "ServerDataLock.h"
 
 #include "DatabaseManager.h"
 
@@ -51,6 +52,7 @@ int OrderDao::create(int userId, int pileId, int stationId,
                      int targetType, double targetValue,
                      QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlQuery q(daoDb(connName));
     q.prepare("INSERT INTO charge_order(user_id, pile_id, station_id, start_time,"
               " price_snapshot, freeze_amount, target_type, target_value, status)"
@@ -72,6 +74,7 @@ int OrderDao::create(int userId, int pileId, int stationId,
 
 OrderInfo OrderDao::getById(int id, QString *errMsg, const QString &connName)
 {
+    SERVER_READ_LOCK;
     QSqlQuery q(daoDb(connName));
     q.prepare("SELECT " + kOrderFields +
               " FROM charge_order o"
@@ -91,6 +94,7 @@ OrderInfo OrderDao::getById(int id, QString *errMsg, const QString &connName)
 OrderInfo OrderDao::getUnfinishedByUser(int userId, bool *hasOrder, QString *errMsg,
                                         const QString &connName)
 {
+    SERVER_READ_LOCK;
     if (hasOrder)
         *hasOrder = false;
     QSqlQuery q(daoDb(connName));
@@ -115,6 +119,7 @@ OrderInfo OrderDao::getUnfinishedByUser(int userId, bool *hasOrder, QString *err
 OrderDao::OrderContext OrderDao::getContext(int orderId, QString *errMsg,
                                            const QString &connName)
 {
+    SERVER_READ_LOCK;
     OrderContext ctx;
     QSqlQuery q(daoDb(connName));
     q.prepare("SELECT o.id, o.user_id, o.pile_id, p.status, p.power, s.price,"
@@ -154,6 +159,7 @@ OrderDao::OrderContext OrderDao::getContext(int orderId, QString *errMsg,
 bool OrderDao::updateProgress(int orderId, double energy, double amount, int simMinutes,
                               QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlQuery q(daoDb(connName));
     q.prepare("UPDATE charge_order SET energy=?, amount=?, sim_minutes=? WHERE id=? AND status=0");
     q.addBindValue(energy);
@@ -176,6 +182,7 @@ bool OrderDao::finishWithType(int orderId, double energy, double amount, int sim
                               int finishType, const QString &reason,
                               QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlQuery q(daoDb(connName));
     q.prepare("UPDATE charge_order SET end_time=datetime('now','localtime'),"
               " energy=?, amount=?, sim_minutes=?, status=1, finish_type=?, cancel_reason=?"
@@ -197,6 +204,7 @@ bool OrderDao::finishWithType(int orderId, double energy, double amount, int sim
 bool OrderDao::addRefund(int orderId, double amount,
                          QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlQuery q(daoDb(connName));
     q.prepare("UPDATE charge_order SET refund_amount=refund_amount+? WHERE id=?");
     q.addBindValue(amount);
@@ -211,6 +219,7 @@ bool OrderDao::addRefund(int orderId, double amount,
 
 QList<OrderInfo> OrderDao::listActive(QString *errMsg, const QString &connName)
 {
+    SERVER_READ_LOCK;
     QList<OrderInfo> list;
     QSqlQuery q(daoDb(connName));
     if (!q.exec("SELECT " + kOrderFields +
@@ -230,6 +239,7 @@ QList<OrderInfo> OrderDao::listActive(QString *errMsg, const QString &connName)
 QList<OrderInfo> OrderDao::listByUser(int userId, int page, int pageSize, int *total,
                                       QString *errMsg, const QString &connName)
 {
+    SERVER_READ_LOCK;
     QList<OrderInfo> list;
     if (total)
         *total = 0;
@@ -266,6 +276,7 @@ QList<OrderInfo> OrderDao::listByUser(int userId, int page, int pageSize, int *t
 
 QList<OrderInfo> OrderDao::listAll(int statusFilter, QString *errMsg, const QString &connName)
 {
+    SERVER_READ_LOCK;
     QList<OrderInfo> list;
     QSqlQuery q(daoDb(connName));
     if (statusFilter < 0) {
@@ -299,6 +310,7 @@ QList<OrderInfo> OrderDao::listAll(int statusFilter, QString *errMsg, const QStr
 bool OrderDao::salesSummary(double *today, double *month, double *total,
                             QString *errMsg, const QString &connName)
 {
+    SERVER_READ_LOCK;
     QSqlQuery q(daoDb(connName));
     if (!q.exec("SELECT"
                 " COALESCE(SUM(CASE WHEN date(end_time)=date('now','localtime') THEN amount END),0),"
@@ -320,6 +332,7 @@ bool OrderDao::salesSummary(double *today, double *month, double *total,
 QVector<QPair<QString, double>> OrderDao::dailyRevenue(int days, QString *errMsg,
                                                        const QString &connName)
 {
+    SERVER_READ_LOCK;
     QVector<QPair<QString, double>> list;
     QSqlQuery q(daoDb(connName));
     q.prepare("SELECT date(end_time) d, COALESCE(SUM(amount),0) FROM charge_order"
@@ -339,6 +352,7 @@ QVector<QPair<QString, double>> OrderDao::dailyRevenue(int days, QString *errMsg
 QList<QPair<QString, double>> OrderDao::stationRevenue(QString *errMsg,
                                                        const QString &connName)
 {
+    SERVER_READ_LOCK;
     QList<QPair<QString, double>> list;
     QSqlQuery q(daoDb(connName));
     if (!q.exec("SELECT s.name, COALESCE(SUM(o.amount),0)"

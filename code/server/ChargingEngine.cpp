@@ -2,6 +2,9 @@
 #include "ChargingPowerModel.h"
 
 #include "DatabaseManager.h"
+#include "ServerDataLock.h"
+#include "ServerSession.h"
+#include "dao/LogDao.h"
 #include "network/ClientHandler.h"
 #include "dao/OrderDao.h"
 #include "dao/PileDao.h"
@@ -141,6 +144,7 @@ ChargingEngine::StartResult ChargingEngine::startCharging(int userId, int pileId
                                                           int targetType, double targetValue,
                                                           const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     StartResult r;
     QSqlDatabase db = connName.isEmpty() ? DatabaseManager::instance().database()
                                          : QSqlDatabase::database(connName);
@@ -265,6 +269,7 @@ ChargingEngine::SettleResult ChargingEngine::settleOrder(int orderId, int finish
                                                          const QString &reason,
                                                          const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     SettleResult r;
     QSqlDatabase db = connName.isEmpty() ? DatabaseManager::instance().database()
                                          : QSqlDatabase::database(connName);
@@ -342,14 +347,21 @@ ChargingEngine::SettleResult ChargingEngine::forceFinish(int orderId, const QStr
 {
     SettleResult r = settleOrder(orderId, FinishByAdmin,
                                  reason.isEmpty() ? QStringLiteral("管理员强制结束") : reason);
-    if (r.ok)
+    if (r.ok) {
         notifyOrderEnded(r.order, FinishByAdmin, reason);
+        const QString actor = ServerSession::instance().adminName.isEmpty()
+                                  ? QStringLiteral("system") : ServerSession::instance().adminName;
+        LogDao::record(actor, QStringLiteral("强制结束订单"),
+                       QStringLiteral("订单 #%1, 金额 %2 元")
+                           .arg(orderId).arg(r.order.amount, 0, 'f', 2));
+    }
     return r;
 }
 
 bool ChargingEngine::refundOrder(int orderId, double amount, QString *err,
                                  const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     if (amount <= 0) {
         if (err) *err = "退款金额必须大于 0";
         return false;
@@ -379,6 +391,12 @@ bool ChargingEngine::refundOrder(int orderId, double amount, QString *err,
     if (!ro.exec()) { db.rollback(); if (err) *err = ro.lastError().text(); return false; }
     if (!db.commit()) { db.rollback(); if (err) *err = db.lastError().text(); return false; }
 
+    const QString actor = ServerSession::instance().adminName.isEmpty()
+                              ? QStringLiteral("system") : ServerSession::instance().adminName;
+    LogDao::record(actor, QStringLiteral("订单退款"),
+                   QStringLiteral("订单 #%1 退款 %2 元").arg(orderId).arg(amount, 0, 'f', 2),
+                   nullptr, connName);
+
     // 退款成功后推送消息给用户(消息系统统一入口)
     QJsonObject ev;
     ev.insert("type", PushOrderEvent);
@@ -395,6 +413,7 @@ bool ChargingEngine::refundOrder(int orderId, double amount, QString *err,
 // ---------------------------------------------------------------------------
 void ChargingEngine::assignQueueHead(int pileId, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     PileInfo pile = PileDao::getById(pileId, nullptr, connName);
     if (pile.id == 0 || pile.status != PileIdle)
         return;   // 桩不空闲(被新用户直接抢走等情况), 不分配
@@ -422,6 +441,7 @@ void ChargingEngine::assignQueueHead(int pileId, const QString &connName)
 // ---------------------------------------------------------------------------
 void ChargingEngine::recoverOnStart()
 {
+    SERVER_WRITE_LOCK;
     QSqlDatabase db = DatabaseManager::instance().database();
     // 孤儿桩: 状态在用但没有任何充电中订单引用 → 释放为空闲
     QSqlQuery q(db);
@@ -441,6 +461,7 @@ void ChargingEngine::onTick()
 
 void ChargingEngine::sweepActiveOrders()
 {
+    SERVER_WRITE_LOCK;
     const QList<OrderInfo> actives = OrderDao::listActive();
     for (const OrderInfo &o : actives) {
         const OrderDao::OrderContext ctx = OrderDao::getContext(o.id);
@@ -537,6 +558,7 @@ void ChargingEngine::sweepActiveOrders()
 
 void ChargingEngine::sweepReservations()
 {
+    SERVER_WRITE_LOCK;
     // 1) 已分配但超时未确认 → 过期并顺延下一位
     const QList<ReservationInfo> expired = ReservationDao::listAssignedExpired();
     for (const ReservationInfo &r : expired) {

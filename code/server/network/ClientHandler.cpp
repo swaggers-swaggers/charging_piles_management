@@ -2,6 +2,7 @@
 
 #include "ChargingEngine.h"
 #include "DatabaseManager.h"
+#include "ServerDataLock.h"
 #include "Predictor.h"
 #include "dao/OrderDao.h"
 #include "dao/PileDao.h"
@@ -227,6 +228,7 @@ QJsonObject ClientHandler::processUpdateProfile(const QJsonObject &req)
 
 QJsonObject ClientHandler::processRecharge(const QJsonObject &req)
 {
+    SERVER_WRITE_LOCK;
     const int userId = m_userId;
     const double amount = req.value("amount").toDouble();
 
@@ -544,6 +546,7 @@ QJsonObject ClientHandler::processOrderDetail(const QJsonObject &req)
 
 QJsonObject ClientHandler::processStationFee(const QJsonObject &req)
 {
+    SERVER_READ_LOCK;
     const int stationId = req.value("stationId").toInt();
     if (stationId <= 0)
         return Protocol::makeReply(Protocol::ReqStationFee, false, "参数错误: 缺少stationId");

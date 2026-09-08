@@ -1,4 +1,5 @@
 #include "Predictor.h"
+#include "ServerDataLock.h"
 
 #include "PileDao.h"
 
@@ -27,6 +28,7 @@ QVector<double> smooth(const QVector<double> &input)
 
 QVector<double> Predictor::forecast24h(const QString &connName)
 {
+    SERVER_READ_LOCK;
     // 1. 历史负荷: 聚合近 14 天已完成订单, 按"一天中的小时"累加充电量
     QVector<double> hourlySum(24, 0.0);
     QSqlQuery query(QSqlDatabase::database(connName));
@@ -91,6 +93,7 @@ QVector<double> Predictor::forecast24h(const QString &connName)
 
 double Predictor::forecastAt(int hourAhead, const QString &connName)
 {
+    SERVER_READ_LOCK;
     const QVector<double> f = forecast24h(connName);
     if (f.isEmpty())
         return 0.0;
@@ -100,6 +103,7 @@ double Predictor::forecastAt(int hourAhead, const QString &connName)
 double Predictor::predictIdleRate(int stationId, int totalPiles, int idlePiles, int hourAhead,
                                   const QString &connName)
 {
+    SERVER_READ_LOCK;
     Q_UNUSED(stationId);
     if (totalPiles <= 0)
         return 0.0;

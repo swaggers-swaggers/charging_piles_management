@@ -1,7 +1,5 @@
 #include "UserManagePage.h"
 
-#include "LogDao.h"
-#include "ServerSession.h"
 #include "UserDao.h"
 
 #include <QBrush>
@@ -145,8 +143,5 @@ void UserManagePage::onFreezeClicked()
         return;
     }
 
-    LogDao::record(ServerSession::instance().adminName,
-                   toFrozen ? "冻结用户" : "解冻用户",
-                   QString("用户 %1 (%2)").arg(phone).arg(m_selectedUserId));
     refresh();
 }

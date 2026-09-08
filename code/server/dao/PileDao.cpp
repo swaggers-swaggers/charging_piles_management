@@ -1,4 +1,7 @@
 #include "PileDao.h"
+#include "ServerDataLock.h"
+#include "LogDao.h"
+#include "ServerSession.h"
 
 #include "DatabaseManager.h"
 
@@ -36,6 +39,7 @@ PileInfo readPile(QSqlQuery &q)
 
 QList<PileInfo> PileDao::listAll(const QString &connName)
 {
+    SERVER_READ_LOCK;
     QList<PileInfo> list;
     QSqlQuery q(daoDb(connName));
     if (!q.exec(kPileSelect + " ORDER BY p.code"))
@@ -47,6 +51,7 @@ QList<PileInfo> PileDao::listAll(const QString &connName)
 
 QList<PileInfo> PileDao::listByStation(int stationId, const QString &connName)
 {
+    SERVER_READ_LOCK;
     QList<PileInfo> list;
     QSqlQuery q(daoDb(connName));
     q.prepare(kPileSelect + " WHERE p.station_id=? ORDER BY p.code");
@@ -60,6 +65,7 @@ QList<PileInfo> PileDao::listByStation(int stationId, const QString &connName)
 
 PileInfo PileDao::getById(int id, QString *errMsg, const QString &connName)
 {
+    SERVER_READ_LOCK;
     QSqlQuery q(daoDb(connName));
     q.prepare(kPileSelect + " WHERE p.id=?");
     q.addBindValue(id);
@@ -75,6 +81,7 @@ PileInfo PileDao::getById(int id, QString *errMsg, const QString &connName)
 
 bool PileDao::setStatus(int id, int status, QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlQuery q(daoDb(connName));
     q.prepare("UPDATE pile SET status=? WHERE id=?");
     q.addBindValue(status);
@@ -89,12 +96,21 @@ bool PileDao::setStatus(int id, int status, QString *errMsg, const QString &conn
 
 bool PileDao::restart(int id, QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     // 远程重启: 故障桩恢复为闲置
-    return setStatus(id, PileIdle, errMsg, connName);
+    const PileInfo pile = getById(id, errMsg, connName);
+    if (pile.id == 0 || !setStatus(id, PileIdle, errMsg, connName))
+        return false;
+    const QString actor = ServerSession::instance().adminName.isEmpty()
+                              ? QStringLiteral("system") : ServerSession::instance().adminName;
+    LogDao::record(actor, "远程重启",
+                   QString("电桩 %1 重启成功, 状态恢复闲置").arg(pile.code), nullptr, connName);
+    return true;
 }
 
 bool PileDao::addUsage(int id, int addedMinutes, QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlQuery q(daoDb(connName));
     q.prepare("UPDATE pile SET total_count=total_count+1, total_duration=total_duration+? WHERE id=?");
     q.addBindValue(addedMinutes);
@@ -110,6 +126,7 @@ bool PileDao::addUsage(int id, int addedMinutes, QString *errMsg, const QString 
 bool PileDao::statusCounts(int *idle, int *inUse, int *fault, QString *errMsg,
                            const QString &connName)
 {
+    SERVER_READ_LOCK;
     QSqlQuery q(daoDb(connName));
     if (!q.exec("SELECT status, COUNT(*) FROM pile GROUP BY status")) {
         if (errMsg)
@@ -131,6 +148,7 @@ bool PileDao::statusCounts(int *idle, int *inUse, int *fault, QString *errMsg,
 
 bool PileDao::acquire(int pileId, QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlQuery q(daoDb(connName));
     q.prepare("UPDATE pile SET status=1 WHERE id=? AND status=0");
     q.addBindValue(pileId);
@@ -144,6 +162,7 @@ bool PileDao::acquire(int pileId, QString *errMsg, const QString &connName)
 
 bool PileDao::release(int pileId, int usedMinutes, QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlQuery q(daoDb(connName));
     q.prepare("UPDATE pile SET status=CASE WHEN status=2 THEN 2 ELSE 0 END,"
               " total_count=total_count+1,"

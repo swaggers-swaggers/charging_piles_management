@@ -1,4 +1,5 @@
 #include "DataExporter.h"
+#include "ServerDataLock.h"
 
 #include "OrderDao.h"
 #include "PileDao.h"
@@ -63,6 +64,7 @@ QString DataExporter::exportDir()
 
 QByteArray DataExporter::buildJson() const
 {
+    SERVER_READ_LOCK;
     // ---- 营收指标 ----
     double today = 0, month = 0, total = 0;
     OrderDao::salesSummary(&today, &month, &total);

@@ -1,4 +1,7 @@
 #include "UserDao.h"
+#include "ServerDataLock.h"
+#include "LogDao.h"
+#include "ServerSession.h"
 
 #include <QSqlDatabase>
 #include <QSqlError>
@@ -20,6 +23,7 @@ static UserInfo readUser(const QSqlQuery &q)
 
 QList<UserInfo> UserDao::list(const QString &search, const QString &connName)
 {
+    SERVER_READ_LOCK;
     QList<UserInfo> users;
     QSqlQuery query(QSqlDatabase::database(connName));
     // 手机号只读脱敏列(隐私保护), 搜索对脱敏号做模糊匹配(如输入 138 命中 138****5678)
@@ -44,6 +48,7 @@ QList<UserInfo> UserDao::list(const QString &search, const QString &connName)
 
 bool UserDao::getById(int userId, UserInfo *out, QString *errMsg, const QString &connName)
 {
+    SERVER_READ_LOCK;
     QSqlQuery query(QSqlDatabase::database(connName));
     // 只读脱敏列, 不向任何调用方返回明文手机号
     query.prepare("SELECT id, phone_masked, nickname, avatar, balance, status, register_time "
@@ -66,7 +71,18 @@ bool UserDao::getById(int userId, UserInfo *out, QString *errMsg, const QString 
 
 bool UserDao::setStatus(int userId, int status, QString *errMsg, const QString &connName)
 {
-    QSqlQuery query(QSqlDatabase::database(connName));
+    SERVER_WRITE_LOCK;
+    QSqlDatabase db = QSqlDatabase::database(connName);
+    QSqlQuery before(db);
+    before.prepare("SELECT status, phone_masked FROM user WHERE id=:id");
+    before.bindValue(":id", userId);
+    if (!before.exec() || !before.next()) {
+        if (errMsg) *errMsg = "用户不存在";
+        return false;
+    }
+    const int oldStatus = before.value(0).toInt();
+    const QString phone = before.value(1).toString();
+    QSqlQuery query(db);
     query.prepare("UPDATE user SET status = :s WHERE id = :id");
     query.bindValue(":s", status);
     query.bindValue(":id", userId);
@@ -75,12 +91,21 @@ bool UserDao::setStatus(int userId, int status, QString *errMsg, const QString &
             *errMsg = "更新用户状态失败: " + query.lastError().text();
         return false;
     }
-    return query.numRowsAffected() > 0;
+    if (query.numRowsAffected() <= 0)
+        return false;
+    const QString actor = ServerSession::instance().adminName.isEmpty()
+                              ? QStringLiteral("system") : ServerSession::instance().adminName;
+    LogDao::recordReversible(actor, status == UserFrozen ? "冻结用户" : "解冻用户",
+                             QString("用户 %1 (%2)").arg(phone).arg(userId),
+                             "user_status", userId, QString::number(oldStatus),
+                             QString::number(status), nullptr, connName);
+    return true;
 }
 
 bool UserDao::updateProfile(int userId, const QString &nickname, const QString &avatar,
                             QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QStringList sets;
     if (!nickname.isEmpty())
         sets << "nickname = :n";
@@ -107,6 +132,7 @@ bool UserDao::updateProfile(int userId, const QString &nickname, const QString &
 bool UserDao::recharge(int userId, double amount, double *newBalance,
                        QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlDatabase db = QSqlDatabase::database(connName);
     QSqlQuery query(db);
     query.prepare("UPDATE user SET balance = balance + :a WHERE id = :id");
@@ -134,6 +160,7 @@ bool UserDao::recharge(int userId, double amount, double *newBalance,
 
 bool UserDao::adjustBalance(int userId, double delta, QString *errMsg, const QString &connName)
 {
+    SERVER_WRITE_LOCK;
     QSqlQuery query(QSqlDatabase::database(connName));
     query.prepare("UPDATE user SET balance = balance + :d WHERE id = :id AND balance + :d >= 0");
     query.bindValue(":d", delta);
