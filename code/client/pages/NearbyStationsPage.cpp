@@ -41,30 +41,6 @@ const RegionCoord kRegions[] = {
     { "通州区",        116.6560, 39.9100 },
 };
 
-// 地址关键词 → 演示坐标。课程项目不在每次输入时调用商业地理编码服务，
-// 避免 Key 泄露、额度耗尽和答辩环境网络不稳定。
-const RegionCoord kLandmarks[] = {
-    { "五道口",    116.3391, 39.9911 },
-    { "中关村",    116.3160, 39.9830 },
-    { "鸟巢",      116.3956, 39.9926 },
-    { "国家体育场", 116.3956, 39.9926 },
-    { "水立方",    116.3927, 39.9921 },
-    { "国贸",      116.4610, 39.9087 },
-    { "望京",      116.4740, 39.9960 },
-    { "北京站",    116.4270, 39.9030 },
-    { "北京南站",  116.3785, 39.8655 },
-    { "大兴机场",  116.4204, 39.5295 },
-    { "天安门",    116.3975, 39.9087 },
-    { "西单",      116.3740, 39.9130 },
-    { "王府井",    116.4110, 39.9160 },
-    { "海淀",      116.3100, 39.9600 },
-    { "朝阳",      116.4430, 39.9210 },
-    { "东城",      116.4160, 39.9160 },
-    { "西城",      116.3660, 39.9150 },
-    { "丰台",      116.2860, 39.8580 },
-    { "大兴",      116.3410, 39.7280 },
-    { "通州",      116.6560, 39.9100 },
-};
 } // namespace
 
 NearbyStationsPage::NearbyStationsPage(QWidget *parent)
@@ -99,40 +75,29 @@ NearbyStationsPage::NearbyStationsPage(QWidget *parent)
     m_summary->setObjectName("discoverySummary");
     layout->addWidget(m_summary);
 
-    QHBoxLayout *topRow = new QHBoxLayout();
+    QHBoxLayout *filterRow = new QHBoxLayout();
     m_regionCombo = new QComboBox(this);
     m_regionCombo->setObjectName("regionCombo");
-    m_regionCombo->setAccessibleName("演示位置区域");
+    m_regionCombo->setAccessibleName("位置区域");
     for (const RegionCoord &r : kRegions)
         m_regionCombo->addItem(QString::fromUtf8(r.name));
-    m_addrEdit = new QLineEdit(this);
-    m_addrEdit->setObjectName("addrEdit");
-    m_addrEdit->setPlaceholderText("输入演示地标：五道口 / 国贸 / 鸟巢");
-    m_addrEdit->setAccessibleName("演示地标");
-    m_addrEdit->setClearButtonEnabled(true);
-    QPushButton *locateBtn = new QPushButton("定位", this);
     QPushButton *refreshBtn = new QPushButton("刷新站点", this);
     refreshBtn->setObjectName("secondaryBtn");
-    topRow->addWidget(new QLabel("演示位置", this));
-    topRow->addWidget(m_regionCombo);
-    topRow->addWidget(m_addrEdit, 1);
-    topRow->addWidget(locateBtn);
-    topRow->addWidget(refreshBtn);
-    layout->addLayout(topRow);
-
-    auto *filters = new QHBoxLayout;
     m_search = new QLineEdit(this);
     m_search->setPlaceholderText("搜索站名或地址");
     m_search->setAccessibleName("搜索站名或地址");
     m_search->setClearButtonEnabled(true);
     m_idleOnly = new QCheckBox("仅看有空闲", this);
     m_sort = new QComboBox(this);
+    m_sort->setObjectName("stationSort");
     m_sort->addItems({"距离优先", "空闲优先", "价格优先"});
     m_sort->setAccessibleName("站点排序");
-    filters->addWidget(m_search, 1);
-    filters->addWidget(m_idleOnly);
-    filters->addWidget(m_sort);
-    layout->addLayout(filters);
+    filterRow->addWidget(m_regionCombo);
+    filterRow->addWidget(m_search, 1);
+    filterRow->addWidget(m_idleOnly);
+    filterRow->addWidget(m_sort);
+    filterRow->addWidget(refreshBtn);
+    layout->addLayout(filterRow);
     m_count = new QLabel(this);
     m_count->setObjectName("pageHint");
     layout->addWidget(m_count);
@@ -153,8 +118,6 @@ NearbyStationsPage::NearbyStationsPage(QWidget *parent)
     connect(m_sort, qOverload<int>(&QComboBox::currentIndexChanged), this, &NearbyStationsPage::renderStations);
 
     connect(refreshBtn, &QPushButton::clicked, this, &NearbyStationsPage::refresh);
-    connect(locateBtn, &QPushButton::clicked, this, &NearbyStationsPage::onLocate);
-    connect(m_addrEdit, &QLineEdit::returnPressed, this, &NearbyStationsPage::onLocate);
     connect(m_regionCombo, qOverload<int>(&QComboBox::currentIndexChanged),
             this, &NearbyStationsPage::onRegionChanged);
 
@@ -178,52 +141,6 @@ void NearbyStationsPage::refreshPage()
 {
     if (isVisible())
         refresh();
-}
-
-void NearbyStationsPage::onLocate()
-{
-    const QString addr = m_addrEdit->text().trimmed();
-    if (addr.isEmpty()) {
-        QMessageBox::information(this, "提示", "请输入要定位的地址");
-        m_addrEdit->setFocus();
-        return;
-    }
-
-    bool found = false;
-    for (const RegionCoord &l : kLandmarks) {
-        if (addr.contains(QString::fromUtf8(l.name))) {
-            m_lon = l.lon;
-            m_lat = l.lat;
-            found = true;
-            break;
-        }
-    }
-    if (!found) {
-        QMessageBox::warning(this, "定位失败",
-                             QString("本地未识别地址：%1\n可使用城区下拉框，或输入：五道口 / 国贸 / 鸟巢 / 北京站 等")
-                                 .arg(addr));
-        return;
-    }
-
-    // 若地址中带有城区名, 只同步下拉框显示；
-    // 不触发 onRegionChanged，否则会把精确地标覆盖成城区中心坐标。
-    for (int i = 0; i < int(sizeof(kRegions) / sizeof(kRegions[0])); ++i) {
-        QString regionName = QString::fromUtf8(kRegions[i].name);
-        const int paren = regionName.indexOf('(');
-        if (paren > 0)
-            regionName = regionName.left(paren);
-        if (!regionName.isEmpty() && addr.contains(regionName)) {
-            m_regionCombo->blockSignals(true);
-            m_regionCombo->setCurrentIndex(i);
-            m_regionCombo->blockSignals(false);
-            break;
-        }
-    }
-
-    QMessageBox::information(this, "定位成功",
-                             QString("已定位到: %1  (经度 %2, 纬度 %3)")
-                                 .arg(addr).arg(m_lon, 0, 'f', 4).arg(m_lat, 0, 'f', 4));
-    refresh();
 }
 
 void NearbyStationsPage::refresh()

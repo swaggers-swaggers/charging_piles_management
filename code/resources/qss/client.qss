@@ -81,3 +81,86 @@ QListWidget#messageList { background: transparent; border: none; padding: 0px; o
 QListWidget#messageList::item { padding: 0px; margin: 0px; border: none; }
 QLabel#messageEmpty { background: white; color: #72867A; border: 1px solid #DFEAE4; border-radius: 16px; font-size: 15px; padding: 24px; }
 QComboBox#messageFilter { min-height: 22px; min-width: 130px; }
+
+/* 我的订单：旅程票据。用留白、编号章和横向时间轨迹替代表格。 */
+QWidget#orderHistoryPage, QWidget#orderCardsHost, QWidget#reservationCardsHost,
+QScrollArea#orderCardScroll { background: transparent; border: none; }
+QTabWidget#orderTabs::pane { border: none; background: transparent; }
+QTabWidget#orderTabs QTabBar::tab {
+    background: transparent; color: #75877E; padding: 10px 18px;
+    border: none; border-bottom: 2px solid #DDE8E1;
+}
+QTabWidget#orderTabs QTabBar::tab:selected {
+    color: #174E38; border-bottom: 2px solid #237653; font-weight: 700;
+}
+QLabel#orderSummary, QLabel#reservationSummary {
+    color: #315D49; background: #E8F2EB; border-radius: 10px;
+    padding: 10px 14px; font-size: 13px;
+}
+QFrame#orderJourneyCard {
+    background: #FFFFFF; border: 1px solid #DEE9E2; border-left: 4px solid #A9BDB1;
+    border-radius: 16px;
+}
+QFrame#orderJourneyCard[orderState="active"] { border-left-color: #D4A94E; }
+QFrame#orderJourneyCard[orderState="done"] { border-left-color: #237653; }
+QFrame#orderJourneyCard[orderState="error"] { border-left-color: #BD5961; }
+QFrame#orderJourneyCard:hover { background: #FCFEFC; border-color: #8DB49D; }
+QLabel#orderMarker {
+    color: #194D39; background: #E4F1E8; border: 1px solid #D0E4D7;
+    border-radius: 18px; min-width: 36px; min-height: 36px;
+    max-width: 36px; max-height: 36px; qproperty-alignment: AlignCenter;
+    font-size: 13px; font-weight: 700;
+}
+QLabel#orderStation { color: #193D31; font-size: 17px; font-weight: 700; }
+QLabel#orderIdentity { color: #89978F; font-size: 11px; letter-spacing: 1px; }
+QLabel#orderStateBadge {
+    color: #687A70; background: #F0F3F1; border-radius: 10px;
+    padding: 5px 10px; font-size: 12px;
+}
+QLabel#orderStateBadge[orderState="active"] { color: #906522; background: #FFF3D9; }
+QLabel#orderStateBadge[orderState="done"] { color: #1C6848; background: #E5F4E9; }
+QLabel#orderStateBadge[orderState="error"] { color: #A34149; background: #FCEAEC; }
+QLabel#orderTimeline {
+    color: #74867B; background: transparent; border-top: 1px solid #EEF3EF;
+    border-bottom: 1px solid #EEF3EF; padding: 9px 2px; font-size: 12px;
+}
+QFrame#orderMetric { background: #F6F9F7; border: none; border-radius: 11px; }
+QFrame#orderMetric[featured="true"] { background: #183F34; }
+QLabel#orderMetricCaption { color: #87978E; background: transparent; font-size: 11px; }
+QFrame#orderMetric[featured="true"] QLabel#orderMetricCaption { color: #BBD4C6; }
+QLabel#orderMetricValue { color: #2C4B3E; background: transparent; font-size: 15px; font-weight: 650; }
+QLabel#orderAmount { color: #F5FFF8; background: transparent; font-size: 22px; font-weight: 700; }
+QLabel#orderFootnote { color: #8A9991; background: transparent; font-size: 11px; }
+QLabel#orderRefund { color: #9A6730; background: #FFF1D9; border-radius: 8px; padding: 5px 9px; }
+QPushButton#orderDetailButton {
+    color: #215E43; background: transparent; border: none; padding: 5px 2px; font-weight: 700;
+}
+QPushButton#orderDetailButton:hover { color: #123F2C; background: transparent; }
+QPushButton#orderPagerButton { background: transparent; border: 1px solid #DCE7E0; padding: 6px 12px; }
+QLabel#orderEmpty {
+    color: #7D8D84; background: #FFFFFF; border: 1px dashed #CBDCD1;
+    border-radius: 16px; padding: 40px; min-height: 180px;
+}
+QFrame#reservationTicket {
+    background: #FFFFFF; border: 1px solid #DEE9E2; border-radius: 15px;
+}
+QFrame#reservationTicket[reservationActive="true"] { border-left: 4px solid #D4A94E; }
+QLabel#reservationType { color: #1D6547; background: #E7F3EA; border-radius: 8px; padding: 5px 9px; font-size: 11px; }
+QLabel#reservationStation { color: #203F34; font-size: 16px; font-weight: 700; }
+QLabel#reservationStatus { color: #8D6A2D; background: #FFF3DC; border-radius: 9px; padding: 5px 10px; }
+QLabel#reservationStatus[reservationState="done"] { color: #1C6848; background: #E5F4E9; }
+QLabel#reservationStatus[reservationState="muted"] { color: #76857D; background: #EEF2EF; }
+QLabel#reservationJourney { color: #536B5E; background: #F6F9F7; border-radius: 9px; padding: 12px 14px; }
+QPushButton#reservationCancelButton { color: #A0444C; background: transparent; border: none; padding: 5px; }
+QPushButton#reservationCancelButton:hover { color: #7D2F36; background: #FCEEEF; }
+QFrame#orderReceiptHero {
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #173F34,stop:1 #28644E);
+    border: none; border-radius: 16px;
+}
+QLabel#orderReceiptCaption { color: #B8D5C5; background: transparent; font-size: 10px; letter-spacing: 2px; }
+QLabel#orderReceiptAmount { color: #FFFFFF; background: transparent; font-size: 34px; font-weight: 700; }
+QLabel#orderReceiptStation { color: #D6EADF; background: transparent; font-size: 13px; }
+QLabel#orderDetailField {
+    color: #28483B; background: #F5F8F6; border: 1px solid #E3ECE6;
+    border-radius: 10px; padding: 12px; line-height: 1.5;
+}

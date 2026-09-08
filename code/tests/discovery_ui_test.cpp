@@ -33,6 +33,7 @@
 #include "NearbyStationsPage.h"
 #include "NavigationPage.h"
 #include "ChargingPage.h"
+#include "OrderHistoryPage.h"
 
 class DiscoveryTest : public QObject {
     Q_OBJECT
@@ -41,6 +42,7 @@ class DiscoveryTest : public QObject {
     UserMainWindow *window = nullptr;
     bool failed = false;
     bool activeOrder = false;
+    bool reservationCardActive = false;
     int lastPileStation = -1;
     int stationRequestCount = 0;
     double lastLon = 0;
@@ -54,6 +56,31 @@ class DiscoveryTest : public QObject {
                 {"longitude",116.31+i*.01},{"latitude",39.96},{"price",1.2-i*.1},{"distance",1.3+i},
                 {"totalPiles",i==2?0:6},{"idlePiles",i==0?3:0},{"predictIdle",.5}});
         return result;
+    }
+    QJsonArray orders() {
+        return QJsonArray{
+            QJsonObject{{"orderId",102},{"pileCode","HD-DC-08"},{"stationName","中关村绿色能源站"},
+                {"startTime","2026-09-08 18:06:00"},{"endTime","2026-09-08 18:48:00"},
+                {"energy",23.88},{"amount",28.65},{"priceSnapshot",1.20},{"simMinutes",42},{"status",OrderFinished}},
+            QJsonObject{{"orderId",101},{"pileCode","WDK-SC-03"},{"stationName","五道口城市快充站"},
+                {"startTime","2026-09-08 21:32:00"},{"endTime",""},
+                {"energy",8.46},{"amount",9.31},{"priceSnapshot",1.10},{"simMinutes",17},{"status",OrderCharging}},
+            QJsonObject{{"orderId",99},{"pileCode","XYL-06"},{"stationName","学院路社区充电站"},
+                {"startTime","2026-09-07 09:20:00"},{"endTime","2026-09-07 09:36:00"},
+                {"energy",5.40},{"amount",6.48},{"priceSnapshot",1.20},{"simMinutes",16},
+                {"refundAmount",2.00},{"status",OrderAbnormal}}
+        };
+    }
+    QJsonArray reservations() {
+        return QJsonArray{
+            QJsonObject{{"reservationId",21},{"type",ReserveAppoint},{"pileCode","HD-DC-02"},
+                {"stationName","中关村绿色能源站"},{"createTime","2026-09-08 20:00:00"},
+                {"reserveDate","2026-09-09"},{"reserveStart","09:00"},{"reserveEnd","10:00"},
+                {"status",reservationCardActive ? ReservationActive : ReservationFulfilled}},
+            QJsonObject{{"reservationId",18},{"type",ReserveQueue},{"pileCode","WDK-SC-03"},
+                {"stationName","五道口城市快充站"},{"createTime","2026-09-08 19:20:00"},
+                {"queuePos",2},{"status",ReservationFulfilled}}
+        };
     }
     QPushButton *button(QWidget *parent, const QString &text) {
         for (auto *b : parent->findChildren<QPushButton*>()) if (b->text()==text) return b;
@@ -134,7 +161,12 @@ private slots:
                             {"type",0},{"power",120},{"status",lastPileStation==12?1:0}}}; }
                     if(type==8) { reply["hasOrder"]=activeOrder;
                         reply["order"]=QJsonObject{{"id",99},{"pileId",101},{"pileCode","DC-01"},{"stationName","正在充电的站点"},{"status",0}}; }
-                    if(type==17) reply["reservations"]=QJsonArray{};
+                    if(type==Protocol::ReqOrderHistory) { reply["orders"]=orders(); reply["total"]=orders().size(); }
+                    if(type==Protocol::ReqOrderDetail) {
+                        const int id=req["orderId"].toInt();
+                        for(const auto &value:orders()) if(value.toObject()["orderId"].toInt()==id) reply["order"]=value;
+                    }
+                    if(type==Protocol::ReqMyReservations) reply["reservations"]=reservations();
                     const auto bytes = QJsonDocument(reply).toJson(QJsonDocument::Compact)+'\n';
                     QTimer::singleShot(replyDelay, socket, [socket, bytes] { socket->write(bytes); });
                 }
@@ -172,7 +204,17 @@ private slots:
         const auto cards=window->findChildren<QFrame*>("stationCard");
         QVERIFY(!button(cards.last(),"预约 / 排队")->isEnabled());
         auto *page=window->findChild<NearbyStationsPage*>();
-        auto *search=page->findChildren<QLineEdit*>().last();
+        QVERIFY(!page->findChild<QLineEdit*>("addrEdit"));
+        QCOMPARE(page->findChildren<QLineEdit*>().size(),1);
+        auto *search=page->findChildren<QLineEdit*>().constFirst();
+        auto *region=page->findChild<QComboBox*>("regionCombo");
+        auto *idle=page->findChild<QCheckBox*>();
+        auto *sort=page->findChild<QComboBox*>("stationSort");
+        QVERIFY(region && idle && sort);
+        const int rowY=search->geometry().center().y();
+        QVERIFY(qAbs(region->geometry().center().y()-rowY)<=2);
+        QVERIFY(qAbs(idle->geometry().center().y()-rowY)<=2);
+        QVERIFY(qAbs(sort->geometry().center().y()-rowY)<=2);
         search->setText("五道口"); QTest::qWait(10);
         QCOMPARE(page->findChildren<QFrame*>("stationCard").size(),1);
         QVERIFY(button(page,"预约 / 排队"));
@@ -286,6 +328,36 @@ private slots:
             QCOMPARE(table->viewport()->palette().color(QPalette::Base), QColor("#FFFFFF"));
         }
         nav->setCurrentRow(0); QTest::qWait(15);
+    }
+    void orderJourneyCards() {
+        reservationCardActive=true;
+        auto *nav=window->findChild<QListWidget*>("navList");
+        nav->setCurrentRow(2); QTest::qWait(80);
+        auto *page=window->findChild<OrderHistoryPage*>();
+        QVERIFY(page);
+        QVERIFY(page->findChildren<QTableWidget*>().isEmpty());
+        QCOMPARE(page->findChildren<QFrame*>("orderJourneyCard").size(),3);
+        QVERIFY(page->findChild<QLabel*>("orderSummary")->text().contains("3 笔旅程"));
+        QVERIFY(button(page,"查看票据  ↗"));
+        QVERIFY(window->grab().save("/tmp/charging-orders-cards.png"));
+        QTimer::singleShot(80,this,[]{
+            auto *dialog=qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            QVERIFY(dialog->findChild<QFrame*>("orderReceiptHero"));
+            QVERIFY(dialog->findChild<QLabel*>("orderReceiptAmount"));
+            QVERIFY(dialog->grab().save("/tmp/charging-order-receipt.png"));
+            dialog->accept();
+        });
+        button(page,"查看票据  ↗")->click();
+        auto *tabs=page->findChild<QTabWidget*>("orderTabs");
+        tabs->setCurrentIndex(1); QTest::qWait(40);
+        QCOMPARE(page->findChildren<QFrame*>("reservationTicket").size(),2);
+        QVERIFY(window->grab().save("/tmp/charging-reservation-cards.png"));
+        reservationCardActive=false;
+        tabs->setCurrentIndex(0);
+        window->resize(800,600); QTest::qWait(30);
+        QVERIFY(window->grab().save("/tmp/charging-orders-cards-compact.png"));
+        window->resize(1200,820);
     }
     void accountAndMessageCards() {
         auto *nav = window->findChild<QListWidget*>("navList");
