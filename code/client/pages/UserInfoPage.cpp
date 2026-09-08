@@ -111,6 +111,18 @@ UserInfoPage::UserInfoPage(QWidget *parent)
     m_settings->addWidget(recharge,1); layout->addLayout(m_settings); layout->addStretch();
     connect(m_saveNickBtn,&QPushButton::clicked,this,&UserInfoPage::onSaveNickname);
     connect(m_rechargeBtn,&QPushButton::clicked,this,&UserInfoPage::onRecharge);
+
+    // 自动刷新: 每 5 秒刷新余额/资料(仅当前可见且连接空闲时), 无需重新进入页面
+    m_autoRefresh = new QTimer(this);
+    m_autoRefresh->setInterval(5000);
+    connect(m_autoRefresh, &QTimer::timeout, this, [this] {
+        if (!isVisible() || TcpClient::instance().isBusy())
+            return;
+        m_autoSilent = true;
+        onRefresh();
+        m_autoSilent = false;
+    });
+    m_autoRefresh->start();
 }
 
 void UserInfoPage::resizeEvent(QResizeEvent *event)
@@ -134,7 +146,8 @@ void UserInfoPage::onRefresh()
     QJsonObject reply = TcpClient::instance().request(
         Protocol::ReqGetUserInfo, QJsonObject{{"userId", s.userId}});
     if (!reply.value("ok").toBool()) {
-        QMessageBox::warning(this, "提示", reply.value("error").toString("获取用户信息失败"));
+        if (!m_autoSilent)
+            QMessageBox::warning(this, "提示", reply.value("error").toString("获取用户信息失败"));
         return;
     }
 
@@ -145,7 +158,9 @@ void UserInfoPage::onRefresh()
     m_phoneLabel->setText(QString("手机号: %1").arg(s.phone));
     m_balanceLabel->setText(QString::number(s.balance, 'f', 2));
     m_nameLabel->setText(s.nickname.isEmpty() ? "充电用户" : s.nickname);
-    m_nickEdit->setText(s.nickname);
+    // 自动刷新不打断正在编辑的昵称
+    if (!m_nickEdit->hasFocus())
+        m_nickEdit->setText(s.nickname);
 
     m_avatarLabel->setPixmap(defaultAvatar().scaled(56,56,Qt::KeepAspectRatio,Qt::SmoothTransformation));
     // 头像: base64 → 图片, 失败用默认灰色头像

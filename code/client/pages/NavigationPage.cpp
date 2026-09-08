@@ -162,6 +162,16 @@ NavigationPage::NavigationPage(QWidget *parent)
 
     onStartChanged(0);
     onPlanChanged();
+
+    // 自动刷新: 每 5 秒刷新站点状态; 有路线预览(请求中或已显示)时跳过, 不打断导航
+    m_autoRefresh = new QTimer(this);
+    m_autoRefresh->setInterval(5000);
+    connect(m_autoRefresh, &QTimer::timeout, this, [this] {
+        if (!isVisible() || m_routeReply || !m_routePolyline.isEmpty())
+            return;
+        refresh();
+    });
+    m_autoRefresh->start();
 }
 
 void NavigationPage::setDestination(int stationId, double lon, double lat)

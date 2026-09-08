@@ -12,6 +12,7 @@ class QLabel;
 class QPushButton;
 class QScrollArea;
 class QStackedWidget;
+class QTimer;
 
 // 环形目标进度控件: 外环为目标完成度, 中心显示主/副文本
 class ChargeRingWidget : public QWidget
@@ -107,6 +108,9 @@ private:
     int m_waitingId = -1;
     int m_waitingPileId = -1;
     int m_waitingType = ReserveQueue;
+
+    QTimer *m_autoRefresh = nullptr;   // 每 5 秒自动刷新选桩视图的站点/电桩状态
+    bool m_autoSilent = false;         // 自动刷新期间失败不弹窗, 避免打断操作
 };
 
 #endif // CHARGINGPAGE_H

@@ -29,6 +29,7 @@
 #include <QScrollArea>
 #include <QSet>
 #include <QStackedWidget>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QtMath>
 
@@ -418,6 +419,21 @@ ChargingPage::ChargingPage(QWidget *parent)
 
     connect(&TcpClient::instance(), &TcpClient::pushReceived,
             this, &ChargingPage::onPushReceived);
+
+    // 自动刷新: 每 5 秒刷新选桩视图的站点/电桩状态(仅当前可见且连接空闲时),
+    // 充电中与排队/预约状态由服务端推送驱动, 不重复轮询
+    m_autoRefresh = new QTimer(this);
+    m_autoRefresh->setInterval(5000);
+    connect(m_autoRefresh, &QTimer::timeout, this, [this] {
+        if (!isVisible() || m_stack->currentIndex() != 0)
+            return;
+        if (TcpClient::instance().isBusy())
+            return;
+        m_autoSilent = true;
+        refreshStations();
+        m_autoSilent = false;
+    });
+    m_autoRefresh->start();
 }
 
 void ChargingPage::buildSelectView()
@@ -604,7 +620,8 @@ void ChargingPage::refreshStations()
     const QJsonObject reply = TcpClient::instance().request(
         Protocol::ReqStationList, QJsonObject{{"lon", 123.45}, {"lat", 41.70}});
     if (!reply.value("ok").toBool()) {
-        QMessageBox::warning(this, QStringLiteral("查询失败"), reply.value("error").toString());
+        if (!m_autoSilent)
+            QMessageBox::warning(this, QStringLiteral("查询失败"), reply.value("error").toString());
         return;
     }
     m_stations.clear();

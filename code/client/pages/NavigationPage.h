@@ -42,6 +42,7 @@ private slots:
 
 private:
     QTimer *m_refreshTimer;
+    QTimer *m_autoRefresh = nullptr;   // 每 5 秒自动刷新站点状态
     bool m_refreshing = false;
     QComboBox *m_startCombo;
     QComboBox *m_destCombo;

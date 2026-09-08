@@ -2,6 +2,7 @@
 #include "DonutChart.h"
 
 #include "PileDao.h"
+#include <QTimer>
 
 #include <QColor>
 #include <QFont>
@@ -104,6 +105,15 @@ PileStatusPage::PileStatusPage(QWidget *parent)
 
     connect(refreshBtn, &QPushButton::clicked, this, &PileStatusPage::refresh);
     refresh();
+
+    // 自动刷新: 每 3 秒刷新一次(仅当前可见页), 无需手动点刷新按钮
+    m_autoRefresh = new QTimer(this);
+    m_autoRefresh->setInterval(3000);
+    connect(m_autoRefresh, &QTimer::timeout, this, [this] {
+        if (isVisible())
+            refresh();
+    });
+    m_autoRefresh->start();
 }
 
 QWidget *PileStatusPage::buildChart(int inUse, int idle, int fault)

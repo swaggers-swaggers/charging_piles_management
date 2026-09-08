@@ -11,6 +11,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPen>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QtGlobal>
 
@@ -245,6 +246,15 @@ SalesPage::SalesPage(QWidget *parent)
 
     connect(m_rangeCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, &SalesPage::refresh);
     refresh();
+
+    // 自动刷新: 每 10 秒刷新一次(仅当前可见页), 营收随订单结算变化
+    m_autoRefresh = new QTimer(this);
+    m_autoRefresh->setInterval(10000);
+    connect(m_autoRefresh, &QTimer::timeout, this, [this] {
+        if (isVisible())
+            refresh();
+    });
+    m_autoRefresh->start();
 }
 
 void SalesPage::refresh()

@@ -11,6 +11,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QTableWidget>
+#include <QTimer>
 #include <QVBoxLayout>
 
 namespace {
@@ -75,10 +76,20 @@ PileManagePage::PileManagePage(QWidget *parent)
     connect(m_table, &QTableWidget::itemSelectionChanged,
             this, &PileManagePage::onSelectionChanged);
     refresh();
+
+    // 自动刷新: 每 3 秒刷新一次(仅当前可见页), 无需手动点刷新按钮
+    m_autoRefresh = new QTimer(this);
+    m_autoRefresh->setInterval(3000);
+    connect(m_autoRefresh, &QTimer::timeout, this, [this] {
+        if (isVisible())
+            refresh();
+    });
+    m_autoRefresh->start();
 }
 
 void PileManagePage::refresh()
 {
+    const int prevId = m_selectedId;   // 自动/手动刷新后尽量恢复原选中行
     const QList<PileInfo> piles = PileDao::listAll();
     m_table->setRowCount(piles.size());
     for (int i = 0; i < piles.size(); ++i) {
@@ -98,6 +109,14 @@ void PileManagePage::refresh()
                          new QTableWidgetItem(QString::number(p.totalDuration / 60.0, 'f', 1)));
     }
     m_table->resizeColumnsToContents();
+    if (prevId >= 0) {
+        for (int r = 0; r < m_table->rowCount(); ++r) {
+            if (m_table->item(r, 0)->data(Qt::UserRole).toInt() == prevId) {
+                m_table->selectRow(r);
+                break;
+            }
+        }
+    }
     onSelectionChanged();
 }
 

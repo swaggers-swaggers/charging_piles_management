@@ -6,6 +6,7 @@
 class QTableWidget;
 class QPushButton;
 class QString;
+class QTimer;
 
 // 充电桩管理页: 电桩列表(联表电站名) + 选中电桩执行"远程重启"(模拟指令)
 class PileManagePage : public QWidget
@@ -26,6 +27,7 @@ private:
     int m_selectedId = -1;
     QString m_selectedCode;
     int m_selectedStatus = -1;
+    QTimer *m_autoRefresh = nullptr;   // 每 3 秒自动刷新, 无需手动点刷新按钮
 };
 
 #endif // PILEMANAGEPAGE_H

@@ -158,6 +158,15 @@ NearbyStationsPage::NearbyStationsPage(QWidget *parent)
     connect(m_regionCombo, qOverload<int>(&QComboBox::currentIndexChanged),
             this, &NearbyStationsPage::onRegionChanged);
 
+    // 自动刷新: 每 5 秒刷新站点状态(仅当前可见且连接空闲时), 无需手动点刷新按钮
+    m_autoRefresh = new QTimer(this);
+    m_autoRefresh->setInterval(5000);
+    connect(m_autoRefresh, &QTimer::timeout, this, [this] {
+        if (!isVisible() || TcpClient::instance().isBusy())
+            return;
+        refresh();
+    });
+    m_autoRefresh->start();
 }
 
 void NearbyStationsPage::resizeEvent(QResizeEvent *event)

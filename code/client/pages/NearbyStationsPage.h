@@ -11,6 +11,7 @@ class QLineEdit;
 class QVBoxLayout;
 class QLabel;
 class QCheckBox;
+class QTimer;
 
 // 附近充电站查询页(项目说明书):
 //   定位: 下拉选择区域 或输入内置演示地标，不依赖第三方地图 Key
@@ -56,6 +57,7 @@ private:
     QList<StationInfo> m_stations;
     double m_lon = 116.3100;
     double m_lat = 39.9600;
+    QTimer *m_autoRefresh = nullptr;   // 每 5 秒自动刷新站点状态, 无需手动点刷新按钮
 };
 
 #endif // NEARBYSTATIONSPAGE_H

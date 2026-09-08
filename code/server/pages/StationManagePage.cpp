@@ -18,6 +18,7 @@
 #include <QSpinBox>
 #include <QSplitter>
 #include <QTableWidget>
+#include <QTimer>
 #include <QVBoxLayout>
 
 namespace {
@@ -101,10 +102,20 @@ StationManagePage::StationManagePage(QWidget *parent)
     connect(m_stationTable, &QTableWidget::itemSelectionChanged,
             this, &StationManagePage::onStationSelected);
     refresh();
+
+    // 自动刷新: 每 3 秒刷新一次(仅当前可见页), 无需手动点刷新按钮
+    m_autoRefresh = new QTimer(this);
+    m_autoRefresh->setInterval(3000);
+    connect(m_autoRefresh, &QTimer::timeout, this, [this] {
+        if (isVisible())
+            refresh();
+    });
+    m_autoRefresh->start();
 }
 
 void StationManagePage::refresh()
 {
+    const int prevId = m_selectedStationId;   // 自动/手动刷新后尽量恢复原选中行
     // 故障数按站汇总, 用于计算在线率 = (总桩数 - 故障数) / 总桩数
     QHash<int, int> faultByStation;
     const QList<PileInfo> allPiles = PileDao::listAll();
@@ -133,6 +144,14 @@ void StationManagePage::refresh()
         m_stationTable->setItem(i, 7, new QTableWidgetItem(QString::number(rate, 'f', 1) + "%"));
     }
     m_stationTable->resizeColumnsToContents();
+    if (prevId >= 0) {
+        for (int r = 0; r < m_stationTable->rowCount(); ++r) {
+            if (m_stationTable->item(r, 0)->data(Qt::UserRole).toInt() == prevId) {
+                m_stationTable->selectRow(r);
+                break;
+            }
+        }
+    }
     onStationSelected();
 }
 

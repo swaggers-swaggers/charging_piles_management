@@ -5,6 +5,7 @@
 
 class QLabel;
 class QTableWidget;
+class QTimer;
 class QVBoxLayout;
 
 // 电桩状态页: 统计卡片(在用/闲置/故障/在线率) + 环形占比图 + 明细表格, 反映设备运行健康度
@@ -29,6 +30,7 @@ private:
     QLabel *m_summaryLabel;
     QVBoxLayout *m_chartAreaLayout;
     QTableWidget *m_table;
+    QTimer *m_autoRefresh = nullptr;   // 每 3 秒自动刷新, 无需手动点刷新按钮
 };
 
 #endif // PILESTATUSPAGE_H

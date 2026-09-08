@@ -15,6 +15,7 @@
 #include <QPushButton>
 #include <QTableWidget>
 #include <QTabWidget>
+#include <QTimer>
 #include <QVBoxLayout>
 
 namespace {
@@ -163,6 +164,21 @@ OrderHistoryPage::OrderHistoryPage(QWidget *parent)
         if (idx == 0) refreshOrders();
         else refreshReservations();
     });
+
+    // 自动刷新: 每 5 秒刷新当前 Tab(仅当前可见且连接空闲时), 无需手动点刷新按钮
+    m_autoRefresh = new QTimer(this);
+    m_autoRefresh->setInterval(5000);
+    connect(m_autoRefresh, &QTimer::timeout, this, [this] {
+        if (!isVisible() || TcpClient::instance().isBusy())
+            return;
+        m_autoSilent = true;
+        if (m_tabs->currentIndex() == 0)
+            refreshOrders();
+        else
+            refreshReservations();
+        m_autoSilent = false;
+    });
+    m_autoRefresh->start();
 }
 
 void OrderHistoryPage::showEvent(QShowEvent *event)
@@ -175,13 +191,18 @@ void OrderHistoryPage::showEvent(QShowEvent *event)
 
 void OrderHistoryPage::refreshOrders()
 {
+    // 记录原选中订单, 刷新后尽量恢复
+    const auto sel = m_orderTable->selectedItems();
+    const int prevOrderId = sel.isEmpty()
+        ? -1 : m_orderTable->item(sel.first()->row(), 0)->data(Qt::UserRole).toInt();
     QJsonObject req;
     req.insert("userId", ClientSession::instance().userId);
     req.insert("page", m_page);
     req.insert("pageSize", m_pageSize);
     const QJsonObject reply = TcpClient::instance().request(Protocol::ReqOrderHistory, req);
     if (!reply.value("ok").toBool()) {
-        QMessageBox::warning(this, QStringLiteral("加载失败"), reply.value("error").toString());
+        if (!m_autoSilent)
+            QMessageBox::warning(this, QStringLiteral("加载失败"), reply.value("error").toString());
         return;
     }
     m_total = reply.value("total").toInt();
@@ -211,6 +232,14 @@ void OrderHistoryPage::refreshOrders()
     m_pageLabel->setText(QStringLiteral("第 %1/%2 页 · 共 %3 单").arg(m_page + 1).arg(totalPages).arg(m_total));
     m_prevBtn->setEnabled(m_page > 0);
     m_nextBtn->setEnabled(m_page + 1 < totalPages);
+    if (prevOrderId >= 0) {
+        for (int r = 0; r < m_orderTable->rowCount(); ++r) {
+            if (m_orderTable->item(r, 0)->data(Qt::UserRole).toInt() == prevOrderId) {
+                m_orderTable->selectRow(r);
+                break;
+            }
+        }
+    }
 }
 
 void OrderHistoryPage::onPrevPage()
@@ -241,7 +270,8 @@ void OrderHistoryPage::onShowDetail()
     req.insert("orderId", orderId);
     const QJsonObject reply = TcpClient::instance().request(Protocol::ReqOrderDetail, req);
     if (!reply.value("ok").toBool()) {
-        QMessageBox::warning(this, QStringLiteral("加载失败"), reply.value("error").toString());
+        if (!m_autoSilent)
+            QMessageBox::warning(this, QStringLiteral("加载失败"), reply.value("error").toString());
         return;
     }
     const OrderInfo o = OrderInfo::fromJson(reply.value("order").toObject());
@@ -258,6 +288,10 @@ void OrderHistoryPage::onShowDetail()
 
 void OrderHistoryPage::refreshReservations()
 {
+    // 记录原选中预约, 刷新后尽量恢复
+    const auto sel = m_resTable->selectedItems();
+    const int prevResId = sel.isEmpty()
+        ? -1 : m_resTable->item(sel.first()->row(), 0)->data(Qt::UserRole).toInt();
     QJsonObject req;
     req.insert("userId", ClientSession::instance().userId);
     const QJsonObject reply = TcpClient::instance().request(Protocol::ReqMyReservations, req);
@@ -290,6 +324,14 @@ void OrderHistoryPage::refreshReservations()
         m_resTable->setItem(i, 7, st);
     }
     m_resTable->resizeColumnsToContents();
+    if (prevResId >= 0) {
+        for (int r = 0; r < m_resTable->rowCount(); ++r) {
+            if (m_resTable->item(r, 0)->data(Qt::UserRole).toInt() == prevResId) {
+                m_resTable->selectRow(r);
+                break;
+            }
+        }
+    }
 }
 
 void OrderHistoryPage::onCancelReservation()

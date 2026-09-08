@@ -12,6 +12,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QTableWidget>
+#include <QTimer>
 #include <QVBoxLayout>
 
 UserManagePage::UserManagePage(QWidget *parent)
@@ -65,10 +66,20 @@ UserManagePage::UserManagePage(QWidget *parent)
     connect(m_table, &QTableWidget::itemSelectionChanged,
             this, &UserManagePage::onSelectionChanged);
     refresh();
+
+    // 自动刷新: 每 3 秒刷新一次(仅当前可见页), 无需手动点刷新按钮
+    m_autoRefresh = new QTimer(this);
+    m_autoRefresh->setInterval(3000);
+    connect(m_autoRefresh, &QTimer::timeout, this, [this] {
+        if (isVisible())
+            refresh();
+    });
+    m_autoRefresh->start();
 }
 
 void UserManagePage::refresh()
 {
+    const int prevId = m_selectedUserId;   // 自动/手动刷新后尽量恢复原选中行
     const QList<UserInfo> users = UserDao::list(m_searchEdit->text().trimmed());
     m_table->setRowCount(users.size());
     for (int i = 0; i < users.size(); ++i) {
@@ -87,6 +98,14 @@ void UserManagePage::refresh()
         m_table->setItem(i, 5, statusItem);
     }
     m_table->resizeColumnsToContents();
+    if (prevId >= 0) {
+        for (int r = 0; r < m_table->rowCount(); ++r) {
+            if (m_table->item(r, 0)->data(Qt::UserRole).toInt() == prevId) {
+                m_table->selectRow(r);
+                break;
+            }
+        }
+    }
     onSelectionChanged();
 }
 
