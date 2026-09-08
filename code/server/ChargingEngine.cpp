@@ -11,6 +11,7 @@
 #include "protocol.h"
 
 #include <QDateTime>
+#include <QDebug>
 #include <QMetaObject>
 #include <QMutexLocker>
 #include <QSqlDatabase>
@@ -53,6 +54,7 @@ void ChargingEngine::start()
     m_started = true;
     qRegisterMetaType<QJsonObject>("QJsonObject");
     recoverOnStart();
+    qInfo() << "[ChargingEngine] 充电引擎启动, 心跳间隔" << ChargeConfig::kTickMs << "ms";
 
     m_timer = new QTimer(this);
     connect(m_timer, &QTimer::timeout, this, &ChargingEngine::onTick);
@@ -197,6 +199,9 @@ ChargingEngine::StartResult ChargingEngine::startCharging(int userId, int pileId
     if (UserDao::getById(userId, &after, nullptr, connName))
         r.balanceAfter = after.balance;
 
+    qInfo() << "[ChargingEngine] 用户" << userId << "开始充电: 订单" << orderId
+            << "桩" << pileId << "单价" << unitPrice << "元/度";
+
     emit ChargingEngine::instance().pileStatusChanged(pileId, PileInUse);
 
     // 充电开始推送(消息系统)
@@ -274,6 +279,9 @@ ChargingEngine::SettleResult ChargingEngine::settleOrder(int orderId, int finish
 
     r.ok = true;
     r.order = OrderDao::getById(orderId, nullptr, connName);
+    qInfo() << "[ChargingEngine] 订单" << orderId << "结算完成: 电量" << energy
+            << "kWh 金额" << amount << "元 类型" << finishType
+            << (reason.isEmpty() ? QString() : QString("原因: %1").arg(reason));
     UserInfo u;
     if (UserDao::getById(userId, &u, nullptr, connName))
         r.balanceAfter = u.balance;
@@ -376,6 +384,7 @@ void ChargingEngine::recoverOnStart()
     q.exec("UPDATE pile SET status=0 WHERE status=1 AND id NOT IN"
            " (SELECT pile_id FROM charge_order WHERE status=0)");
     // status=0 的充电订单由 onTick 自动继续推进(进度全部在库中, 无需内存状态)
+    qInfo() << "[ChargingEngine] 启动恢复完成: 孤儿桩已释放, 在充订单继续推进";
 }
 
 // ---------------------------------------------------------------------------

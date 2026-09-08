@@ -3,6 +3,7 @@
 #include "PileDao.h"
 
 #include <QDateTime>
+#include <QDebug>
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -40,6 +41,8 @@ QVector<double> Predictor::forecast24h(const QString &connName)
             if (hour >= 0 && hour < 24)
                 hourlySum[hour] += query.value(1).toDouble();
         }
+    } else {
+        qWarning() << "[Predictor] 历史负荷聚合查询失败:" << query.lastError().text();
     }
 
     // 2. 平均: 每小时段的日平均负荷(kWh)

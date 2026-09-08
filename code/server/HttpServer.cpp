@@ -2,6 +2,7 @@
 
 #include "DataExporter.h"
 
+#include <QDebug>
 #include <QFile>
 #include <QFileInfo>
 #include <QHostAddress>
@@ -68,6 +69,7 @@ void HttpConnection::onReady()
     if (queryPos >= 0)
         rel = rel.left(queryPos);
     if (rel.contains("..") || rel.contains('\\')) {
+        qWarning() << "[HttpServer] 拒绝目录穿越请求:" << rel;
         closeWith(403, "Forbidden", "Forbidden", "text/plain");
         return;
     }

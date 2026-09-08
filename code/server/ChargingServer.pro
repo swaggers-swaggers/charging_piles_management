@@ -27,6 +27,7 @@ include(../common/common.pri)
 
 SOURCES += \
     main.cpp \
+    LogManager.cpp \
     DatabaseManager.cpp \
     ChargingEngine.cpp \
     ServerSession.cpp \
@@ -51,6 +52,7 @@ SOURCES += \
     network/ClientHandler.cpp
 
 HEADERS += \
+    LogManager.h \
     DatabaseManager.h \
     ChargingEngine.h \
     ServerSession.h \

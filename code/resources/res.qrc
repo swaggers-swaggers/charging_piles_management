@@ -4,6 +4,7 @@
         <file>qss/login.qss</file>
         <file>qss/client.qss</file>
         <file>icons/lucide/plug-zap.svg</file>
+        <file>icons/arrow-down.png</file>
         <file>map/map.html</file>
     </qresource>
 </RCC>
