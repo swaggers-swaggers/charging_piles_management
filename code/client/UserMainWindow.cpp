@@ -2,6 +2,7 @@
 #include "UserMainWindow.h"
 
 #include "ClientSession.h"
+#include "HomePage.h"
 #include "NearbyStationsPage.h"
 #include "NavigationPage.h"
 #include "UserInfoPage.h"
@@ -87,10 +88,10 @@ void UserMainWindow::initUi()
     m_navList = new QListWidget(sidebar);
     m_navList->setObjectName("navList");
     const QStringList navNames = {
-        "附近充电站", "充电进度", "我的订单", "消息中心", "我的账户",
+        "首页", "附近充电站", "充电进度", "我的订单", "消息中心", "我的账户",
     };
     const QVector<IconFactory::IconType> navIcons = {
-        IconFactory::IconLocation, IconFactory::IconBolt,
+        IconFactory::IconHome, IconFactory::IconLocation, IconFactory::IconBolt,
         IconFactory::IconChartLine, IconFactory::IconBattery, IconFactory::IconUser,
     };
     for (int i = 0; i < navNames.size(); ++i) {
@@ -100,6 +101,7 @@ void UserMainWindow::initUi()
         m_navList->addItem(item);
     }
     m_navList->setIconSize(QSize(20, 20));
+    m_navList->setCursor(Qt::PointingHandCursor);
     m_navList->setCurrentRow(0);
     m_navList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_navList->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -144,23 +146,31 @@ void UserMainWindow::initUi()
     m_stack = new QStackedWidget(rightArea);
     m_stack->setObjectName("contentStack");
     m_stack->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Ignored);
-    auto *nearby = new NearbyStationsPage();
-    auto *charging = new ChargingPage();
-    m_stack->addWidget(nearby);
     auto addScrollablePage = [this](QWidget *page) {
         auto *scroll = new QScrollArea(m_stack);
         scroll->setWidgetResizable(true);
         scroll->setFrameShape(QFrame::NoFrame);
+        scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         scroll->setWidget(page);
         m_stack->addWidget(scroll);
     };
+
+    auto *home = new HomePage();
+    auto *nearby = new NearbyStationsPage();
+    auto *charging = new ChargingPage();
+    addScrollablePage(home);
+    m_stack->addWidget(nearby);
     addScrollablePage(charging);
     addScrollablePage(new OrderHistoryPage());
     addScrollablePage(new MessagePage());
     addScrollablePage(new UserInfoPage());
+    connect(home, &HomePage::pageRequested, this, [this](int pageIndex) {
+        if (pageIndex >= 0 && pageIndex < m_navList->count())
+            m_navList->setCurrentRow(pageIndex);
+    });
     connect(nearby, &NearbyStationsPage::chargeRequested, this, [this, charging](int id) {
         charging->selectStation(id);
-        m_navList->setCurrentRow(1);
+        m_navList->setCurrentRow(2);
     });
     connect(nearby, &NearbyStationsPage::navigationRequested, this, [this](int id, double lon, double lat) {
         auto *dialog = new QDialog(this);
@@ -188,8 +198,8 @@ void UserMainWindow::initUi()
 
     // 消息中心未读角标: 导航项文本后追加未读数
     auto updateMsgBadge = [this](int unread) {
-        if (m_navList->count() <= 3) return;
-        auto *item = m_navList->item(3);
+        if (m_navList->count() <= 4) return;
+        auto *item = m_navList->item(4);
         if (!item) return;
         item->setText(unread > 0 ? QString("消息中心 (%1)").arg(unread)
                                   : QString("消息中心"));

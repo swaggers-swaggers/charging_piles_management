@@ -12,6 +12,8 @@
 #include <QComboBox>
 #include <QCheckBox>
 #include <QPushButton>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QTimer>
 #include <QDialog>
 #include <QStackedWidget>
@@ -29,6 +31,7 @@
 #include "AppTheme.h"
 #include "ChargingPowerModel.h"
 #include "UserMainWindow.h"
+#include "HomePage.h"
 #include "ClientSession.h"
 #include "NearbyStationsPage.h"
 #include "NavigationPage.h"
@@ -86,6 +89,11 @@ class DiscoveryTest : public QObject {
         for (auto *b : parent->findChildren<QPushButton*>()) if (b->text()==text) return b;
         return nullptr;
     }
+    QPushButton *accessibleButton(QWidget *parent, const QString &name) {
+        for (auto *b : parent->findChildren<QPushButton*>())
+            if (b->accessibleName()==name) return b;
+        return nullptr;
+    }
 private slots:
     void interactionEffects() {
         QWidget root;
@@ -94,6 +102,14 @@ private slots:
         root.show();
         // Created after installation: dynamic buttons must receive the same feedback.
         auto *b=new QPushButton("dynamic",&root); b->setGeometry(20,20,180,40); b->show();
+        const QRect originalGeometry=b->geometry();
+        QEvent enterEvent(QEvent::Enter);
+        QApplication::sendEvent(b,&enterEvent); QTest::qWait(220);
+        auto *scaleEffect=dynamic_cast<UiMotion::MicroInteractionEffect*>(b->graphicsEffect());
+        QVERIFY(scaleEffect);
+        QVERIFY(scaleEffect->scaleFactor()>1.03);
+        QVERIFY(!b->findChild<QWidget*>("hoverOverlay"));
+        QCOMPARE(b->geometry(),originalGeometry); // 绘制级缩放不应扰动布局
         QTest::mousePress(b,Qt::LeftButton,Qt::NoModifier,QPoint(12,15));
         auto *ripple=b->findChild<QWidget*>("motionOverlay");
         QVERIFY(ripple);
@@ -185,6 +201,15 @@ private slots:
         ClientSession::instance().balance=128.50;
         window=new UserMainWindow;
         window->resize(1200,820); window->show();
+        auto *nav=window->findChild<QListWidget*>("navList");
+        QCOMPARE(nav->currentRow(),0);
+        QCOMPARE(nav->count(),6);
+        auto *home=window->findChild<HomePage*>();
+        QVERIFY(home);
+        QCOMPARE(home->findChildren<QPushButton*>("bentoCard").size(),7);
+        QVERIFY(accessibleButton(home,"附近充电站"));
+        accessibleButton(home,"附近充电站")->click();
+        QCOMPARE(nav->currentRow(),1);
         QTRY_COMPARE(window->findChildren<QFrame*>("stationCard").size(),3);
         auto *pageTimer = window->findChild<QTimer *>("pageAutoRefreshTimer");
         QVERIFY(pageTimer);
@@ -193,14 +218,42 @@ private slots:
         int refreshablePages = 0;
         for (auto *page : window->findChildren<QWidget *>())
             if (page->metaObject()->indexOfMethod("refreshPage()") >= 0) ++refreshablePages;
-        QCOMPARE(refreshablePages, 5);
+        QCOMPARE(refreshablePages, 6);
         const int requestsBeforeTick = stationRequestCount;
         QVERIFY(QMetaObject::invokeMethod(pageTimer, "timeout", Qt::DirectConnection));
         QTRY_VERIFY(stationRequestCount > requestsBeforeTick);
     }
     void homepageAndFilters() {
         auto *nav=window->findChild<QListWidget*>("navList");
-        QCOMPARE(nav->count(),5); QCOMPARE(nav->item(0)->text(),QString("附近充电站"));
+        QCOMPARE(nav->count(),6); QCOMPARE(nav->item(0)->text(),QString("首页"));
+        QCOMPARE(nav->item(1)->text(),QString("附近充电站"));
+        nav->setCurrentRow(0); QTest::qWait(20);
+        auto *home=window->findChild<HomePage*>();
+        auto *stationPreview=accessibleButton(home,"附近充电站");
+        QTRY_VERIFY(stationPreview->findChildren<QLabel*>("homeDetailLine").first()->text().contains("中关村"));
+        auto *orderPreview=accessibleButton(home,"预约与订单");
+        QTRY_VERIFY(orderPreview->findChildren<QLabel*>("homeDetailLine").first()->text().contains("kWh"));
+        auto *hero=accessibleButton(home,"开启今天的绿色旅程");
+        QVERIFY(hero);
+        QVERIFY(hero->geometry().width() > stationPreview->geometry().width());
+        QTest::mouseMove(hero,hero->rect().center()); QTest::qWait(220);
+        QVERIFY(hero->graphicsEffect());
+        QVERIFY(window->grab().save("/tmp/charging-bento-home.png"));
+        for (auto *area : window->findChildren<QScrollArea*>()) {
+            if (area->widget()!=home) continue;
+            area->verticalScrollBar()->setValue(area->verticalScrollBar()->maximum());
+            QTest::qWait(20);
+            QVERIFY(window->grab().save("/tmp/charging-bento-home-details.png"));
+            area->verticalScrollBar()->setValue(0);
+        }
+        window->resize(800,600); QTest::qWait(40);
+        auto *connectionCard=accessibleButton(home,"服务连接");
+        QVERIFY(connectionCard->geometry().width()>240);
+        QVERIFY(hero->geometry().width()>connectionCard->geometry().width());
+        QVERIFY(window->grab().save("/tmp/charging-bento-home-compact.png"));
+        window->resize(1200,820); QTest::qWait(20);
+        accessibleButton(home,"附近充电站")->click();
+        QCOMPARE(nav->currentRow(),1);
         const auto cards=window->findChildren<QFrame*>("stationCard");
         QVERIFY(!button(cards.last(),"预约 / 排队")->isEnabled());
         auto *page=window->findChild<NearbyStationsPage*>();
@@ -309,7 +362,7 @@ private slots:
     }
     void failureAndRecovery() {
         failed=true;
-        window->findChild<QListWidget*>("navList")->setCurrentRow(0); QTest::qWait(30);
+        window->findChild<QListWidget*>("navList")->setCurrentRow(1); QTest::qWait(30);
         auto *page=window->findChild<NearbyStationsPage*>();
         QCOMPARE(page->findChildren<QFrame*>("stationCard").size(),0);
         QVERIFY(page->findChild<QLabel*>("discoverySummary")->text().contains("失败"));
@@ -318,7 +371,7 @@ private slots:
     }
     void lightPagesAndTables() {
         auto *nav = window->findChild<QListWidget *>("navList");
-        for (int i = 1; i < nav->count(); ++i) {
+        for (int i = 0; i < nav->count(); ++i) {
             nav->setCurrentRow(i);
             QTest::qWait(15);
             QVERIFY(window->grab().save(QString("/tmp/charging-page-%1.png").arg(i)));
@@ -327,12 +380,12 @@ private slots:
             QVERIFY(table->horizontalHeader()->stretchLastSection());
             QCOMPARE(table->viewport()->palette().color(QPalette::Base), QColor("#FFFFFF"));
         }
-        nav->setCurrentRow(0); QTest::qWait(15);
+        nav->setCurrentRow(1); QTest::qWait(15);
     }
     void orderJourneyCards() {
         reservationCardActive=true;
         auto *nav=window->findChild<QListWidget*>("navList");
-        nav->setCurrentRow(2); QTest::qWait(80);
+        nav->setCurrentRow(3); QTest::qWait(80);
         auto *page=window->findChild<OrderHistoryPage*>();
         QVERIFY(page);
         QVERIFY(page->findChildren<QTableWidget*>().isEmpty());
@@ -361,13 +414,13 @@ private slots:
     }
     void accountAndMessageCards() {
         auto *nav = window->findChild<QListWidget*>("navList");
-        nav->setCurrentRow(4); QTest::qWait(250);
+        nav->setCurrentRow(5); QTest::qWait(250);
         auto *account = window->findChild<UserInfoPage*>();
         QCOMPARE(account->findChild<QLabel*>("walletAmount")->text(),QString("128.50"));
         button(account,"200 元")->click();
         QCOMPARE(account->findChild<QDoubleSpinBox*>("rechargeSpin")->value(),200.0);
         QVERIFY(window->grab().save("/tmp/charging-account-redesign.png"));
-        nav->setCurrentRow(3); QTest::qWait(250);
+        nav->setCurrentRow(4); QTest::qWait(250);
         auto *page = window->findChild<MessagePage*>();
         QVERIFY(window->grab().save("/tmp/charging-messages-empty.png"));
         const int before = MessageCenter::instance().unreadCount();
@@ -394,7 +447,7 @@ private slots:
         QCOMPARE(list->count(),2);
         window->resize(800,600); QTest::qWait(20);
         QVERIFY(window->grab().save("/tmp/charging-messages-compact.png"));
-        nav->setCurrentRow(4); QTest::qWait(20);
+        nav->setCurrentRow(5); QTest::qWait(20);
         QVERIFY(window->grab().save("/tmp/charging-account-compact.png"));
         window->resize(1200,820);
     }

@@ -4,9 +4,9 @@ QWidget#sidebar { background: #123D35; border: none; }
 QWidget#logoBox { background: transparent; border: none; margin: 12px 6px; }
 QLabel#logoLabel { color: #EDFFF7; font-size: 19px; }
 QListWidget#navList { color: #B7D2C8; padding: 4px; }
-QListWidget#navList::item { border: none; border-radius: 9px; padding: 13px 10px; margin: 4px 8px; }
+QListWidget#navList::item { border: 1px solid transparent; border-radius: 9px; padding: 13px 10px; margin: 4px 8px; }
 QListWidget#navList::item:selected { background: #256352; color: #DAFFAE; border: none; }
-QListWidget#navList::item:hover { background: #1B5044; color: white; }
+QListWidget#navList::item:hover { background: #2B6A59; color: white; border: 1px solid #4D8A76; margin: 4px 8px; }
 QLabel#sideNote { color: #B4D2C4; font-size: 12px; padding: 18px 22px; }
 QPushButton#logoutBtn { color: #B7D2C8; margin: 0px 10px; }
 QPushButton#logoutBtn:hover { color: white; background: #256352; }
@@ -63,6 +63,68 @@ QTabBar::tab:hover { background: #E0F0E5; }
 QToolTip { background: #FFFFFF; color: #243E33; border: 1px solid #B5CDBE; }
 QDateEdit, QDateTimeEdit, QTimeEdit { background: #FFFFFF; color: #243E33; border: 1px solid #D3E0D8; border-radius: 6px; padding: 7px; }
 QStatusBar { background: #F3F7F6; color: #667C73; }
+
+/* 首页：参照网页模板的信息型 Bento，卡片内部直接展示业务摘要。 */
+QWidget#homePage { background: transparent; }
+QLabel#homeGreeting { color: #33424E; font-size: 25px; font-weight: 750; }
+QLabel#homeIntro { color: #758693; font-size: 13px; }
+QPushButton#homeRefreshButton {
+    color: #456E87; background: #FFFFFF; border: 1px solid #CEDBE3;
+    border-radius: 10px; padding: 8px 16px; font-weight: 650;
+}
+QPushButton#homeRefreshButton:hover { color: #345F79; background: #F4F8FA; border-color: #7598AD; }
+QPushButton#bentoCard {
+    padding: 0px; text-align: left; outline: none;
+    background: #FFFFFF; border: 1px solid #D7E1E7; border-radius: 20px;
+}
+QPushButton#bentoCard:hover { border: 1px solid #D7E1E7; background: #FFFFFF; }
+QPushButton#bentoCard:pressed { border: 2px solid #5B87A3; background: #F1F6F8; }
+QPushButton#bentoCard QLabel { background: transparent; border: none; }
+QPushButton#bentoCard QLabel#bentoIcon {
+    background: #E7F0F5; border: 1px solid #D2E2EB; border-radius: 13px;
+}
+QPushButton#bentoCard QLabel#bentoTitle { color: #33424E; font-size: 17px; font-weight: 700; }
+QPushButton#bentoCard QLabel#bentoDescription { color: #8B9BA7; font-size: 11px; }
+QPushButton#bentoCard QLabel#bentoAction { color: #456F89; font-size: 12px; font-weight: 700; }
+QPushButton#bentoCard QLabel#homeBadge {
+    color: #456F89; background: #DFEBF1; border: 1px solid #CBDDE7;
+    border-radius: 10px; padding: 5px 9px; font-size: 10px; font-weight: 700;
+}
+QPushButton#bentoCard QLabel#homeEndpoint {
+    color: #3F6E8C; font-size: 19px; font-weight: 750; letter-spacing: 1px;
+}
+QPushButton#bentoCard QLabel#homeBalance { color: #3F6E8C; font-size: 30px; font-weight: 750; }
+QPushButton#bentoCard QLabel#homeFeatureTitle { color: #41515D; font-size: 14px; font-weight: 650; }
+QPushButton#bentoCard QLabel#homeDetailLine {
+    color: #6C7D8B; font-size: 11px; line-height: 1.35;
+}
+QPushButton#bentoCard QLabel#homeDetailLine[detailRow="true"] {
+    color: #52636F; background: #F5F8FA; border: 1px solid #E3EAEE;
+    border-radius: 10px; padding: 8px 10px;
+}
+QPushButton#bentoCard QFrame#homeStatBlock {
+    background: #F4F7F9; border: 1px solid #E0E8ED; border-radius: 11px;
+}
+QPushButton#bentoCard QLabel#homeStatValue { color: #3F6E8C; font-size: 18px; font-weight: 750; }
+QPushButton#bentoCard QLabel#homeStatCaption { color: #8A9AA6; font-size: 10px; }
+QPushButton#bentoCard[bentoTone="hero"] {
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #F5FAFC,stop:0.55 #EAF3F7,stop:1 #EEF7F3);
+    border-color: #D0E1E9;
+}
+QPushButton#bentoCard[bentoTone="hero"]:hover {
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #F5FAFC,stop:0.55 #EAF3F7,stop:1 #EEF7F3);
+    border-color: #D0E1E9;
+}
+QPushButton#bentoCard[bentoTone="green"] { background: #F2F8F4; border-color: #D5E5DB; }
+QPushButton#bentoCard[bentoTone="green"]:hover { background: #F2F8F4; border-color: #D5E5DB; }
+QPushButton#bentoCard[bentoTone="green"] QLabel#bentoIcon { background: #E2F0E7; border-color: #CDE3D5; }
+QPushButton#bentoCard[bentoTone="green"] QLabel#homeBadge { color: #49795F; background: #E2F0E7; border-color: #C7DFD0; }
+QPushButton#bentoCard[bentoTone="green"] QLabel#homeStatValue,
+QPushButton#bentoCard[bentoTone="green"] QLabel#bentoAction { color: #4F8066; }
+QPushButton#bentoCard[bentoTone="amber"] { background: #FFFCF6; border-color: #EAE0CD; }
+QPushButton#bentoCard[bentoTone="amber"]:hover { background: #FFFCF6; border-color: #EAE0CD; }
+QPushButton#bentoCard[bentoTone="amber"] QLabel#bentoIcon { background: #F6ECD9; border-color: #E8D8B8; }
+QLabel#homeFootnote { color: #8B9AA6; font-size: 11px; letter-spacing: 1px; padding-top: 2px; }
 
 /* 账户与通知：统一卡片层级和舒适的输入区。 */
 QFrame#accountProfile, QFrame#accountSection { background: white; border: 1px solid #DFEAE4; border-radius: 16px; }

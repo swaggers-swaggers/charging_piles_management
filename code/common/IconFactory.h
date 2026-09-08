@@ -26,6 +26,7 @@ public:
         IconLocation,      // 定位针: 附近充电站
         IconCompass,       // 罗盘: 一键导航
         IconPlug,          // 插头+闪电: 附近充电站顶部艺术图标(替代外部 svg, 免依赖 QtSvg)
+        IconHome,          // 首页: Bento 功能总览
     };
 
     static QIcon icon(IconType type, const QColor &color = QColor("#D8E4F0"), int px = 48)
@@ -149,6 +150,16 @@ private:
             p->setBrush(c);
             p->drawPolygon(zap);
             p->setBrush(Qt::NoBrush);
+            break;
+        }
+        case IconHome: {
+            QPainterPath roof;
+            roof.moveTo(3.5, 11.2);
+            roof.lineTo(12, 3.8);
+            roof.lineTo(20.5, 11.2);
+            p->drawPath(roof);
+            p->drawRoundedRect(QRectF(5.5, 10, 13, 10.5), 1.6, 1.6);
+            p->drawRoundedRect(QRectF(10, 14, 4, 6.5), 1, 1);
             break;
         }
         }

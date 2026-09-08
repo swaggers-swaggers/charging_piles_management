@@ -32,9 +32,24 @@ public:
     void paint(QPainter *p, const QStyleOptionViewItem &option, const QModelIndex &index) const override {
         p->save(); p->setRenderHint(QPainter::Antialiasing);
         const bool read = index.data(ReadRole).toBool();
-        const QRect card = option.rect.adjusted(0,4,-1,-5);
+        const bool hovered = option.state & QStyle::State_MouseOver;
+        // 普通状态略微内收；悬停时扩展并增加投影，形成列表项的“放大抬升”反馈。
+        const QRect card = option.rect.adjusted(hovered ? 0 : 3,
+                                                hovered ? 2 : 5,
+                                                hovered ? -1 : -4,
+                                                hovered ? -6 : -7);
+        if (hovered) {
+            p->setPen(Qt::NoPen);
+            for (int i = 5; i >= 1; --i) {
+                QColor shadow("#173F34");
+                shadow.setAlpha(4 + i * 2);
+                p->setBrush(shadow);
+                p->drawRoundedRect(card.translated(0, i), 13, 13);
+            }
+        }
         p->setBrush(read ? QColor("#FFFFFF") : QColor("#F3FAF6"));
-        p->setPen(QColor(option.state & QStyle::State_Selected ? "#6AA889" : "#DDE9E2"));
+        p->setPen(QColor(option.state & QStyle::State_Selected ? "#6AA889" :
+                         hovered ? "#78A991" : "#DDE9E2"));
         p->drawRoundedRect(card,12,12);
         const int x = card.left()+20, y = card.top()+16;
         QFont font = option.font; font.setPixelSize(12); p->setFont(font);
@@ -72,6 +87,7 @@ MessagePage::MessagePage(QWidget *parent) : QWidget(parent) {
     toolbar->addWidget(m_clearBtn); layout->addLayout(toolbar);
     m_list = new QListWidget(this); m_list->setObjectName("messageList");
     m_list->setMinimumHeight(320); m_list->setResizeMode(QListView::Adjust);
+    m_list->setMouseTracking(true);
     m_list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_list->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     m_list->setItemDelegate(new MessageDelegate(m_list));

@@ -32,6 +32,7 @@ SOURCES += \
     MessageCenter.cpp \
     LoginDialog.cpp \
     UserMainWindow.cpp \
+    pages/HomePage.cpp \
     pages/NearbyStationsPage.cpp \
     pages/NavigationPage.cpp \
     pages/UserInfoPage.cpp \
@@ -48,6 +49,7 @@ HEADERS += \
     MessageCenter.h \
     LoginDialog.h \
     UserMainWindow.h \
+    pages/HomePage.h \
     pages/NearbyStationsPage.h \
     pages/NavigationPage.h \
     pages/UserInfoPage.h \
