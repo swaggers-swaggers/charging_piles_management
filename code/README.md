@@ -75,7 +75,7 @@ Qt Creator 中分别选择两个可执行目标运行即可；日常连接可完
 
 1. `CHARGING_DB` 指定的文件。
 2. 当前工作目录已存在的 `test.db`。
-3. 从可执行文件目录开始，最多检查三层目录中的 `test.db` 和 `database/test.db`。
+3. 从工作目录和可执行文件目录开始逐级向上查找 `test.db` 和 `database/test.db`。
 4. 未找到时，在当前工作目录创建 `test.db`。
 
 服务端使用 SQLite WAL、3 秒 busy timeout 和外键约束。主要表包括 `admin`、`user`、`station`、`pile`、`charge_order`、`price_rule`、`charge_reservation`、`recharge_log` 和 `op_log`。

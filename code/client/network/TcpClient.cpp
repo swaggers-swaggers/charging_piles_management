@@ -107,7 +107,11 @@ bool TcpClient::ensureConnected(int timeoutMs, QString *errMsg)
     if (!m_connected) {
         emit cancelConnect(m_generation);
         ++m_generation; // 忽略超时后迟到的旧连接结果。
-        if (errText.isEmpty()) errText = "连接超时，请检查 IP、端口及两台电脑的网络";
+        if (errText.isEmpty()) {
+            errText = QString("连接 %1:%2 超时：请检查服务端防火墙、本地网络权限，"
+                              "以及 Wi-Fi 是否开启终端隔离")
+                          .arg(m_host).arg(m_port);
+        }
     }
     if (errMsg)
         *errMsg = errText;

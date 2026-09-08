@@ -78,7 +78,8 @@ private slots:
         QVERIFY(client.setEndpoint("127.0.0.1", unused));
         QString error;
         QVERIFY(!client.ensureConnected(500, &error));
-        QVERIFY(!error.isEmpty());
+        QVERIFY(error.contains("拒绝连接"));
+        QVERIFY(error.contains(QString::number(unused)));
         QVERIFY(client.setEndpoint("127.0.0.1", first.serverPort()));
         QVERIFY(client.ensureConnected());
     }
