@@ -4,6 +4,8 @@
 #include <QPainterPath>
 #include <QPen>
 
+#include <cmath>
+
 ChargeChartWidget::ChargeChartWidget(QWidget *parent)
     : QWidget(parent)
 {

@@ -307,6 +307,17 @@ bool DatabaseManager::createTables(QString *errMsg)
         " action TEXT DEFAULT '',"
         " detail TEXT DEFAULT '')",
 
+        "CREATE TABLE IF NOT EXISTS user_vehicle ("
+        " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " user_id INTEGER NOT NULL,"
+        " plate_no TEXT DEFAULT '',"
+        " brand TEXT DEFAULT '',"
+        " model TEXT DEFAULT '',"
+        " battery_capacity REAL DEFAULT 0,"
+        " is_default INTEGER DEFAULT 0,"
+        " create_time TEXT DEFAULT (datetime('now','localtime')),"
+        " FOREIGN KEY(user_id) REFERENCES user(id))",
+
         "CREATE INDEX IF NOT EXISTS idx_pile_station ON pile(station_id)",
         "CREATE INDEX IF NOT EXISTS idx_order_user ON charge_order(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_order_status ON charge_order(status)",
@@ -315,6 +326,7 @@ bool DatabaseManager::createTables(QString *errMsg)
         "CREATE INDEX IF NOT EXISTS idx_reservation_user ON charge_reservation(user_id, status)",
         "CREATE INDEX IF NOT EXISTS idx_price_rule_station ON price_rule(station_id)",
         "CREATE INDEX IF NOT EXISTS idx_recharge_log_user ON recharge_log(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_vehicle_user ON user_vehicle(user_id)",
     };
 
     for (const QString &sql : statements) {

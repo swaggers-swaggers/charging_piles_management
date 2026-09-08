@@ -9,6 +9,7 @@
 #include "dao/ReservationDao.h"
 #include "dao/StationDao.h"
 #include "dao/UserDao.h"
+#include "dao/VehicleDao.h"
 #include "protocol.h"
 #include "types.h"
 #include "GeoUtil.h"
@@ -18,6 +19,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonParseError>
+#include <QHostAddress>
 #include <QRegularExpression>
 #include <QSqlDatabase>
 #include <QSqlError>
@@ -143,6 +145,10 @@ void ClientHandler::handleRequest(const QJsonObject &request)
     case Protocol::ReqOrderHistory:     reply = processOrderHistory(request);     break;
     case Protocol::ReqOrderDetail:      reply = processOrderDetail(request);      break;
     case Protocol::ReqStationFee:       reply = processStationFee(request);       break;
+    case Protocol::ReqMyVehicles:       reply = processMyVehicles(request);       break;
+    case Protocol::ReqSaveVehicle:      reply = processSaveVehicle(request);      break;
+    case Protocol::ReqDeleteVehicle:    reply = processDeleteVehicle(request);    break;
+    case Protocol::ReqConsumptionSummary: reply = processConsumptionSummary(request); break;
     default:
         sendError(type, "暂不支持的消息类型");
         return;
@@ -562,6 +568,126 @@ QJsonObject ClientHandler::processStationFee(const QJsonObject &req)
     QJsonObject reply = Protocol::makeReply(Protocol::ReqStationFee, true);
     reply.insert("rules", arr);
     reply.insert("defaultPrice", defaultPrice);
+    return reply;
+}
+
+// ---------- 我的车辆 ----------
+
+QJsonObject ClientHandler::processMyVehicles(const QJsonObject &req)
+{
+    Q_UNUSED(req)
+    const QList<VehicleInfo> vehicles = VehicleDao::listByUser(m_userId, nullptr, m_dbConnName);
+    QJsonArray arr;
+    for (const VehicleInfo &v : vehicles)
+        arr.append(v.toJson());
+    QJsonObject reply = Protocol::makeReply(Protocol::ReqMyVehicles, true);
+    reply.insert("vehicles", arr);
+    return reply;
+}
+
+QJsonObject ClientHandler::processSaveVehicle(const QJsonObject &req)
+{
+    VehicleInfo v;
+    v.id = req.value("id").toInt(0);
+    v.plateNo = req.value("plateNo").toString();
+    v.brand = req.value("brand").toString();
+    v.model = req.value("model").toString();
+    v.batteryCapacity = req.value("batteryCapacity").toDouble();
+    v.isDefault = req.value("isDefault").toInt(0) ? 1 : 0;
+
+    QString err;
+    const int savedId = VehicleDao::save(m_userId, v, &err, m_dbConnName);
+    if (savedId <= 0)
+        return Protocol::makeReply(Protocol::ReqSaveVehicle, false,
+                                   err.isEmpty() ? "保存车辆失败" : err);
+
+    QJsonObject reply = Protocol::makeReply(Protocol::ReqSaveVehicle, true);
+    reply.insert("vehicle", VehicleDao::getById(savedId, m_dbConnName).toJson());
+    return reply;
+}
+
+QJsonObject ClientHandler::processDeleteVehicle(const QJsonObject &req)
+{
+    const int vehicleId = req.value("vehicleId").toInt();
+    if (vehicleId <= 0)
+        return Protocol::makeReply(Protocol::ReqDeleteVehicle, false, "参数错误: 缺少vehicleId");
+
+    QString err;
+    if (!VehicleDao::remove(vehicleId, m_userId, &err, m_dbConnName))
+        return Protocol::makeReply(Protocol::ReqDeleteVehicle, false,
+                                   err.isEmpty() ? "删除失败" : err);
+    return Protocol::makeReply(Protocol::ReqDeleteVehicle, true);
+}
+
+// ---------- 历史消费统计 ----------
+
+QJsonObject ClientHandler::processConsumptionSummary(const QJsonObject &req)
+{
+    Q_UNUSED(req)
+    QSqlDatabase db = QSqlDatabase::database(m_dbConnName);
+
+    double totalSpent = 0, totalEnergy = 0, totalMinutes = 0;
+    int totalOrders = 0;
+    QSqlQuery total(db);
+    total.prepare("SELECT COUNT(*), COALESCE(SUM(energy),0), COALESCE(SUM(amount),0), "
+                  "COALESCE(SUM(sim_minutes),0) FROM charge_order WHERE user_id=:uid AND status=1");
+    total.bindValue(":uid", m_userId);
+    if (total.exec() && total.next()) {
+        totalOrders = total.value(0).toInt();
+        totalEnergy = total.value(1).toDouble();
+        totalSpent = total.value(2).toDouble();
+        totalMinutes = total.value(3).toDouble();
+    }
+
+    double monthSpent = 0, monthEnergy = 0;
+    QSqlQuery month(db);
+    month.prepare("SELECT COALESCE(SUM(amount),0), COALESCE(SUM(energy),0) FROM charge_order "
+                  "WHERE user_id=:uid AND status=1 "
+                  "AND substr(start_time,1,7) = strftime('%Y-%m','now','localtime')");
+    month.bindValue(":uid", m_userId);
+    if (month.exec() && month.next()) {
+        monthSpent = month.value(0).toDouble();
+        monthEnergy = month.value(1).toDouble();
+    }
+
+    // 近 6 个月(按月份分组, 倒序取 6 条后反转为升序展示)
+    QJsonArray monthly;
+    QSqlQuery trend(db);
+    trend.prepare("SELECT substr(start_time,1,7) AS m, COUNT(*), "
+                  "COALESCE(SUM(energy),0), COALESCE(SUM(amount),0) FROM charge_order "
+                  "WHERE user_id=:uid AND status=1 GROUP BY m ORDER BY m DESC LIMIT 6");
+    trend.bindValue(":uid", m_userId);
+    QList<QJsonObject> monthRows;
+    if (trend.exec()) {
+        while (trend.next()) {
+            QJsonObject o;
+            o.insert("month", trend.value(0).toString());
+            o.insert("count", trend.value(1).toInt());
+            o.insert("energy", trend.value(2).toDouble());
+            o.insert("spent", trend.value(3).toDouble());
+            monthRows.append(o);
+        }
+    }
+    for (int i = monthRows.size() - 1; i >= 0; --i)
+        monthly.append(monthRows.at(i));
+
+    // 最近 8 笔已完成订单
+    int recentTotal = 0;
+    const QList<OrderInfo> recentOrders =
+        OrderDao::listByUser(m_userId, 0, 8, &recentTotal, nullptr, m_dbConnName);
+    QJsonArray recent;
+    for (const OrderInfo &o : recentOrders)
+        recent.append(o.toJson());
+
+    QJsonObject reply = Protocol::makeReply(Protocol::ReqConsumptionSummary, true);
+    reply.insert("totalSpent", totalSpent);
+    reply.insert("totalEnergy", totalEnergy);
+    reply.insert("totalOrders", totalOrders);
+    reply.insert("totalMinutes", totalMinutes);
+    reply.insert("monthSpent", monthSpent);
+    reply.insert("monthEnergy", monthEnergy);
+    reply.insert("monthly", monthly);
+    reply.insert("recent", recent);
     return reply;
 }
 

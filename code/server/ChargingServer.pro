@@ -42,6 +42,7 @@ SOURCES += \
     dao/OrderDao.cpp \
     dao/PriceRuleDao.cpp \
     dao/ReservationDao.cpp \
+    dao/VehicleDao.cpp \
     dao/LogDao.cpp \
     pages/SalesPage.cpp \
     pages/PileStatusPage.cpp \
@@ -67,6 +68,7 @@ HEADERS += \
     dao/OrderDao.h \
     dao/PriceRuleDao.h \
     dao/ReservationDao.h \
+    dao/VehicleDao.h \
     dao/LogDao.h \
     pages/SalesPage.h \
     pages/PileStatusPage.h \

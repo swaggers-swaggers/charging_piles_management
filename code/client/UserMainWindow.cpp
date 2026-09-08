@@ -9,6 +9,8 @@
 #include "ChargingPage.h"
 #include "OrderHistoryPage.h"
 #include "pages/MessagePage.h"
+#include "VehiclePage.h"
+#include "ConsumptionPage.h"
 #include "MessageCenter.h"
 #include "TcpClient.h"
 #include "protocol.h"
@@ -88,11 +90,12 @@ void UserMainWindow::initUi()
     m_navList = new QListWidget(sidebar);
     m_navList->setObjectName("navList");
     const QStringList navNames = {
-        "首页", "附近充电站", "充电进度", "我的订单", "消息中心", "我的账户",
+        "首页", "附近充电站", "充电进度", "我的订单", "我的车辆", "历史消费", "消息中心", "我的账户",
     };
     const QVector<IconFactory::IconType> navIcons = {
         IconFactory::IconHome, IconFactory::IconLocation, IconFactory::IconBolt,
-        IconFactory::IconChartLine, IconFactory::IconBattery, IconFactory::IconUser,
+        IconFactory::IconChartLine, IconFactory::IconCar, IconFactory::IconWallet,
+        IconFactory::IconBattery, IconFactory::IconUser,
     };
     for (int i = 0; i < navNames.size(); ++i) {
         auto *item = new QListWidgetItem(navNames[i]);
@@ -162,6 +165,8 @@ void UserMainWindow::initUi()
     m_stack->addWidget(nearby);
     addScrollablePage(charging);
     addScrollablePage(new OrderHistoryPage());
+    addScrollablePage(new VehiclePage());
+    addScrollablePage(new ConsumptionPage());
     addScrollablePage(new MessagePage());
     addScrollablePage(new UserInfoPage());
     connect(home, &HomePage::pageRequested, this, [this](int pageIndex) {
@@ -198,8 +203,8 @@ void UserMainWindow::initUi()
 
     // 消息中心未读角标: 导航项文本后追加未读数
     auto updateMsgBadge = [this](int unread) {
-        if (m_navList->count() <= 4) return;
-        auto *item = m_navList->item(4);
+        if (m_navList->count() <= 6) return;
+        auto *item = m_navList->item(6);
         if (!item) return;
         item->setText(unread > 0 ? QString("消息中心 (%1)").arg(unread)
                                   : QString("消息中心"));

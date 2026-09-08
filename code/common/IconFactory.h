@@ -27,6 +27,8 @@ public:
         IconCompass,       // 罗盘: 一键导航
         IconPlug,          // 插头+闪电: 附近充电站顶部艺术图标(替代外部 svg, 免依赖 QtSvg)
         IconHome,          // 首页: Bento 功能总览
+        IconCar,           // 汽车: 我的车辆
+        IconWallet,        // 钱包: 历史消费
     };
 
     static QIcon icon(IconType type, const QColor &color = QColor("#D8E4F0"), int px = 48)
@@ -160,6 +162,35 @@ private:
             p->drawPath(roof);
             p->drawRoundedRect(QRectF(5.5, 10, 13, 10.5), 1.6, 1.6);
             p->drawRoundedRect(QRectF(10, 14, 4, 6.5), 1, 1);
+            break;
+        }
+        case IconCar: {
+            // 汽车侧面剪影: 车身 + 车窗 + 两轮
+            QPainterPath body;
+            body.moveTo(4, 15);
+            body.lineTo(4.5, 12);
+            body.quadTo(7, 8.5, 11, 8.5);
+            body.lineTo(14.5, 8.5);
+            body.quadTo(18, 8.5, 20, 12);
+            body.lineTo(20.5, 15);
+            body.quadTo(20.5, 17, 18.5, 17);
+            body.lineTo(5.5, 17);
+            body.quadTo(3.5, 17, 4, 15);
+            p->drawPath(body);
+            p->drawLine(11, 12, 14.5, 12);            // 车窗分隔
+            p->drawLine(12.8, 9.8, 12.8, 12);         // 车窗立柱
+            p->setBrush(c);
+            p->drawEllipse(QPointF(8, 17), 2, 2);     // 前轮
+            p->drawEllipse(QPointF(16.4, 17), 2, 2);  // 后轮
+            p->setBrush(Qt::NoBrush);
+            break;
+        }
+        case IconWallet: {
+            // 钱包: 主体 + 翻盖 + 圆形硬币
+            p->drawRoundedRect(QRectF(3.5, 6, 17, 13), 2, 2);
+            p->drawRoundedRect(QRectF(3.5, 6, 17, 4.5), 2, 2);
+            p->drawEllipse(QPointF(12, 15.5), 2.6, 2.6);   // 硬币
+            p->drawLine(4.5, 6.5, 4.5, 18.5);               // 左缝线
             break;
         }
         }

@@ -40,6 +40,8 @@ SOURCES += \
     pages/ChargeChartWidget.cpp \
     pages/OrderHistoryPage.cpp \
     pages/MessagePage.cpp \
+    pages/VehiclePage.cpp \
+    pages/ConsumptionPage.cpp \
     network/TcpClient.cpp \
     network/TcpClientWorker.cpp
 
@@ -57,6 +59,8 @@ HEADERS += \
     pages/ChargeChartWidget.h \
     pages/OrderHistoryPage.h \
     pages/MessagePage.h \
+    pages/VehiclePage.h \
+    pages/ConsumptionPage.h \
     network/TcpClient.h \
     network/TcpClientWorker.h
 
