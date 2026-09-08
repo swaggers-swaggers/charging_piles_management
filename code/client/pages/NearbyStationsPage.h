@@ -13,7 +13,7 @@ class QLabel;
 class QCheckBox;
 
 // 附近充电站查询页(项目说明书):
-//   定位: 下拉选择区域 或输入内置演示地标，不依赖第三方地图 Key
+//   定位: 通过下拉框选择区域，不依赖第三方地图 Key
 //   列表: 按距离由近及远展示, 点击查看该站所有电桩的详细信息
 class NearbyStationsPage : public QWidget
 {
@@ -41,13 +41,11 @@ protected:
 private slots:
     void refresh();
     void onRegionChanged(int index);
-    void onLocate();            // 手动输入地址 → 本地演示地标匹配
     void renderStations();
     void showPileDetail(int stationId);
 
 private:
     QComboBox *m_regionCombo;
-    QLineEdit *m_addrEdit;
     QVBoxLayout *m_cards;
     QLabel *m_summary;
     QLabel *m_count;

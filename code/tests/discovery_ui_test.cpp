@@ -172,7 +172,17 @@ private slots:
         const auto cards=window->findChildren<QFrame*>("stationCard");
         QVERIFY(!button(cards.last(),"预约 / 排队")->isEnabled());
         auto *page=window->findChild<NearbyStationsPage*>();
-        auto *search=page->findChildren<QLineEdit*>().last();
+        QVERIFY(!page->findChild<QLineEdit*>("addrEdit"));
+        QCOMPARE(page->findChildren<QLineEdit*>().size(),1);
+        auto *search=page->findChildren<QLineEdit*>().constFirst();
+        auto *region=page->findChild<QComboBox*>("regionCombo");
+        auto *idle=page->findChild<QCheckBox*>();
+        auto *sort=page->findChild<QComboBox*>("stationSort");
+        QVERIFY(region && idle && sort);
+        const int rowY=search->geometry().center().y();
+        QVERIFY(qAbs(region->geometry().center().y()-rowY)<=2);
+        QVERIFY(qAbs(idle->geometry().center().y()-rowY)<=2);
+        QVERIFY(qAbs(sort->geometry().center().y()-rowY)<=2);
         search->setText("五道口"); QTest::qWait(10);
         QCOMPARE(page->findChildren<QFrame*>("stationCard").size(),1);
         QVERIFY(button(page,"预约 / 排队"));
