@@ -268,12 +268,11 @@ void OrderHistoryPage::onShowDetail()
     const OrderInfo o = OrderInfo::fromJson(reply.value("order").toObject());
     QMessageBox::information(this, QStringLiteral("订单详情 #%1").arg(o.id),
         QStringLiteral("订单号: #%1\n电桩: %2\n充电站: %3\n开始: %4\n结束: %5\n"
-                       "电量: %6 度\n金额: %7 元\n单价: %8 元/度\n冻结: %9 元\n"
-                       "时长: %10 分钟\n状态: %11\n退款: %12 元")
+                       "电量: %6 度\n金额: %7 元\n单价: %8 元/度\n"
+                       "时长: %9 分钟\n状态: %10\n退款: %11 元")
             .arg(o.id).arg(o.pileCode, o.stationName, o.startTime, o.endTime)
             .arg(o.energy, 0, 'f', 2).arg(o.amount, 0, 'f', 2)
-            .arg(o.priceSnapshot, 0, 'f', 2).arg(o.freezeAmount, 0, 'f', 2)
-            .arg(o.simMinutes).arg(orderStatusText(o.status))
+            .arg(o.priceSnapshot, 0, 'f', 2).arg(o.simMinutes).arg(orderStatusText(o.status))
             .arg(o.refundAmount, 0, 'f', 2));
 }
 

@@ -16,10 +16,10 @@ class ClientHandler;
 // 职责:
 //  1. 统一推进所有充电中订单(3 真实秒 = 1 模拟分钟), 累计电量/金额并推送进度;
 //     订单状态全部落库, 客户端断线、服务端重启都不影响充电继续/恢复。
-//  2. 统一结算 settleOrder(): 一个事务内解冻预授权、实扣、落单、释放桩并分配队首。
+//  2. 每次推进按实际用量扣费，余额用尽自动停止；结算负责落单并释放桩。
 //  3. 排队: 桩释放后自动分配最早排队者(30 秒未确认自动过期, 顺延下一位)。
 //  4. 预约: 开始前 10 分钟提醒、结束宽限期后未到桩自动过期。
-//  5. startCharging(): 原子抢桩 + 余额冻结 + 建单的开启事务。
+//  5. startCharging(): 校验余额后原子抢桩并建立订单，不预冻结费用。
 class ChargingEngine : public QObject
 {
     Q_OBJECT
@@ -36,20 +36,19 @@ public:
     // 给指定用户推送一条消息(不在线则丢弃; 自动跨线程排队到连接线程发送)
     void pushToUser(int userId, const QJsonObject &msg);
 
-    // ---------- 开启充电(原子抢桩 + 冻结 + 建单, 一个事务) ----------
+    // ---------- 开启充电(余额校验 + 原子抢桩 + 建单, 一个事务) ----------
     struct StartResult {
         bool ok = false;
         int errorCode = 0;          // Protocol::ErrorCode
         QString error;
         OrderInfo order;
-        double freezeAmount = 0.0;
         double unitPrice = 0.0;     // 计费单价快照
         double balanceAfter = 0.0;
     };
     static StartResult startCharging(int userId, int pileId, int targetType,
                                      double targetValue, const QString &connName);
 
-    // ---------- 统一结算(解冻 + 实扣 + 落单 + 释放桩 + 分配队首) ----------
+    // ---------- 统一结算(落单 + 释放桩 + 分配队首；费用已逐次扣除) ----------
     struct SettleResult {
         bool ok = false;
         QString error;
@@ -66,11 +65,6 @@ public:
 
     // 桩释放后把桩分配给最早排队者(置已分配待确认 + 推送"轮到你了")
     void assignQueueHead(int pileId, const QString &connName = QString());
-
-    // 预授权冻结额计算; err 非空且返回值<0 表示参数/余额不合法, errorCode 给出错误码
-    static double calcFreeze(int targetType, double targetValue,
-                             double power, double unitPrice, double balance,
-                             int *errorCode = nullptr);
 
 signals:
     // 充电开始、结束或故障结算后通知管理端立即刷新设备状态。

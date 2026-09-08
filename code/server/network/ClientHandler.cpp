@@ -345,11 +345,10 @@ QJsonObject ClientHandler::startChargeInternal(int replyType, const QJsonObject 
     }
 
     qDebug() << "[ClientHandler] 用户" << userId << "开始充电, 订单" << r.order.id
-             << "冻结" << r.freezeAmount << "元";
+             << "按实际用量实时扣费";
 
     QJsonObject reply = Protocol::makeReply(replyType, true);
     reply.insert("order", r.order.toJson());
-    reply.insert("freezeAmount", r.freezeAmount);
     reply.insert("price", r.unitPrice);
     reply.insert("balance", r.balanceAfter);
     return reply;

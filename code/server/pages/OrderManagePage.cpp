@@ -131,14 +131,14 @@ OrderManagePage::OrderManagePage(QWidget *parent)
     m_orderTable->setSelectionMode(QAbstractItemView::SingleSelection);
     m_orderTable->setAlternatingRowColors(true);
     m_orderTable->verticalHeader()->setVisible(false);
-    m_orderTable->setColumnCount(12);
+    m_orderTable->setColumnCount(11);
     m_orderTable->horizontalHeader()->setStretchLastSection(true);
     m_orderTable->horizontalHeader()->setMinimumSectionSize(80);
     m_orderTable->setHorizontalHeaderLabels(
         { QStringLiteral("订单号"), QStringLiteral("用户"), QStringLiteral("充电桩"),
           QStringLiteral("充电站"), QStringLiteral("开始时间"), QStringLiteral("结束时间"),
-          QStringLiteral("电量(度)"), QStringLiteral("金额(元)"), QStringLiteral("冻结(元)"),
-          QStringLiteral("状态"), QStringLiteral("结束原因"), QStringLiteral("已退(元)") });
+          QStringLiteral("电量(度)"), QStringLiteral("金额(元)"), QStringLiteral("状态"),
+          QStringLiteral("结束原因"), QStringLiteral("已退(元)") });
     orderLayout->addWidget(m_orderTable, 1);
     m_tabs->addTab(orderTab, QStringLiteral("充电订单"));
 
@@ -239,13 +239,12 @@ void OrderManagePage::refreshOrders()
         m_orderTable->setItem(i, 5, new QTableWidgetItem(o.endTime));
         m_orderTable->setItem(i, 6, new QTableWidgetItem(QString::number(o.energy, 'f', 2)));
         m_orderTable->setItem(i, 7, new QTableWidgetItem(QString::number(o.amount, 'f', 2)));
-        m_orderTable->setItem(i, 8, new QTableWidgetItem(QString::number(o.freezeAmount, 'f', 2)));
         auto *stItem = new QTableWidgetItem(orderStatusText(o.status));
         stItem->setForeground(QBrush(orderStatusColor(o.status)));
-        m_orderTable->setItem(i, 9, stItem);
-        m_orderTable->setItem(i, 10, new QTableWidgetItem(
+        m_orderTable->setItem(i, 8, stItem);
+        m_orderTable->setItem(i, 9, new QTableWidgetItem(
             o.status == OrderCharging ? QString() : finishText(o.finishType)));
-        m_orderTable->setItem(i, 11, new QTableWidgetItem(
+        m_orderTable->setItem(i, 10, new QTableWidgetItem(
             o.refundAmount > 0 ? QString::number(o.refundAmount, 'f', 2) : QString()));
     }
     m_orderTable->resizeColumnsToContents();
@@ -342,11 +341,11 @@ void OrderManagePage::onShowDetail()
         return;
     const QString text = QStringLiteral(
         "订单号: #%1\n用户ID: %2\n充电桩: %3\n充电站: %4\n开始: %5\n结束: %6\n"
-        "电量: %7 度\n金额: %8 元\n冻结: %9 元\n计费单价: %10 元/度\n状态: %11\n"
-        "结束原因: %12\n目标类型: %13  目标值: %14\n已退款: %15 元\n模拟时长: %16 分钟")
+        "电量: %7 度\n金额: %8 元\n计费单价: %9 元/度\n状态: %10\n"
+        "结束原因: %11\n目标类型: %12  目标值: %13\n已退款: %14 元\n模拟时长: %15 分钟")
         .arg(o.id).arg(o.userId).arg(o.pileCode, o.stationName, o.startTime, o.endTime)
         .arg(o.energy, 0, 'f', 2).arg(o.amount, 0, 'f', 2)
-        .arg(o.freezeAmount, 0, 'f', 2).arg(o.priceSnapshot, 0, 'f', 2)
+        .arg(o.priceSnapshot, 0, 'f', 2)
         .arg(orderStatusText(o.status), finishText(o.finishType))
         .arg(o.targetType).arg(o.targetValue, 0, 'f', 2)
         .arg(o.refundAmount, 0, 'f', 2).arg(o.simMinutes);

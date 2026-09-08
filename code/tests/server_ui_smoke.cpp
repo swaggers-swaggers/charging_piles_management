@@ -53,6 +53,9 @@ int main(int argc,char **argv) {
     const int pileId=q.value(0).toInt(); const double rated=q.value(1).toDouble();
     auto result=ChargingEngine::startCharging(userId,pileId,TargetNone,0,QString());
     if(!result.ok) {qCritical()<<result.error;return 4;}
+    UserInfo afterStart;
+    if (result.order.freezeAmount!=0 || !UserDao::getById(userId,&afterStart)
+        || afterStart.balance!=10000) return 77;
     double previous=0,low=1e9,high=0;
     for(int i=0;i<12;++i) {
         const auto before=OrderDao::getById(result.order.id);
@@ -61,6 +64,9 @@ int main(int argc,char **argv) {
         const auto order=OrderDao::getById(result.order.id);
         if(order.energy<previous || std::abs(order.energy-before.energy-expected/60)>0.0011) return 5;
         if(std::abs(order.amount-order.energy*order.priceSnapshot)>0.02) return 6;
+        UserInfo duringCharge;
+        if (!UserDao::getById(userId,&duringCharge)
+            || std::abs(duringCharge.balance-(10000-order.amount))>0.001) return 78;
         const double delta=order.energy-previous; low=qMin(low,delta);high=qMax(high,delta);previous=order.energy;
     }
     if(high-low<0.001) return 7;
@@ -89,12 +95,17 @@ int main(int argc,char **argv) {
     // 写进度失败时，不得按未落库的数据自动结算。
     auto failOrder=ChargingEngine::startCharging(userId,pileId,TargetMinutes,1,QString());
     if (!failOrder.ok) return 33;
+    UserInfo beforeFailedProgress;
+    if (!UserDao::getById(userId,&beforeFailedProgress)) return 79;
     if (!q.exec("CREATE TEMP TRIGGER reject_progress BEFORE UPDATE OF energy ON charge_order"
                 " WHEN NEW.sim_minutes>OLD.sim_minutes BEGIN SELECT RAISE(FAIL,'test write failure'); END")) return 34;
     QMetaObject::invokeMethod(&ChargingEngine::instance(),"onTick",Qt::DirectConnection);
     const auto failedProgress=OrderDao::getById(failOrder.order.id);
     if (!q.exec("DROP TRIGGER reject_progress")) return 35;
     if (failedProgress.status!=OrderCharging || failedProgress.energy!=0 || failedProgress.amount!=0) return 36;
+    UserInfo afterFailedProgress;
+    if (!UserDao::getById(userId,&afterFailedProgress)
+        || afterFailedProgress.balance!=beforeFailedProgress.balance) return 80;
     QMetaObject::invokeMethod(&ChargingEngine::instance(),"onTick",Qt::DirectConnection);
     if (OrderDao::getById(failOrder.order.id).status!=OrderFinished) return 37;
     qInfo()<<"PASS: fresh database seeding, late progress rejection, duplicate settlement and failed-write recovery";
@@ -130,7 +141,7 @@ int main(int argc,char **argv) {
         const auto &loser=results[results[0].ok?1:0];
         if (loser.errorCode!=Protocol::ErrOrderExists) return 42;
         UserInfo account;
-        if (!UserDao::getById(userId,&account) || account.balance!=10) return 43;
+        if (!UserDao::getById(userId,&account) || account.balance!=60) return 43;
         if (!q.exec(QString("SELECT COUNT(*) FROM charge_order WHERE user_id=%1 AND status=0").arg(userId))
             || !q.next() || q.value(0).toInt()!=1) return 44;
         q.finish();
@@ -144,10 +155,14 @@ int main(int argc,char **argv) {
         if (!ChargingEngine::instance().settleOrder(winner.order.id,FinishByUser,"concurrent test").ok) return 47;
         if (!UserDao::getById(userId,&account) || account.balance!=60) return 48;
     }
-    // 冻结失败不能改变余额；校验失败释放事务锁，下一次正常请求可继续。
+    // 余额与参数校验失败不能改变账户；失败事务结束后下一次正常请求可继续。
     if (UserDao::adjustBalance(userId,-61,&error)) return 49;
     if (UserDao::adjustBalance(-1,-1,&error)) return 50;
     if (ChargingEngine::startCharging(userId,-1,TargetAmount,50,QString()).ok) return 51;
+    if (!q.exec(QString("UPDATE user SET balance=0 WHERE id=%1").arg(userId))) return 81;
+    const auto emptyBalance=ChargingEngine::startCharging(userId,racePiles[0],TargetNone,0,QString());
+    if (emptyBalance.ok || emptyBalance.errorCode!=Protocol::ErrBalanceNotEnough) return 82;
+    if (!q.exec(QString("UPDATE user SET balance=60 WHERE id=%1").arg(userId))) return 83;
     if (!q.exec("CREATE TEMP TRIGGER reject_new_order BEFORE INSERT ON charge_order "
                 "BEGIN SELECT RAISE(FAIL,'test insert failure'); END")) return 52;
     if (ChargingEngine::startCharging(userId,racePiles[0],TargetAmount,50,QString()).ok) return 53;
@@ -156,7 +171,18 @@ int main(int argc,char **argv) {
     if (!UserDao::getById(userId,&rollbackUser) || rollbackUser.balance!=60) return 55;
     auto retry=ChargingEngine::startCharging(userId,racePiles[0],TargetAmount,50,QString());
     if (!retry.ok || !ChargingEngine::instance().settleOrder(retry.order.id,FinishByUser,"retry").ok) return 56;
-    qInfo()<<"PASS: 20 concurrent starts, single freeze, database duplicate guard, insufficient balance and rollback retry";
+    // 小额余额允许开始；心跳按实际费用扣到 0 后自动停止，不产生预冻结。
+    if (!q.exec(QString("UPDATE user SET balance=0.25 WHERE id=%1").arg(userId))) return 84;
+    auto lowBalance=ChargingEngine::startCharging(userId,racePiles[0],TargetNone,0,QString());
+    if (!lowBalance.ok || lowBalance.order.freezeAmount!=0) return 85;
+    for (int i=0; i<20 && OrderDao::getById(lowBalance.order.id).status==OrderCharging; ++i)
+        QMetaObject::invokeMethod(&ChargingEngine::instance(),"onTick",Qt::DirectConnection);
+    const auto exhausted=OrderDao::getById(lowBalance.order.id);
+    UserInfo exhaustedUser;
+    if (exhausted.status!=OrderFinished || exhausted.finishType!=FinishByBalance
+        || std::abs(exhausted.amount-0.25)>0.011
+        || !UserDao::getById(userId,&exhaustedUser) || exhaustedUser.balance>0.001) return 86;
+    qInfo()<<"PASS: 20 concurrent starts, no pre-freeze, per-tick debit, balance exhaustion and rollback retry";
     TcpServer server;
     server.setProxy(QNetworkProxy::NoProxy);
     if (!server.listen(QHostAddress::AnyIPv4, 0)) return 12;

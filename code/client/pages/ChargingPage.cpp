@@ -118,8 +118,8 @@ void ChargeRingWidget::paintEvent(QPaintEvent *)
 class ChargeSetupDialog : public QDialog
 {
 public:
-    ChargeSetupDialog(const PileInfo &pile, double basePrice, double balance, QWidget *parent)
-        : QDialog(parent), m_pile(pile), m_price(basePrice), m_balance(balance)
+    ChargeSetupDialog(const PileInfo &pile, double basePrice, QWidget *parent)
+        : QDialog(parent)
     {
         setWindowTitle(QStringLiteral("充电设置 - %1").arg(pile.code));
         setMinimumWidth(340);
@@ -140,13 +140,16 @@ public:
                 .arg(pile.power, 0, 'f', 1), this);
         QLabel *priceLabel = new QLabel(
             QStringLiteral("基准电价 %1 元/度(实际按站点分时费率结算)").arg(basePrice, 0, 'f', 2), this);
-        m_estimate = new QLabel(this);
+        auto *billingHint = new QLabel(
+            QStringLiteral("费用按实际充电量从余额实时扣除，余额用完后自动停止"), this);
+        billingHint->setObjectName("pageHint");
+        billingHint->setWordWrap(true);
 
         form->addRow(pileLabel);
         form->addRow(QStringLiteral("充电目标:"), m_type);
         form->addRow(QStringLiteral("目标数值:"), m_value);
         form->addRow(priceLabel);
-        form->addRow(QStringLiteral("预授权冻结:"), m_estimate);
+        form->addRow(QStringLiteral("计费方式:"), billingHint);
 
         QDialogButtonBox *box = new QDialogButtonBox(
             QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
@@ -175,23 +178,10 @@ private:
         } else if (t == TargetMinutes) {
             m_value->setRange(1, 1440); m_value->setSuffix(" 分钟"); m_value->setValue(60);
         }
-        double freeze = 0;
-        if (t == TargetNone) freeze = qMin(Protocol::ChargeConfig::kDefaultFreeze, m_balance);
-        else if (t == TargetEnergy) freeze = m_value->value() * m_price * 1.2;
-        else if (t == TargetAmount) freeze = m_value->value();
-        else freeze = m_pile.power * m_value->value() / 60.0 * m_price * 1.2;
-        const bool enough = freeze <= m_balance + 1e-6;
-        m_estimate->setText(QStringLiteral("%1 元    (账户余额 %2 元)")
-                                .arg(freeze, 0, 'f', 2).arg(m_balance, 0, 'f', 2));
-        m_estimate->setStyleSheet(enough ? "color:#1F9D67;" : "color:#C5525A;font-weight:bold;");
     }
 
-    PileInfo m_pile;
-    double m_price;
-    double m_balance;
     QComboBox *m_type;
     QDoubleSpinBox *m_value;
-    QLabel *m_estimate;
 };
 
 // ============================================================================
@@ -746,8 +736,7 @@ void ChargingPage::openChargeSetup(int pileId)
 {
     const int idx = m_stationCombo->currentIndex();
     const double basePrice = (idx >= 0) ? m_stations[idx].price : 1.2;
-    ChargeSetupDialog dlg(findPile(m_piles, pileId), basePrice,
-                          ClientSession::instance().balance, this);
+    ChargeSetupDialog dlg(findPile(m_piles, pileId), basePrice, this);
     if (dlg.exec() != QDialog::Accepted)
         return;
     doStart(pileId, dlg.targetType(), dlg.targetValue());
@@ -882,9 +871,8 @@ void ChargingPage::enterChargingView(const OrderInfo &order)
         if (order.simMinutes > 0)
             m_chart->addPoint(order.simMinutes, order.energy, order.amount);
     }
-    m_priceHint->setText(QStringLiteral("单价 %1 元/度 · 冻结 %2 元 · %3")
+    m_priceHint->setText(QStringLiteral("单价 %1 元/度 · 费用实时扣除 · %2")
                              .arg(order.priceSnapshot, 0, 'f', 2)
-                             .arg(order.freezeAmount, 0, 'f', 2)
                              .arg(targetDesc(order)));
     m_stack->setCurrentIndex(1);
 }
@@ -999,6 +987,8 @@ void ChargingPage::onPushReceived(const QJsonObject &msg)
         m_currentOrder.energy = msg.value("energy").toDouble();
         m_currentOrder.amount = msg.value("amount").toDouble();
         m_currentOrder.simMinutes = msg.value("minutes").toInt();
+        if (msg.contains("balance"))
+            ClientSession::instance().balance = msg.value("balance").toDouble();
         m_energyVal->setText(QString::number(m_currentOrder.energy, 'f', 2));
         m_amountVal->setText(QString::number(m_currentOrder.amount, 'f', 2));
         m_minutesVal->setText(QString::number(m_currentOrder.simMinutes));
@@ -1045,7 +1035,7 @@ void ChargingPage::onPushReceived(const QJsonObject &msg)
         const OrderInfo order = OrderInfo::fromJson(msg.value("order").toObject());
         m_hasOrder = false;
         QMessageBox::warning(this, QStringLiteral("充电异常"),
-                             QStringLiteral("订单 #%1 因故障中断, 已自动结算并释放冻结金额\n"
+                             QStringLiteral("订单 #%1 因故障中断，已按实际用量结算\n"
                                             "消费 %2 元, 如有疑问可联系管理员退款")
                                  .arg(order.id).arg(order.amount, 0, 'f', 2));
         enterSelectView();
@@ -1086,7 +1076,7 @@ void ChargingPage::showSettlement(const OrderInfo &order, double balance)
 
     QString reason;
     if (order.finishType == FinishByTarget) reason = QStringLiteral("已达到设定目标, 自动结束");
-    else if (order.finishType == FinishByBalance) reason = QStringLiteral("冻结额度用尽, 自动结束");
+    else if (order.finishType == FinishByBalance) reason = QStringLiteral("余额用尽，自动结束");
     else if (order.finishType == FinishByAdmin) reason = QStringLiteral("管理员结束");
     else if (order.finishType == FinishByFault) reason = QStringLiteral("故障结束");
     else reason = QStringLiteral("用户手动结束");

@@ -33,8 +33,8 @@ enum MessageType {
 
     // ---- v2 新增 ----
     ReqStartChargeExt   = 11,  // {userId, pileId, targetType?, targetValue?}
-                               //   → {order:{...OrderInfo}, freezeAmount, price}
-                               //   失败: ErrFreezeNotEnough / ErrPileBusy / ErrOrderExists / ErrTargetInvalid
+                               //   → {order:{...OrderInfo}, price, balance}
+                               //   失败: ErrBalanceNotEnough / ErrPileBusy / ErrOrderExists / ErrTargetInvalid
     ReqReservePile      = 12,  // 现场排队: {userId, pileId, action:0排队/1取消, reservationId?}
                                //   排队 → {reservationId, queuePos}; 取消 → {ok}
     ReqOrderHistory     = 13,  // {userId, page?, pageSize?} → {orders:[...OrderInfo], total}
@@ -67,7 +67,7 @@ enum ErrorCode {
     ErrInternal    = 8,
     ErrBalanceNotEnough = 9,   // 余额不足, 结算被拒
     // ---- v2 新增 ----
-    ErrFreezeNotEnough = 10,   // 余额不足, 预授权冻结失败
+    ErrFreezeNotEnough = 10,   // 历史协议兼容保留，新版不再预冻结
     ErrQueueExists     = 11,   // 已有排队/预约记录
     ErrQueueFull       = 12,   // 排队人数上限
     ErrOrderNotActive  = 13,   // 订单不在可操作状态
@@ -81,8 +81,6 @@ enum ErrorCode {
 namespace ChargeConfig {
     constexpr int    kTickMs          = 3000;  // 引擎心跳: 3 秒真实时间
     constexpr int    kMinutesPerTick  = 1;     // 每心跳 = 1 模拟分钟
-    constexpr double kDefaultFreeze   = 50.0;  // 不限目标时的默认冻结额(元)
-    constexpr double kMinFreeze       = 10.0;  // 最低可用余额, 低于则拒绝开始
     constexpr int    kQueueConfirmSec = 30;    // 排队轮到后的确认时限(真实秒)
     constexpr int    kAppointRemindMin= 10;    // 预约开始前提醒分钟数
     constexpr int    kAppointGraceMin = 15;    // 预约结束后宽限分钟数, 超时未到桩则过期

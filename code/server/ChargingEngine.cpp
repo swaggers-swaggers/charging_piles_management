@@ -22,6 +22,19 @@
 
 using namespace Protocol;
 
+namespace {
+bool validTarget(int targetType, double targetValue)
+{
+    switch (targetType) {
+    case TargetNone:    return true;
+    case TargetEnergy:  return targetValue > 0 && targetValue <= 500;
+    case TargetAmount:  return targetValue > 0 && targetValue <= 100000;
+    case TargetMinutes: return targetValue > 0 && targetValue <= 24 * 60;
+    default:            return false;
+    }
+}
+} // namespace
+
 ChargingEngine &ChargingEngine::instance()
 {
     static ChargingEngine s;
@@ -85,57 +98,7 @@ void ChargingEngine::pushToUser(int userId, const QJsonObject &msg)
 }
 
 // ---------------------------------------------------------------------------
-// 冻结额计算
-// ---------------------------------------------------------------------------
-double ChargingEngine::calcFreeze(int targetType, double targetValue,
-                                  double power, double unitPrice,
-                                  double balance, int *errorCode)
-{
-    if (errorCode)
-        *errorCode = ErrNone;
-    double freeze = 0.0;
-    switch (targetType) {
-    case TargetNone:
-        if (balance < ChargeConfig::kMinFreeze) {
-            if (errorCode) *errorCode = ErrFreezeNotEnough;
-            return -1.0;
-        }
-        freeze = qMin(ChargeConfig::kDefaultFreeze, balance);
-        break;
-    case TargetEnergy:
-        if (targetValue <= 0 || targetValue > 500) {
-            if (errorCode) *errorCode = ErrTargetInvalid;
-            return -1.0;
-        }
-        freeze = targetValue * unitPrice * 1.2;
-        break;
-    case TargetAmount:
-        if (targetValue <= 0 || targetValue > 100000) {
-            if (errorCode) *errorCode = ErrTargetInvalid;
-            return -1.0;
-        }
-        freeze = targetValue;
-        break;
-    case TargetMinutes:
-        if (targetValue <= 0 || targetValue > 24 * 60) {
-            if (errorCode) *errorCode = ErrTargetInvalid;
-            return -1.0;
-        }
-        freeze = power * targetValue / 60.0 * unitPrice * 1.2;
-        break;
-    default:
-        if (errorCode) *errorCode = ErrTargetInvalid;
-        return -1.0;
-    }
-    if (freeze > balance + 1e-6) {
-        if (errorCode) *errorCode = ErrFreezeNotEnough;
-        return -1.0;
-    }
-    return qRound(freeze * 100.0) / 100.0;
-}
-
-// ---------------------------------------------------------------------------
-// 开启充电: 校验 → 事务(原子抢桩 + 冻结 + 建单)
+// 开启充电: 校验 → 事务(原子抢桩 + 建单)，不预冻结余额
 // ---------------------------------------------------------------------------
 ChargingEngine::StartResult ChargingEngine::startCharging(int userId, int pileId,
                                                           int targetType, double targetValue,
@@ -162,6 +125,12 @@ ChargingEngine::StartResult ChargingEngine::startCharging(int userId, int pileId
     }
     if (user.status == UserFrozen) {
         r.errorCode = ErrUserFrozen; r.error = "账号已被冻结, 无法充电"; return r;
+    }
+    if (user.balance <= 0.005) {
+        r.errorCode = ErrBalanceNotEnough; r.error = "账户余额不足，请先充值"; return r;
+    }
+    if (!validTarget(targetType, targetValue)) {
+        r.errorCode = ErrTargetInvalid; r.error = "充电目标参数不合法"; return r;
     }
 
     PileInfo pile = PileDao::getById(pileId, nullptr, connName);
@@ -195,34 +164,19 @@ ChargingEngine::StartResult ChargingEngine::startCharging(int userId, int pileId
     if (unitPrice <= 0)
         unitPrice = 1.0;
 
-    int ec = ErrNone;
-    const double freeze = calcFreeze(targetType, targetValue, pile.power,
-                                     unitPrice, user.balance, &ec);
-    if (ec != ErrNone) {
-        r.errorCode = ec;
-        r.error = (ec == ErrFreezeNotEnough)
-                      ? QString("余额不足以预授权冻结(当前余额 %1 元)").arg(user.balance, 0, 'f', 2)
-                      : "充电目标参数不合法";
-        return r;
-    }
-
     QString err;
     // 1) 原子抢桩: 仅空闲能抢到
     if (!PileDao::acquire(pileId, &err, connName)) {
         r.errorCode = ErrPileBusy; r.error = "手慢了, 该桩刚被占用"; return r;
     }
-    // 2) 冻结预授权额
-    if (!UserDao::adjustBalance(userId, -freeze, &err, connName)) {
-        r.errorCode = ErrDbError; r.error = err; return r;
-    }
-    // 3) 建单
+    // 2) 建单；freeze_amount 固定为 0，仅保留数据库字段兼容旧订单
     const int orderId = OrderDao::create(userId, pileId, pile.stationId,
-                                         qRound(unitPrice * 1000) / 1000.0, freeze,
+                                         qRound(unitPrice * 1000) / 1000.0,
                                          targetType, targetValue, &err, connName);
     if (orderId <= 0) {
         r.errorCode = ErrDbError; r.error = err; return r;
     }
-    // 4) 若该用户今日预约了此桩, 预约置为已履约; 待确认的现场排队同样置履约
+    // 3) 若该用户今日预约了此桩, 预约置为已履约; 待确认的现场排队同样置履约
     ReservationDao::fulfillTodayAppoint(userId, pileId, nullptr, connName);
     QSqlQuery fulfillQueue(db);
     fulfillQueue.prepare("UPDATE charge_reservation SET status=4"
@@ -237,7 +191,6 @@ ChargingEngine::StartResult ChargingEngine::startCharging(int userId, int pileId
 
     transaction.active = false;
     r.ok = true;
-    r.freezeAmount = freeze;
     r.unitPrice = unitPrice;
     r.order = OrderDao::getById(orderId, nullptr, connName);
     UserInfo after;
@@ -253,9 +206,8 @@ ChargingEngine::StartResult ChargingEngine::startCharging(int userId, int pileId
     startEv.insert("orderId", orderId);
     startEv.insert("pileId", pileId);
     startEv.insert("unitPrice", unitPrice);
-    startEv.insert("freeze", freeze);
-    startEv.insert("message", QStringLiteral("充电已开始, 预授权冻结 %1 元, 单价 %2 元/度")
-                                   .arg(freeze, 0, 'f', 2).arg(unitPrice, 0, 'f', 3));
+    startEv.insert("message", QStringLiteral("充电已开始，费用按实际用量实时扣除，单价 %1 元/度")
+                                   .arg(unitPrice, 0, 'f', 3));
     ChargingEngine::instance().pushToUser(userId, startEv);
     return r;
 }
@@ -276,9 +228,9 @@ ChargingEngine::SettleResult ChargingEngine::settleOrder(int orderId, int finish
     if (!begin.exec("BEGIN IMMEDIATE")) { r.error = begin.lastError().text(); return r; }
 
     int userId = -1, pileId = -1, simMin = 0, curStatus = -1;
-    double energy = 0, amount = 0, freeze = 0;
+    double energy = 0, amount = 0;
     QSqlQuery q(db);
-    q.prepare("SELECT user_id, pile_id, energy, amount, freeze_amount, sim_minutes, status"
+    q.prepare("SELECT user_id, pile_id, energy, amount, sim_minutes, status"
               " FROM charge_order WHERE id=?");
     q.addBindValue(orderId);
     if (!q.exec() || !q.next()) {
@@ -288,22 +240,13 @@ ChargingEngine::SettleResult ChargingEngine::settleOrder(int orderId, int finish
     pileId = q.value(1).toInt();
     energy = q.value(2).toDouble();
     amount = q.value(3).toDouble();
-    freeze = q.value(4).toDouble();
-    simMin = q.value(5).toInt();
-    curStatus = q.value(6).toInt();
+    simMin = q.value(4).toInt();
+    curStatus = q.value(5).toInt();
     if (curStatus != OrderCharging) {
         db.rollback(); r.error = "订单不在充电中, 无法结算"; return r;
     }
 
-    // 1) 解冻冻结额并实扣: balance += freeze - amount
-    QSqlQuery bal(db);
-    bal.prepare("UPDATE user SET balance=balance+?-? WHERE id=?");
-    bal.addBindValue(freeze);
-    bal.addBindValue(amount);
-    bal.addBindValue(userId);
-    if (!bal.exec()) { db.rollback(); r.error = bal.lastError().text(); return r; }
-
-    // 2) 落单: 故障 → status=4 异常中断, 其余 → status=1 已完成
+    // 1) 落单: 故障 → status=4 异常中断, 其余 → status=1 已完成
     const int newStatus = (finishType == FinishByFault) ? OrderAbnormal : OrderFinished;
     QSqlQuery fin(db);
     fin.prepare("UPDATE charge_order SET end_time=datetime('now','localtime'),"
@@ -318,7 +261,7 @@ ChargingEngine::SettleResult ChargingEngine::settleOrder(int orderId, int finish
     fin.addBindValue(orderId);
     if (!fin.exec()) { db.rollback(); r.error = fin.lastError().text(); return r; }
 
-    // 3) 累计使用时长并释放桩; 故障桩(status=2)保持故障, 不重新变为空闲
+    // 2) 累计使用时长并释放桩; 故障桩(status=2)保持故障, 不重新变为空闲
     QSqlQuery rel(db);
     rel.prepare("UPDATE pile SET status=CASE WHEN status=2 THEN 2 ELSE 0 END,"
                 " total_count=total_count+1,"
@@ -448,12 +391,20 @@ void ChargingEngine::sweepActiveOrders()
 {
     const QList<OrderInfo> actives = OrderDao::listActive();
     for (const OrderInfo &o : actives) {
-        const OrderDao::OrderContext ctx = OrderDao::getContext(o.id);
-        if (!ctx.exists)
+        QSqlDatabase db = DatabaseManager::instance().database();
+        QSqlQuery begin(db);
+        if (!begin.exec("BEGIN IMMEDIATE"))
             continue;
+
+        const OrderDao::OrderContext ctx = OrderDao::getContext(o.id);
+        if (!ctx.exists) {
+            db.rollback();
+            continue;
+        }
 
         // 桩故障 → 异常中断
         if (ctx.pileStatus == PileFault) {
+            db.rollback();
             SettleResult sr = settleOrder(o.id, FinishByFault,
                                           QStringLiteral("充电过程中电桩故障, 充电中断"));
             if (sr.ok) {
@@ -476,16 +427,8 @@ void ChargingEngine::sweepActiveOrders()
 
         int finish = -1;
         QString reason;
-        // 余额耗尽: 可用 = 当前余额 + 冻结 - 预计消费
-        const double remain = ctx.userBalance + ctx.freezeAmount - newAmount;
-        if (remain <= 0.01) {
-            newAmount = ctx.freezeAmount + ctx.userBalance;
-            if (newAmount < 0) newAmount = 0;
-            newEnergy = ctx.priceSnapshot > 0 ? newAmount / ctx.priceSnapshot : newEnergy;
-            finish = FinishByBalance;
-            reason = QStringLiteral("余额已用完, 自动结束充电");
-        } else if (ctx.targetType == TargetEnergy && ctx.targetValue > 0
-                   && newEnergy >= ctx.targetValue) {
+        if (ctx.targetType == TargetEnergy && ctx.targetValue > 0
+            && newEnergy >= ctx.targetValue) {
             newEnergy = ctx.targetValue;
             newAmount = newEnergy * ctx.priceSnapshot;
             finish = FinishByTarget;
@@ -506,10 +449,44 @@ void ChargingEngine::sweepActiveOrders()
         newEnergy = qRound(newEnergy * 1000.0) / 1000.0;
         newAmount = qRound(newAmount * 100.0) / 100.0;
 
-        // 只有成功写入本次进度，才能继续结算或发送进度推送。
-        // 已结束订单及数据库写入失败均不再使用本地计算值。
-        if (!OrderDao::updateProgress(o.id, newEnergy, newAmount, newMin))
+        // 每次只扣本轮新产生的费用；余额不足时扣完剩余余额并立即结束。
+        double charge = qMax(0.0, newAmount - ctx.amount);
+        const double available = qMax(0.0, ctx.userBalance);
+        if (charge > available + 0.000001) {
+            charge = available;
+            newAmount = qRound((ctx.amount + charge) * 100.0) / 100.0;
+            newEnergy = ctx.priceSnapshot > 0
+                ? qRound((ctx.energy + charge / ctx.priceSnapshot) * 1000.0) / 1000.0
+                : ctx.energy;
+            if (charge <= 0.000001)
+                newMin = ctx.simMinutes;
+            finish = FinishByBalance;
+            reason = QStringLiteral("余额已用完，自动结束充电");
+        } else if (available - charge <= 0.005 && finish < 0) {
+            finish = FinishByBalance;
+            reason = QStringLiteral("余额已用完，自动结束充电");
+        }
+
+        QSqlQuery debit(db);
+        debit.prepare("UPDATE user SET balance=MAX(0,balance-?)"
+                      " WHERE id=? AND balance+0.000001>=?");
+        debit.addBindValue(charge);
+        debit.addBindValue(ctx.userId);
+        debit.addBindValue(charge);
+        if (!debit.exec() || debit.numRowsAffected() != 1) {
+            db.rollback();
             continue;
+        }
+
+        // 余额扣款与进度写入共用事务，任一步失败都会一起回滚。
+        if (!OrderDao::updateProgress(o.id, newEnergy, newAmount, newMin)) {
+            db.rollback();
+            continue;
+        }
+        if (!db.commit()) {
+            db.rollback();
+            continue;
+        }
 
         if (finish >= 0) {
             SettleResult sr = settleOrder(o.id, finish, reason);
@@ -532,6 +509,7 @@ void ChargingEngine::sweepActiveOrders()
         push.insert("energy", newEnergy);
         push.insert("amount", newAmount);
         push.insert("minutes", newMin);
+        push.insert("balance", qMax(0.0, available - charge));
         push.insert("power", power);
         push.insert("targetType", ctx.targetType);
         push.insert("targetValue", ctx.targetValue);

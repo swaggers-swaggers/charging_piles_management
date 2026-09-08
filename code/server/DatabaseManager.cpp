@@ -90,6 +90,7 @@ bool DatabaseManager::init(QString *errMsg)
     migratePhoneEncryption();
     // v2: 订单扩展列(旧库平滑升级, 新库建表时已包含)
     migrateV2Schema();
+    migrateNoPreauthorization();
     migrateAdminSchema();
 
     seedDefaultData();
@@ -385,6 +386,27 @@ void DatabaseManager::migrateV2Schema()
         QSqlQuery add(m_db);
         add.exec(QString("ALTER TABLE charge_order ADD COLUMN %1 %2").arg(c.name, c.ddl));
     }
+}
+
+void DatabaseManager::migrateNoPreauthorization()
+{
+    // 旧版本在开始充电时先扣 freeze_amount。升级时将旧冻结额减去已产生费用后
+    // 退回钱包，使订单现有 amount 等价于已经支付，再把活动订单冻结额清零。
+    if (!m_db.transaction())
+        return;
+    QSqlQuery balance(m_db);
+    const bool balanceOk = balance.exec(
+        "UPDATE user SET balance=MAX(0,balance+COALESCE((SELECT SUM(o.freeze_amount-o.amount)"
+        " FROM charge_order o WHERE o.user_id=user.id AND o.status=0 AND o.freeze_amount>0),0))"
+        " WHERE EXISTS(SELECT 1 FROM charge_order o WHERE o.user_id=user.id"
+        " AND o.status=0 AND o.freeze_amount>0)");
+    QSqlQuery orders(m_db);
+    const bool ordersOk = balanceOk
+        && orders.exec("UPDATE charge_order SET freeze_amount=0"
+                       " WHERE status=0 AND freeze_amount>0");
+    if (ordersOk && m_db.commit())
+        return;
+    m_db.rollback();
 }
 
 void DatabaseManager::migrateAdminSchema()

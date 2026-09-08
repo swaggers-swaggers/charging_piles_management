@@ -144,7 +144,7 @@ bool UserDao::adjustBalance(int userId, double delta, QString *errMsg, const QSt
         return false;
     }
     if (query.numRowsAffected() != 1) {
-        if (errMsg) *errMsg = "用户不存在或余额不足，冻结失败";
+        if (errMsg) *errMsg = "用户不存在或余额不足，余额调整失败";
         return false;
     }
     return true;

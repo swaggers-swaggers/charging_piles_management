@@ -47,8 +47,7 @@ OrderInfo readOrder(QSqlQuery &q)
 } // namespace
 
 int OrderDao::create(int userId, int pileId, int stationId,
-                     double priceSnapshot, double freezeAmount,
-                     int targetType, double targetValue,
+                     double priceSnapshot, int targetType, double targetValue,
                      QString *errMsg, const QString &connName)
 {
     QSqlQuery q(daoDb(connName));
@@ -59,7 +58,7 @@ int OrderDao::create(int userId, int pileId, int stationId,
     q.addBindValue(pileId);
     q.addBindValue(stationId);
     q.addBindValue(priceSnapshot);
-    q.addBindValue(freezeAmount);
+    q.addBindValue(0.0);
     q.addBindValue(targetType);
     q.addBindValue(targetValue);
     if (!q.exec()) {
@@ -118,7 +117,7 @@ OrderDao::OrderContext OrderDao::getContext(int orderId, QString *errMsg,
     OrderContext ctx;
     QSqlQuery q(daoDb(connName));
     q.prepare("SELECT o.id, o.user_id, o.pile_id, p.status, p.power, s.price,"
-              " o.energy, o.amount, o.sim_minutes, o.freeze_amount,"
+              " o.energy, o.amount, o.sim_minutes,"
               " o.target_type, o.target_value, o.price_snapshot, u.balance"
               " FROM charge_order o"
               " JOIN pile p ON o.pile_id=p.id"
@@ -143,11 +142,10 @@ OrderDao::OrderContext OrderDao::getContext(int orderId, QString *errMsg,
     ctx.energy = q.value(6).toDouble();
     ctx.amount = q.value(7).toDouble();
     ctx.simMinutes = q.value(8).toInt();
-    ctx.freezeAmount = q.value(9).toDouble();
-    ctx.targetType = q.value(10).toInt();
-    ctx.targetValue = q.value(11).toDouble();
-    ctx.priceSnapshot = q.value(12).toDouble();
-    ctx.userBalance = q.value(13).toDouble();
+    ctx.targetType = q.value(9).toInt();
+    ctx.targetValue = q.value(10).toDouble();
+    ctx.priceSnapshot = q.value(11).toDouble();
+    ctx.userBalance = q.value(12).toDouble();
     return ctx;
 }
 

@@ -70,12 +70,12 @@ void MessageCenter::onPushReceived(const QJsonObject &msg)
     case 2:
         m.type = 2;
         m.title = QStringLiteral("充电已结束");
-        m.content = msg.value("message").toString(QStringLiteral("订单已完成结算，冻结金额已解冻"));
+        m.content = msg.value("message").toString(QStringLiteral("订单已按实际充电用量完成结算"));
         break;
     case 3:
         m.type = 2;
         m.title = QStringLiteral("充电异常中断");
-        m.content = msg.value("message").toString(QStringLiteral("订单因故障中断，已自动结算并释放冻结金额"));
+        m.content = msg.value("message").toString(QStringLiteral("订单因故障中断，已按实际充电用量结算"));
         break;
     case 4:
         m.type = 5;
@@ -85,7 +85,7 @@ void MessageCenter::onPushReceived(const QJsonObject &msg)
     case 5:
         m.type = 2;
         m.title = QStringLiteral("充电已开始");
-        m.content = msg.value("message").toString(QStringLiteral("充电已开始，预授权冻结金额已扣除"));
+        m.content = msg.value("message").toString(QStringLiteral("充电已开始，费用将按实际用量实时扣除"));
         break;
     case 6:
         m.type = 4;

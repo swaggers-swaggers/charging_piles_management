@@ -195,6 +195,26 @@ private slots:
         button(page,"刷新")->click(); QCOMPARE(combo->currentData().toInt(),12);
         QVERIFY(window->grab().save("/tmp/charging-pile-selection.png"));
     }
+    void chargeSetupHasNoFreeze() {
+        auto *page=window->findChild<ChargingPage*>();
+        auto *combo=window->findChild<QComboBox*>("stationCombo");
+        combo->setCurrentIndex(combo->findData(11));
+        QTRY_VERIFY(button(page,"立即充电"));
+        QTimer::singleShot(80,this,[]{
+            auto *dialog=qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            QString labels;
+            for (QLabel *label : dialog->findChildren<QLabel*>())
+                labels += label->text();
+            QVERIFY(!labels.contains("预授权"));
+            QVERIFY(!labels.contains("冻结"));
+            QVERIFY(labels.contains("实际充电量"));
+            QVERIFY(labels.contains("余额用完后自动停止"));
+            QVERIFY(dialog->grab().save("/tmp/charging-setup-no-freeze.png"));
+            dialog->reject();
+        });
+        button(page,"立即充电")->click();
+    }
     void navigationContext() {
         NavigationPage page;
         page.setDestination(12,116.461,39.9087);
@@ -287,7 +307,7 @@ private slots:
         popupCloser.start(10);
         for(int event : {2,6,8}) emit TcpClient::instance().pushReceived(QJsonObject{
             {"type",Protocol::PushOrderEvent},{"event",event},
-            {"message",event==2 ? "本次充电已完成，订单已结算。预授权剩余金额已退回钱包，可前往我的订单查看电量与费用明细。" : "服务状态已更新，请查看最新通知。"}});
+            {"message",event==2 ? "本次充电已完成，费用已按实际用量结算，可前往我的订单查看电量与费用明细。" : "服务状态已更新，请查看最新通知。"}});
         popupCloser.stop();
         auto *list = page->findChild<QListWidget*>("messageList");
         QTRY_COMPARE(list->count(),3);

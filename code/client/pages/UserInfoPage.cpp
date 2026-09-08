@@ -66,7 +66,7 @@ UserInfoPage::UserInfoPage(QWidget *parent)
     walletLayout->addWidget(label("可用余额 · 元", "walletCaption", wallet));
     m_balanceLabel = label(QString::number(ClientSession::instance().balance,'f',2), "walletAmount", wallet);
     walletLayout->addWidget(m_balanceLabel);
-    walletLayout->addWidget(label("充电预授权冻结金额不计入可用余额", "walletCaption", wallet));
+    walletLayout->addWidget(label("充电费用按实际使用实时扣除", "walletCaption", wallet));
     m_overview->addWidget(wallet, 1);
     layout->addLayout(m_overview);
 

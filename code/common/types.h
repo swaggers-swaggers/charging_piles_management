@@ -194,7 +194,7 @@ struct OrderInfo
     QString pileCode;
     QString stationName;
     // ---- v2 扩展 ----
-    double freezeAmount = 0.0;   // 预授权冻结金额
+    double freezeAmount = 0.0;   // 历史订单兼容字段，新订单始终为 0
     int targetType = TargetNone; // 充电目标类型
     double targetValue = 0.0;    // 目标数值
     double priceSnapshot = 0.0;  // 计费电价快照(元/度, 含服务费)

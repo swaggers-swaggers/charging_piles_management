@@ -15,10 +15,8 @@ class OrderDao
 public:
     // 创建订单(status=0 充电中), 返回订单 id(<=0 失败)
     // priceSnapshot: 开始时锁定的计费单价(元/度, 含服务费)
-    // freezeAmount:  预授权冻结金额; targetType/Value: 充电目标
     static int create(int userId, int pileId, int stationId,
-                      double priceSnapshot, double freezeAmount,
-                      int targetType, double targetValue,
+                      double priceSnapshot, int targetType, double targetValue,
                       QString *errMsg = nullptr, const QString &connName = QString());
 
     static OrderInfo getById(int id, QString *errMsg = nullptr,
@@ -39,7 +37,6 @@ public:
         double energy = 0.0;
         double amount = 0.0;
         int simMinutes = 0;
-        double freezeAmount = 0.0;
         int targetType = TargetNone;
         double targetValue = 0.0;
         double priceSnapshot = 0.0;

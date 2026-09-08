@@ -36,6 +36,7 @@ private:
     bool createTables(QString *errMsg = nullptr);
     void migratePhoneEncryption();   // 旧库手机号明文 → 哈希(只执行一次)
     void migrateV2Schema();          // v2: charge_order 扩展列平滑升级
+    void migrateNoPreauthorization();// 旧在充订单的冻结额转换为已支付金额
     void migrateAdminSchema();       // 旧库 admin 表: password→password_hash, 补 salt 列
     void deduplicateUsers();          // 修复哈希算法变更导致的重复用户(按 phone_masked 合并)
     void seedDefaultData();
