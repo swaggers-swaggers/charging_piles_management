@@ -1,15 +1,20 @@
 #ifndef HOMEPAGE_H
 #define HOMEPAGE_H
 
+#include "types.h"
+
 #include <QWidget>
 #include <QVector>
 
 class QLabel;
 class QPushButton;
 class QGridLayout;
+class QFrame;
 class QShowEvent;
 class QHideEvent;
 class QResizeEvent;
+class MapCanvas;
+class HomePowerGauge;
 
 // 用户端真正的功能首页：用有尺寸层级的 Bento Grid 汇总核心业务入口。
 class HomePage : public QWidget
@@ -41,8 +46,16 @@ private:
     void relayoutCards(int availableWidth);
 
     QGridLayout *m_grid = nullptr;
-    QVector<QPushButton *> m_cards;
+    QVector<QWidget *> m_cards;
     int m_layoutColumns = 0;
+
+    QFrame *m_mapCard = nullptr;
+    MapCanvas *m_mapCanvas = nullptr;
+    QLabel *m_mapSummary = nullptr;
+    HomePowerGauge *m_powerGauge = nullptr;
+    QLabel *m_powerValue = nullptr;
+    QLabel *m_powerHint = nullptr;
+    QList<StationInfo> m_stationData;
 
     QLabel *m_greeting = nullptr;
     QLabel *m_pageSummary = nullptr;

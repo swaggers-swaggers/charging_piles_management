@@ -206,7 +206,9 @@ private slots:
         QCOMPARE(nav->count(),6);
         auto *home=window->findChild<HomePage*>();
         QVERIFY(home);
-        QCOMPARE(home->findChildren<QPushButton*>("bentoCard").size(),7);
+        QCOMPARE(home->findChildren<QPushButton*>("bentoCard").size(),6);
+        QVERIFY(home->findChild<QFrame*>("homeMapCard"));
+        QVERIFY(home->findChild<MapCanvas*>("homeMapCanvas"));
         QVERIFY(accessibleButton(home,"附近充电站"));
         accessibleButton(home,"附近充电站")->click();
         QCOMPARE(nav->currentRow(),1);
@@ -233,9 +235,18 @@ private slots:
         QTRY_VERIFY(stationPreview->findChildren<QLabel*>("homeDetailLine").first()->text().contains("中关村"));
         auto *orderPreview=accessibleButton(home,"预约与订单");
         QTRY_VERIFY(orderPreview->findChildren<QLabel*>("homeDetailLine").first()->text().contains("kWh"));
-        auto *hero=accessibleButton(home,"开启今天的绿色旅程");
+        auto *hero=accessibleButton(home,"今日补能概览");
         QVERIFY(hero);
         QVERIFY(hero->geometry().width() > stationPreview->geometry().width());
+        auto *mapCard=home->findChild<QFrame*>("homeMapCard");
+        auto *powerCard=accessibleButton(home,"实时充电功率");
+        QVERIFY(mapCard && powerCard);
+        QVERIFY(mapCard->geometry().width()>powerCard->geometry().width());
+        QTRY_VERIFY(home->findChild<QLabel*>("homeMapBadge")->text().contains("3 站"));
+        emit TcpClient::instance().pushReceived(QJsonObject{
+            {"type",Protocol::PushOrderProgress},{"orderId",99},{"energy",12.4},
+            {"amount",14.88},{"minutes",18},{"power",86.5}});
+        QTRY_COMPARE(home->findChild<QLabel*>("homePowerValue")->text(),QString("86.5 kW"));
         QTest::mouseMove(hero,hero->rect().center()); QTest::qWait(220);
         QVERIFY(hero->graphicsEffect());
         QVERIFY(window->grab().save("/tmp/charging-bento-home.png"));
@@ -247,9 +258,8 @@ private slots:
             area->verticalScrollBar()->setValue(0);
         }
         window->resize(800,600); QTest::qWait(40);
-        auto *connectionCard=accessibleButton(home,"服务连接");
-        QVERIFY(connectionCard->geometry().width()>240);
-        QVERIFY(hero->geometry().width()>connectionCard->geometry().width());
+        QVERIFY(mapCard->geometry().width()>500);
+        QVERIFY(powerCard->geometry().width()>500);
         QVERIFY(window->grab().save("/tmp/charging-bento-home-compact.png"));
         window->resize(1200,820); QTest::qWait(20);
         accessibleButton(home,"附近充电站")->click();

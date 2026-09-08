@@ -3,6 +3,7 @@
 #include "ClientSession.h"
 #include "IconFactory.h"
 #include "MessageCenter.h"
+#include "NavigationPage.h"
 #include "network/TcpClient.h"
 #include "protocol.h"
 #include "types.h"
@@ -14,14 +15,150 @@
 #include <QHideEvent>
 #include <QJsonArray>
 #include <QLabel>
+#include <QPainter>
+#include <QPainterPath>
+#include <QPixmap>
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QShowEvent>
 #include <QTime>
 #include <QTimer>
+#include <QVariantAnimation>
 #include <QVBoxLayout>
+#include <QtMath>
+
+class HomePowerGauge : public QWidget
+{
+public:
+    explicit HomePowerGauge(QWidget *parent = nullptr)
+        : QWidget(parent)
+    {
+        setObjectName("homePowerGauge");
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setMinimumSize(150, 132);
+        m_animation.setDuration(520);
+        m_animation.setEasingCurve(QEasingCurve::OutCubic);
+        connect(&m_animation, &QVariantAnimation::valueChanged, this,
+                [this](const QVariant &value) {
+            const qreal progress = value.toReal();
+            m_displayPower = m_fromPower + (m_toPower - m_fromPower) * progress;
+            update();
+        });
+    }
+
+    void setPower(double power)
+    {
+        const double normalized = power < 0 ? 0.0 : qMin(power, m_maxPower);
+        m_active = power >= 0;
+        m_animation.stop();
+        m_fromPower = m_displayPower;
+        m_toPower = normalized;
+        m_animation.setStartValue(0.0);
+        m_animation.setEndValue(1.0);
+        m_animation.start();
+        update();
+    }
+
+    double power() const { return m_active ? m_toPower : -1.0; }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing, true);
+        const QPointF center(width() / 2.0, height() * 0.72);
+        const qreal radius = qMin(width() * 0.39, height() * 0.60);
+        const QRectF arc(center.x() - radius, center.y() - radius,
+                         radius * 2.0, radius * 2.0);
+        constexpr int startAngle = 225 * 16;
+        constexpr int spanAngle = -270 * 16;
+
+        painter.setPen(QPen(QColor("#DDE8E3"), 12, Qt::SolidLine, Qt::RoundCap));
+        painter.drawArc(arc, startAngle, spanAngle);
+
+        const qreal fraction = qBound(0.0, m_displayPower / m_maxPower, 1.0);
+        QConicalGradient gradient(center, 225);
+        gradient.setColorAt(0.00, QColor("#3ECF8E"));
+        gradient.setColorAt(0.56, QColor("#35A7A0"));
+        gradient.setColorAt(1.00, QColor("#4C7FD1"));
+        painter.setPen(QPen(QBrush(gradient), 12, Qt::SolidLine, Qt::RoundCap));
+        if (m_active)
+            painter.drawArc(arc, startAngle, qRound(spanAngle * fraction));
+
+        const qreal degrees = 225.0 - 270.0 * fraction;
+        const qreal radians = qDegreesToRadians(degrees);
+        const QPointF needle(center.x() + qCos(radians) * radius * 0.73,
+                             center.y() - qSin(radians) * radius * 0.73);
+        painter.setPen(QPen(QColor(m_active ? "#244A4A" : "#9AACAA"), 3,
+                            Qt::SolidLine, Qt::RoundCap));
+        painter.drawLine(center, needle);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(QColor("#244A4A"));
+        painter.drawEllipse(center, 5.5, 5.5);
+
+        painter.setPen(QColor("#82938F"));
+        painter.setFont(QFont(QString(), 8, QFont::Medium));
+        painter.drawText(QRectF(0, height() - 24, width(), 18), Qt::AlignCenter,
+                         QStringLiteral("0                         150 kW"));
+    }
+
+private:
+    QVariantAnimation m_animation;
+    double m_displayPower = 0.0;
+    double m_fromPower = 0.0;
+    double m_toPower = 0.0;
+    const double m_maxPower = 150.0;
+    bool m_active = false;
+};
 
 namespace {
+class FloatingPng : public QWidget
+{
+public:
+    explicit FloatingPng(const QString &resourcePath, QWidget *parent = nullptr)
+        : QWidget(parent), m_pixmap(resourcePath)
+    {
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setFixedSize(58, 58);
+        m_animation.setDuration(2400);
+        m_animation.setStartValue(0.0);
+        m_animation.setKeyValueAt(0.5, 1.0);
+        m_animation.setEndValue(0.0);
+        m_animation.setEasingCurve(QEasingCurve::InOutSine);
+        m_animation.setLoopCount(-1);
+        connect(&m_animation, &QVariantAnimation::valueChanged, this,
+                [this](const QVariant &value) { m_phase = value.toReal(); update(); });
+        m_animation.start();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
+        painter.setOpacity(0.72 + 0.18 * m_phase);
+        painter.translate(0, 4.0 - 7.0 * m_phase);
+        painter.drawPixmap(rect().adjusted(5, 5, -5, -5), m_pixmap);
+    }
+
+    void showEvent(QShowEvent *event) override
+    {
+        QWidget::showEvent(event);
+        m_animation.start();
+    }
+
+    void hideEvent(QHideEvent *event) override
+    {
+        QWidget::hideEvent(event);
+        m_animation.stop();
+    }
+
+private:
+    QPixmap m_pixmap;
+    QVariantAnimation m_animation;
+    qreal m_phase = 0.0;
+};
+
 void passMouseToCard(QWidget *widget)
 {
     widget->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -59,6 +196,7 @@ QFrame *statBlock(const QString &caption, QLabel **value, QWidget *parent)
     layout->setContentsMargins(12, 9, 12, 9);
     layout->setSpacing(2);
     *value = detailLabel("--", block, "homeStatValue");
+    (*value)->setWordWrap(false);
     auto *captionLabel = detailLabel(caption, block, "homeStatCaption");
     layout->addWidget(*value);
     layout->addWidget(captionLabel);
@@ -113,9 +251,82 @@ HomePage::HomePage(QWidget *parent)
     m_grid->setHorizontalSpacing(16);
     m_grid->setVerticalSpacing(16);
 
-    auto *hero = createBaseCard("开启今天的绿色旅程",
-                                "账户、站点与消息，一眼掌握",
-                                IconFactory::IconPlug, "hero", "wide", 1);
+    m_mapCard = new QFrame(this);
+    m_mapCard->setObjectName("homeMapCard");
+    m_mapCard->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    auto *mapBody = new QVBoxLayout(m_mapCard);
+    mapBody->setContentsMargins(16, 15, 16, 16);
+    mapBody->setSpacing(10);
+    auto *mapTop = new QHBoxLayout;
+    auto *mapIcon = new QLabel(m_mapCard);
+    mapIcon->setObjectName("homeMapIcon");
+    mapIcon->setAlignment(Qt::AlignCenter);
+    mapIcon->setPixmap(IconFactory::icon(IconFactory::IconLocation,
+                                         QColor("#427B72"), 24).pixmap(24, 24));
+    mapIcon->setFixedSize(40, 40);
+    auto *mapHeading = new QVBoxLayout;
+    mapHeading->setSpacing(1);
+    auto *mapTitle = new QLabel("附近充电地图", m_mapCard);
+    mapTitle->setObjectName("homeMapTitle");
+    auto *mapSubtitle = new QLabel("拖动、缩放并点击标记查看站点", m_mapCard);
+    mapSubtitle->setObjectName("homeMapSubtitle");
+    mapHeading->addWidget(mapTitle);
+    mapHeading->addWidget(mapSubtitle);
+    m_mapSummary = new QLabel("正在载入站点", m_mapCard);
+    m_mapSummary->setObjectName("homeMapBadge");
+    auto *mapAction = new QPushButton("查看完整地图  ↗", m_mapCard);
+    mapAction->setObjectName("homeMapAction");
+    mapAction->setCursor(Qt::PointingHandCursor);
+    connect(mapAction, &QPushButton::clicked, this, [this] { emit pageRequested(1); });
+    auto *carAsset = new FloatingPng(":/icons/noto-emoji/electric-car.png", m_mapCard);
+    carAsset->setFixedSize(48, 48);
+    mapTop->addWidget(mapIcon);
+    mapTop->addLayout(mapHeading, 1);
+    mapTop->addWidget(carAsset, 0, Qt::AlignVCenter);
+    mapTop->addWidget(m_mapSummary, 0, Qt::AlignVCenter);
+    mapTop->addWidget(mapAction, 0, Qt::AlignVCenter);
+    mapBody->addLayout(mapTop);
+    m_mapCanvas = new MapCanvas(m_mapCard);
+    m_mapCanvas->setObjectName("homeMapCanvas");
+    m_mapCanvas->setMinimumHeight(245);
+    m_mapCanvas->setData({}, 116.3100, 39.9600, -1, {});
+    mapBody->addWidget(m_mapCanvas, 1);
+
+    auto *power = createBaseCard("实时充电功率", "充电时同步展示功率变化",
+                                 IconFactory::IconBolt, "power", "meter", 2,
+                                 &m_chargeStatus);
+    auto *powerBody = cardBody(power);
+    auto *meterRow = new QHBoxLayout;
+    meterRow->setSpacing(6);
+    m_powerGauge = new HomePowerGauge(power);
+    meterRow->addWidget(m_powerGauge, 1);
+    auto *powerCopy = new QVBoxLayout;
+    powerCopy->setSpacing(2);
+    m_powerValue = detailLabel("-- kW", power, "homePowerValue");
+    m_powerValue->setAlignment(Qt::AlignCenter);
+    m_powerHint = detailLabel("等待充电任务", power, "homePowerHint");
+    m_powerHint->setAlignment(Qt::AlignCenter);
+    auto *plugAsset = new FloatingPng(":/icons/noto-emoji/electric-plug.png", power);
+    powerCopy->addWidget(plugAsset, 0, Qt::AlignHCenter);
+    powerCopy->addWidget(m_powerValue);
+    powerCopy->addWidget(m_powerHint);
+    powerCopy->addStretch();
+    meterRow->addLayout(powerCopy);
+    powerBody->addLayout(meterRow, 1);
+    m_chargeTitle = detailLabel("当前没有进行中的充电任务", power, "homeFeatureTitle");
+    powerBody->addWidget(m_chargeTitle);
+    auto *chargeStats = new QHBoxLayout;
+    chargeStats->setSpacing(7);
+    chargeStats->addWidget(statBlock("电量", &m_chargeEnergy, power));
+    chargeStats->addWidget(statBlock("费用", &m_chargeAmount, power));
+    chargeStats->addWidget(statBlock("时长", &m_chargeMinutes, power));
+    powerBody->addLayout(chargeStats);
+    addAction(power, "进入充电服务  →");
+
+    auto *hero = createBaseCard("今日补能概览",
+                                "账户、站点与服务连接，一眼掌握",
+                                IconFactory::IconPlug, "hero", "wide", 1,
+                                &m_connectionStatus);
     auto *heroBody = cardBody(hero);
     auto *heroStats = new QHBoxLayout;
     heroStats->setSpacing(10);
@@ -123,33 +334,12 @@ HomePage::HomePage(QWidget *parent)
     heroStats->addWidget(statBlock("附近空闲桩", &m_heroIdle, hero));
     heroStats->addWidget(statBlock("未读消息", &m_heroUnread, hero));
     heroBody->addLayout(heroStats);
+    m_endpoint = detailLabel("服务端 --:--", hero, "homeEndpointInline");
+    heroBody->addWidget(m_endpoint);
     addAction(hero, "查看附近充电站  →");
 
-    auto *connection = createBaseCard("服务连接", "当前客户端连接地址",
-                                      IconFactory::IconCompass, "paper", "regular", 5,
-                                      &m_connectionStatus);
-    auto *connectionBody = cardBody(connection);
-    m_endpoint = detailLabel("--:--", connection, "homeEndpoint");
-    connectionBody->addWidget(m_endpoint);
-    connectionBody->addWidget(detailLabel("登录页可切换 IP 与端口，成功后自动保存", connection));
-    addAction(connection, "查看账户与连接信息  →");
-
-    auto *charge = createBaseCard("充电服务", "当前任务与实时结算摘要",
-                                  IconFactory::IconBolt, "green", "wide", 2,
-                                  &m_chargeStatus);
-    auto *chargeBody = cardBody(charge);
-    m_chargeTitle = detailLabel("正在查询进行中的充电任务…", charge, "homeFeatureTitle");
-    chargeBody->addWidget(m_chargeTitle);
-    auto *chargeStats = new QHBoxLayout;
-    chargeStats->setSpacing(10);
-    chargeStats->addWidget(statBlock("已充电量", &m_chargeEnergy, charge));
-    chargeStats->addWidget(statBlock("当前费用", &m_chargeAmount, charge));
-    chargeStats->addWidget(statBlock("已用时长", &m_chargeMinutes, charge));
-    chargeBody->addLayout(chargeStats);
-    addAction(charge, "进入充电服务  →");
-
     auto *account = createBaseCard("我的账户", "个人资料与可用余额",
-                                   IconFactory::IconUser, "amber", "regular", 5);
+                                   IconFactory::IconUser, "amber", "regular", 7);
     auto *accountBody = cardBody(account);
     m_accountBalance = detailLabel("¥ --", account, "homeBalance");
     m_accountName = detailLabel("--", account, "homeFeatureTitle");
@@ -187,7 +377,7 @@ HomePage::HomePage(QWidget *parent)
     addAction(orders, "查看订单与预约  →");
 
     auto *messages = createBaseCard("消息通知", "充电动态与服务提醒",
-                                    IconFactory::IconBattery, "paper", "detail", 4,
+                                    IconFactory::IconBattery, "paper", "detail", 6,
                                     &m_messageSummary);
     auto *messageBody = cardBody(messages);
     for (int i = 0; i < 2; ++i) {
@@ -198,7 +388,7 @@ HomePage::HomePage(QWidget *parent)
     }
     messageBody->addStretch();
     addAction(messages, "查看全部消息  →");
-    m_cards = {hero, connection, charge, account, stations, orders, messages};
+    m_cards = {m_mapCard, power, hero, account, stations, orders, messages};
     relayoutCards(width());
 
     pageLayout->addLayout(m_grid, 1);
@@ -215,11 +405,33 @@ HomePage::HomePage(QWidget *parent)
             this, &HomePage::refreshLocalDetails);
     connect(&TcpClient::instance(), &TcpClient::pushReceived, this,
             [this](const QJsonObject &message) {
-        if (message.value("type").toInt() != Protocol::PushOrderProgress) return;
-        m_chargeStatus->setText("充电中");
-        m_chargeEnergy->setText(QString("%1 kWh").arg(message.value("energy").toDouble(), 0, 'f', 2));
-        m_chargeAmount->setText(QString("¥ %1").arg(message.value("amount").toDouble(), 0, 'f', 2));
-        m_chargeMinutes->setText(QString("%1 分钟").arg(message.value("minutes").toInt()));
+        const int type = message.value("type").toInt();
+        if (type == Protocol::PushOrderProgress) {
+            const double power = message.value("power").toDouble(-1);
+            const int minutes = message.value("minutes").toInt();
+            const int orderId = message.value("orderId").toInt();
+            m_chargeStatus->setText("充电中");
+            m_chargeTitle->setText(orderId > 0
+                ? QString("功率数据实时更新 · 订单 #%1").arg(orderId)
+                : QStringLiteral("功率数据正在实时更新"));
+            m_chargeEnergy->setText(QString("%1 kWh").arg(message.value("energy").toDouble(), 0, 'f', 1));
+            m_chargeAmount->setText(QString("¥%1").arg(message.value("amount").toDouble(), 0, 'f', 2));
+            m_chargeMinutes->setText(QString("%1 分").arg(minutes));
+            if (power >= 0) {
+                m_powerGauge->setPower(power);
+                m_powerValue->setText(QString("%1 kW").arg(power, 0, 'f', 1));
+                m_powerHint->setText("实时功率");
+            }
+            return;
+        }
+        if (type == Protocol::PushOrderEvent
+            && (message.value("event").toInt() == 2
+                || message.value("event").toInt() == 3)) {
+            m_powerGauge->setPower(-1);
+            m_powerValue->setText("-- kW");
+            m_powerHint->setText("充电已结束");
+            m_chargeStatus->setText("已结束");
+        }
     });
     refreshLocalDetails();
 }
@@ -295,9 +507,10 @@ void HomePage::refreshLocalDetails()
     m_accountName->setText(nickname);
     m_accountPhone->setText(QString("账号 %1").arg(session.phone.isEmpty() ? "--" : session.phone));
 
-    m_endpoint->setText(QString("%1:%2")
+    m_endpoint->setText(QString("服务端 %1:%2 · %3")
         .arg(TcpClient::instance().serverHost())
-        .arg(TcpClient::instance().serverPort()));
+        .arg(TcpClient::instance().serverPort())
+        .arg(TcpClient::instance().isConnected() ? "连接正常" : "等待重连"));
     m_connectionStatus->setText(TcpClient::instance().isConnected() ? "已连接" : "连接待确认");
 
     const QList<AppMessage> messages = MessageCenter::instance().messages();
@@ -326,9 +539,15 @@ void HomePage::loadNetworkDetails()
         Protocol::ReqStationList, QJsonObject{{"lon", 116.3100}, {"lat", 39.9600}}, 1600);
     if (stationReply.value("ok").toBool()) {
         const QJsonArray stations = stationReply.value("stations").toArray();
+        m_stationData.clear();
         int idle = 0;
-        for (const QJsonValue &value : stations)
-            idle += StationInfo::fromJson(value.toObject()).idlePiles;
+        for (const QJsonValue &value : stations) {
+            const StationInfo station = StationInfo::fromJson(value.toObject());
+            m_stationData.append(station);
+            idle += station.idlePiles;
+        }
+        m_mapCanvas->setData(m_stationData, 116.3100, 39.9600, -1, {});
+        m_mapSummary->setText(QString("%1 站 · %2 空闲").arg(stations.size()).arg(idle));
         m_heroIdle->setText(QString::number(idle));
         m_stationSummary->setText(QString("%1 个站点").arg(stations.size()));
         for (int i = 0; i < m_stationLines.size(); ++i) {
@@ -344,6 +563,9 @@ void HomePage::loadNetworkDetails()
             }
         }
     } else {
+        m_stationData.clear();
+        m_mapCanvas->setData({}, 116.3100, 39.9600, -1, {});
+        m_mapSummary->setText("地图数据待重试");
         m_heroIdle->setText("--");
         m_stationSummary->setText("加载失败");
         m_stationLines[0]->setText("站点信息暂不可用\n点击卡片进入站点页重试");
@@ -359,15 +581,20 @@ void HomePage::loadNetworkDetails()
         m_chargeTitle->setText(QString("%1 · %2")
             .arg(order.stationName.isEmpty() ? QStringLiteral("当前充电站") : order.stationName,
                  order.pileCode.isEmpty() ? QStringLiteral("电桩信息更新中") : order.pileCode));
-        m_chargeEnergy->setText(QString("%1 kWh").arg(order.energy, 0, 'f', 2));
-        m_chargeAmount->setText(QString("¥ %1").arg(order.amount, 0, 'f', 2));
-        m_chargeMinutes->setText(QString("%1 分钟").arg(order.simMinutes));
+        m_chargeEnergy->setText(QString("%1 kWh").arg(order.energy, 0, 'f', 1));
+        m_chargeAmount->setText(QString("¥%1").arg(order.amount, 0, 'f', 2));
+        m_chargeMinutes->setText(QString("%1 分").arg(order.simMinutes));
+        if (m_powerGauge->power() < 0)
+            m_powerHint->setText("等待下一次功率推送");
     } else {
         m_chargeStatus->setText("等待开始");
         m_chargeTitle->setText("当前没有进行中的充电任务");
         m_chargeEnergy->setText("-- kWh");
-        m_chargeAmount->setText("¥ --");
-        m_chargeMinutes->setText("-- 分钟");
+        m_chargeAmount->setText("¥--");
+        m_chargeMinutes->setText("-- 分");
+        m_powerGauge->setPower(-1);
+        m_powerValue->setText("-- kW");
+        m_powerHint->setText("等待充电任务");
     }
 
     const QJsonObject orderReply = TcpClient::instance().request(
@@ -430,22 +657,22 @@ void HomePage::relayoutCards(int availableWidth)
         m_grid->addWidget(m_cards[4], 2, 0);
         m_grid->addWidget(m_cards[5], 2, 1);
         m_grid->addWidget(m_cards[6], 2, 2);
-        m_grid->setRowMinimumHeight(0, 176);
-        m_grid->setRowMinimumHeight(1, 220);
+        m_grid->setRowMinimumHeight(0, 350);
+        m_grid->setRowMinimumHeight(1, 190);
         m_grid->setRowMinimumHeight(2, 254);
     } else {
         m_grid->addWidget(m_cards[0], 0, 0, 1, 2);
-        m_grid->addWidget(m_cards[2], 1, 0, 1, 2);
-        m_grid->addWidget(m_cards[1], 2, 0);
-        m_grid->addWidget(m_cards[3], 2, 1);
-        m_grid->addWidget(m_cards[4], 3, 0);
-        m_grid->addWidget(m_cards[5], 3, 1);
-        m_grid->addWidget(m_cards[6], 4, 0, 1, 2);
-        m_grid->setRowMinimumHeight(0, 176);
-        m_grid->setRowMinimumHeight(1, 220);
-        m_grid->setRowMinimumHeight(2, 220);
+        m_grid->addWidget(m_cards[1], 1, 0, 1, 2);
+        m_grid->addWidget(m_cards[2], 2, 0, 1, 2);
+        m_grid->addWidget(m_cards[3], 3, 0);
+        m_grid->addWidget(m_cards[4], 3, 1);
+        m_grid->addWidget(m_cards[5], 4, 0);
+        m_grid->addWidget(m_cards[6], 4, 1);
+        m_grid->setRowMinimumHeight(0, 330);
+        m_grid->setRowMinimumHeight(1, 330);
+        m_grid->setRowMinimumHeight(2, 190);
         m_grid->setRowMinimumHeight(3, 254);
-        m_grid->setRowMinimumHeight(4, 220);
+        m_grid->setRowMinimumHeight(4, 254);
     }
 }
 

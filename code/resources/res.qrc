@@ -5,6 +5,9 @@
         <file>qss/client.qss</file>
         <file>icons/lucide/plug-zap.svg</file>
         <file>icons/arrow-down.png</file>
+        <file>icons/noto-emoji/electric-car.png</file>
+        <file>icons/noto-emoji/electric-plug.png</file>
+        <file>icons/noto-emoji/LICENSE</file>
         <file>map/map.html</file>
     </qresource>
 </RCC>
