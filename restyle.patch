@@ -1,0 +1,1810 @@
+diff --git a/UI_RESTYLE_NOTES.md b/UI_RESTYLE_NOTES.md
+new file mode 100644
+index 0000000..d436b22
+--- /dev/null
++++ b/UI_RESTYLE_NOTES.md
+@@ -0,0 +1,44 @@
++# UI RESTYLE NOTES — VoltGrid 深色电力绿体系
++
++## 改动文件清单
++
++### QSS（重写，objectName 选择器全部保留）
++- code/resources/qss/global.qss — 深墨绿侧边栏(#0D1F1A/#123328) + 电力绿 3px 左选中条；浅色内容区(#F3F6F4/#FFFFFF/#E2E8E5)；primary 按钮 #00C878 底 #04120C 字。
++- code/resources/qss/client.qss — 同上；discoveryHero/accountWallet 渐变改为 #0E5C3C→#123328。
++- code/resources/qss/login.qss — 深色品牌方案：#loginDialog 渐变 #0A1411→#081310；#card #101F19 + 1px #1E3A2E；输入框 #16211C 白字 focus #00C878；登录按钮 #00C878/#04120C；全部 min-height/padding 防裁切约束原样保留。
++
++### 主题调色板
++- code/common/AppTheme.h — 仅颜色值：Window #F3F6F4、AlternateBase #F1F5F2、文字 #14201B、Highlight #D8F5E7、HighlightedText #06573A、ToolTipBase #0D1F1A/ToolTipText #FFFFFF、Mid #C6D0CA、Dark/Shadow #8A968F、PlaceholderText #8A968F、Disabled #9AA8A0。逻辑与加载路径未动。
++
++### Web 大屏
++- code/web/index.html — body #070D0B；header/面板 #0C1512/#101F19 + #1E3A2E；标题白/强调 #00C878；图表 backgroundColor transparent；趋势 rgba(0,200,120,0.18)+#00C878；饼图 idle=#2F7CF6 inUse=#00C878 fault=#E5484D；站点柱 #00C878；预测线 #F59300、markPoint #E5484D；轴/legend #7E8F87、网格 #1A2E26；file:// 防呆屏仅换配色（深底红字系），文字逻辑不动；box-shadow 改 rgba(0,0,0,.35)。
++
++### C++ 硬编码颜色（仅双引号内字面量，约 90 处）
++- common/AdminTableCard.h、ChargingParticles.h、DonutChart.h、IconFactory.h、UiMotion.h、WindowChrome.h
++- client/LoginDialog.cpp、UserMainWindow.cpp、pages/ChargeChartWidget.cpp、ChargingPage.cpp、MessagePage.cpp、NavigationPage.cpp、NearbyStationsPage.cpp、OrderHistoryPage.cpp、UserInfoPage.cpp
++- server/AdminLoginDialog.cpp、AdminMainWindow.cpp、pages/OrderManagePage.cpp、PileManagePage.cpp、PileStatusPage.cpp、SalesPage.cpp、StationManagePage.cpp、UserManagePage.cpp
++
++### 测试
++- code/tests/discovery_ui_test.cpp — QPalette::Window 断言 #F3F7F6 → #F3F6F4。
++
++## 颜色映射摘要
++- 品牌绿：#237653/#197451/#256352/#1F9D67/#31A675/#38B987/#42BD8C/#60BB91/#64A986/#66CDA4/#6AA889 → 浅底文字/描边 #00875A；按钮/图形填充 #00C878（原文白字处文字改 #04120C）。
++- 侧边栏深蓝系：#18263D→#0D1F1A、#101B2D→#0A1411、#223653/#263A59→#123328；#DAFFAE/#F7E2A9→#00C878。
++- 橙：#B0863F/#94631E/#B77A25/#CCA052/#EFA93F→#F59300；红：#C5525A/#AE454F/#A13D45/#D36A73→#E5484D；蓝：#1B5BB8/#59B7CC/#37C6FF→#2F7CF6。
++- 浅底：#F3F7F6/#F3FAF6→#F3F6F4；#DCE8E2/#D2E1D8/#CCD4DF/#DDE9E2/#DFEAE3/#E2E8F0/#E4E7ED→#E2E8E5；#EDF2EF→#F1F5F2；正文 #243E33/#1F2A3C/#203F32→#14201B；次要 #6B7280/#64748B/#667D70→#6B7A73；灰 #94A3B8/#819389/#7A8BA0/#677B70→#8A968F。
++
++## 语义变更（与旧代码冲突处，按新语义执行）
++- 旧代码「空闲=绿、充电中=橙」→ 新语义「充电中/在用=绿(#00C878/#00875A)、空闲/闲置=蓝(#2F7CF6)」。涉及 NearbyStationsPage、PileManagePage、PileStatusPage、StationManagePage、OrderManagePage、OrderHistoryPage、UserManagePage、AdminTableCard、web 饼图。
++- AdminTableCard 状态 chip「充电/在用/排队/待」为单一分支（不可改逻辑），整体取绿系 #00875A/#D8F5E7——其中「待」语义上更接近警告橙，受结构限制无法区分。
++- OrderHistoryPage 预约状态(ReservationActive/Assigned)保持橙 #F59300（待处理语义）。
++
++## 风险点
++- 新增少量 token 外浅色辅助色：#A8E4C8（绿描边浅底）、#E3EEFD（信息蓝浅底徽章）、#D13B40（settleBtn hover 深红）、#FCEEEF/#FDF0DC/#EAF6F0（语义浅底）。均为旧浅底的同族替换。
++- ChargingPage.cpp 在改写期间疑似被并行进程同时编辑；最终文件已复核，所有 hex 均为新 token 且无逻辑改动（git diff 确认所有 C++ 改动行均含 hex 字面量）。
++- 环境无 qmake/Qt，未能编译验证；QSS 已做括号配平（88/75/30 均平衡）与 objectName 保留校验。
++- client.qss 与 global.qss 对 navList::item 均有 border-left 定义，client.qss 后加载覆盖 global.qss，行为与改版前一致。
++
++## map.html（车机端地图页，最后补充）
++- 站点标记 #18263D → #00C878；选中态 #C5525A → #E5484D；当前位置标记 → #2F7CF6
++- 路线规划线条 #a9864f → #00C878（白色描边保留以保证在各种底图上的可读性）
++- 弹窗与状态提示条改为 VoltGrid 浅色系配色
+diff --git a/code/client/LoginDialog.cpp b/code/client/LoginDialog.cpp
+index 0861ab0..72fd1c7 100644
+--- a/code/client/LoginDialog.cpp
++++ b/code/client/LoginDialog.cpp
+@@ -74,7 +74,7 @@ LoginDialog::LoginDialog(QWidget *parent)
+     ui->exitBtn->setAutoDefault(false);
+     auto *mark = new QLabel(this);
+     mark->setObjectName("loginMark");
+-    mark->setPixmap(IconFactory::icon(IconFactory::IconBolt, QColor("#237653")).pixmap(32, 32));
++    mark->setPixmap(IconFactory::icon(IconFactory::IconBolt, QColor("#00C878")).pixmap(32, 32));
+     ui->rootLayout->insertWidget(0, mark, 0, Qt::AlignHCenter);
+ 
+     loadStyleSheet();
+diff --git a/code/client/UserMainWindow.cpp b/code/client/UserMainWindow.cpp
+index 665f68a..7f810fb 100644
+--- a/code/client/UserMainWindow.cpp
++++ b/code/client/UserMainWindow.cpp
+@@ -75,7 +75,7 @@ void UserMainWindow::initUi()
+     logoLayout->setContentsMargins(0, 0, 0, 0);
+     logoLayout->setSpacing(8);
+     QLabel *logoIcon = new QLabel(logoBox);
+-    logoIcon->setPixmap(IconFactory::icon(IconFactory::IconBolt, QColor("#37C6FF")).pixmap(22, 22));
++    logoIcon->setPixmap(IconFactory::icon(IconFactory::IconBolt, QColor("#00C878")).pixmap(22, 22));
+     QLabel *logo = new QLabel("东软充电", logoBox);
+     logo->setObjectName("logoLabel");
+     logoLayout->addStretch();
+diff --git a/code/client/pages/ChargeChartWidget.cpp b/code/client/pages/ChargeChartWidget.cpp
+index 2169d21..8560bd0 100644
+--- a/code/client/pages/ChargeChartWidget.cpp
++++ b/code/client/pages/ChargeChartWidget.cpp
+@@ -58,7 +58,7 @@ void ChargeChartWidget::paintEvent(QPaintEvent *)
+     const int ch = h - padT - padB;
+ 
+     // 标题
+-    p.setPen(QColor("#595959"));
++    p.setPen(QColor("#14201B"));
+     p.setFont(QFont(QString(), 10, QFont::Bold));
+     p.drawText(padL, 4, cw, 16, Qt::AlignLeft | Qt::AlignVCenter,
+                m_mode == 0 ? QStringLiteral("充电曲线 — 电量(度)")
+@@ -66,7 +66,7 @@ void ChargeChartWidget::paintEvent(QPaintEvent *)
+                                          : QStringLiteral("模拟充电功率 — kW"));
+ 
+     if (data.size() < 2) {
+-        p.setPen(QColor("#BFBFBF"));
++        p.setPen(QColor("#C6D0CA"));
+         p.setFont(QFont(QString(), 11));
+         p.drawText(padL, padT, cw, ch, Qt::AlignCenter,
+                    QStringLiteral("充电中, 数据采集中..."));
+@@ -92,18 +92,18 @@ void ChargeChartWidget::paintEvent(QPaintEvent *)
+ 
+     // 网格线 + Y轴标签
+     p.setFont(QFont(QString(), 9));
+-    p.setPen(QPen(QColor("#F0F0F0"), 1));
++    p.setPen(QPen(QColor("#E2E8E5"), 1));
+     for (double v = 0; v <= yMax + 0.001; v += yStep) {
+         const int y = yOf(v);
+         p.drawLine(padL, y, padL + cw, y);
+-        p.setPen(QColor("#8C8C8C"));
++        p.setPen(QColor("#6B7A73"));
+         p.drawText(0, y - 8, padL - 6, 16, Qt::AlignRight | Qt::AlignVCenter,
+                    QString::number(v, 'f', v < 10 ? 1 : 0));
+-        p.setPen(QPen(QColor("#F0F0F0"), 1));
++        p.setPen(QPen(QColor("#E2E8E5"), 1));
+     }
+ 
+     // X轴标签(最多5个)
+-    p.setPen(QColor("#8C8C8C"));
++    p.setPen(QColor("#6B7A73"));
+     const int xTicks = qMin(5, maxMin);
+     for (int i = 0; i <= xTicks; ++i) {
+         const int min = qRound((double)i / xTicks * maxMin);
+@@ -113,7 +113,7 @@ void ChargeChartWidget::paintEvent(QPaintEvent *)
+     }
+ 
+     // 渐变填充区域
+-    const QColor lineColor = m_mode == 1 ? QColor("#B77A25") : QColor("#237653");
++    const QColor lineColor = m_mode == 1 ? QColor("#F59300") : QColor("#00C878");
+     QLinearGradient grad(0, padT, 0, padT + ch);
+     grad.setColorAt(0, QColor(lineColor.red(), lineColor.green(), lineColor.blue(), 40));
+     grad.setColorAt(1, QColor(lineColor.red(), lineColor.green(), lineColor.blue(), 4));
+diff --git a/code/client/pages/ChargingPage.cpp b/code/client/pages/ChargingPage.cpp
+index c6e070f..61307b7 100644
+--- a/code/client/pages/ChargingPage.cpp
++++ b/code/client/pages/ChargingPage.cpp
+@@ -83,17 +83,17 @@ void ChargeRingWidget::paintEvent(QPaintEvent *)
+     const qreal r = qMin(width(), height()) / 2.0 - 16;
+     const QRectF ringRect(c.x() - r, c.y() - r, r * 2, r * 2);
+ 
+-    QPen bg(QColor("#E6EDF5"), 14, Qt::SolidLine, Qt::RoundCap);
++    QPen bg(QColor("#E2E8E5"), 14, Qt::SolidLine, Qt::RoundCap);
+     p.setPen(bg);
+     p.drawArc(ringRect, 0, 360 * 16);
+ 
+     if (m_progress >= 0) {
+-        QPen fg(QColor("#237653"), 14, Qt::SolidLine, Qt::RoundCap);
++        QPen fg(QColor("#00C878"), 14, Qt::SolidLine, Qt::RoundCap);
+         p.setPen(fg);
+         const int span = int(qBound(0.0, m_progress, 1.0) * 360 * 16);
+         p.drawArc(ringRect, 90 * 16, -span);
+     } else {
+-        QPen fg(QColor("#66CDA4"), 14, Qt::SolidLine, Qt::RoundCap);
++        QPen fg(QColor("#00C878"), 14, Qt::SolidLine, Qt::RoundCap);
+         p.setPen(fg);
+         p.drawArc(ringRect, 90 * 16, -60 * 16);
+     }
+@@ -101,14 +101,14 @@ void ChargeRingWidget::paintEvent(QPaintEvent *)
+     QFont big = p.font();
+     big.setPointSize(22);
+     big.setBold(true);
+-    p.setPen(QColor("#1F2A3C"));
++    p.setPen(QColor("#14201B"));
+     p.setFont(big);
+     p.drawText(QRectF(c.x() - r, c.y() - 22, r * 2, 34), Qt::AlignCenter, m_big);
+ 
+     QFont small = p.font();
+     small.setPointSize(10);
+     small.setBold(false);
+-    p.setPen(QColor("#6B7280"));
++    p.setPen(QColor("#6B7A73"));
+     p.setFont(small);
+     p.drawText(QRectF(c.x() - r, c.y() + 14, r * 2, 24), Qt::AlignCenter, m_small);
+ }
+@@ -184,7 +184,7 @@ private:
+         const bool enough = freeze <= m_balance + 1e-6;
+         m_estimate->setText(QStringLiteral("%1 元    (账户余额 %2 元)")
+                                 .arg(freeze, 0, 'f', 2).arg(m_balance, 0, 'f', 2));
+-        m_estimate->setStyleSheet(enough ? "color:#1F9D67;" : "color:#C5525A;font-weight:bold;");
++        m_estimate->setStyleSheet(enough ? "color:#00875A;" : "color:#E5484D;font-weight:bold;");
+     }
+ 
+     PileInfo m_pile;
+@@ -229,7 +229,7 @@ public:
+         lay->addLayout(row);
+ 
+         m_hint = new QLabel(QStringLiteral("绿色为可约时段, 灰色已被占用, 点击选择开始时间"), this);
+-        m_hint->setStyleSheet("color:#6B7280;");
++        m_hint->setStyleSheet("color:#6B7A73;");
+         lay->addWidget(m_hint);
+ 
+         QWidget *gridHost = new QWidget(this);
+@@ -322,13 +322,13 @@ private:
+                 btn->setEnabled(false);
+                 btn->setText(m_slotLabels[i] + QStringLiteral(" 已约"));
+                 btn->setStyleSheet(
+-                    "QPushButton{background:#EEF0F3;color:#9AA3AF;border:1px solid #E2E6EC;"
+-                    "border-radius:6px;} QPushButton:disabled{color:#9AA3AF;}");
++                    "QPushButton{background:#F1F5F2;color:#9AA8A0;border:1px solid #E2E8E5;"
++                    "border-radius:6px;} QPushButton:disabled{color:#9AA8A0;}");
+             } else {
+                 btn->setStyleSheet(
+-                    "QPushButton{background:#EAF7F0;color:#1F9D67;border:1px solid #BFE6D2;"
+-                    "border-radius:6px;} QPushButton:checked{background:#237653;color:white;"
+-                    "border:1px solid #237653;font-weight:bold;}");
++                    "QPushButton{background:#F3F6F4;color:#00875A;border:1px solid #A8E4C8;"
++                    "border-radius:6px;} QPushButton:checked{background:#00C878;color:#04120C;"
++                    "border:1px solid #00A664;font-weight:bold;}");
+                 connect(btn, &QPushButton::clicked, this, [this, i] {
+                     m_selectedIndex = i;
+                     paintSelection();
+@@ -349,13 +349,13 @@ private:
+             if (!b->isEnabled())
+                 continue;
+             if (i == m_selectedIndex)
+-                b->setStyleSheet("QPushButton{background:#237653;color:white;border:1px solid #237653;"
++                b->setStyleSheet("QPushButton{background:#00C878;color:#04120C;border:1px solid #00A664;"
+                                  "border-radius:6px;font-weight:bold;}");
+             else if (i > m_selectedIndex && i < m_selectedIndex + spanCount)
+-                b->setStyleSheet("QPushButton{background:#BCD7FA;color:#1B5BB8;border:1px solid #8FBCF2;"
++                b->setStyleSheet("QPushButton{background:#E3EEFD;color:#2F7CF6;border:1px solid #2F7CF6;"
+                                  "border-radius:6px;font-weight:bold;}");
+             else
+-                b->setStyleSheet("QPushButton{background:#EAF7F0;color:#1F9D67;border:1px solid #BFE6D2;"
++                b->setStyleSheet("QPushButton{background:#F3F6F4;color:#00875A;border:1px solid #A8E4C8;"
+                                  "border-radius:6px;}");
+             b->setChecked(i == m_selectedIndex);
+         }
+@@ -389,21 +389,21 @@ ChargingPage::ChargingPage(QWidget *parent)
+     : QWidget(parent)
+ {
+     this->setStyleSheet(
+-        "QFrame#pileCard{background:white;border:1px solid #E4E7ED;border-radius:12px;}"
+-        "QFrame#miniCard{background:white;border:1px solid #E4E7ED;border-radius:12px;}"
+-        "QLabel#cardCode{font-size:17px;font-weight:bold;color:#1F2A3C;}"
+-        "QLabel#badgeIdle{background:#E7F7EF;color:#1F9D67;border-radius:8px;padding:2px 8px;}"
+-        "QLabel#badgeBusy{background:#FBF1DF;color:#B0863F;border-radius:8px;padding:2px 8px;}"
+-        "QLabel#badgeFault{background:#FBEAEB;color:#C5525A;border-radius:8px;padding:2px 8px;}"
+-        "QLabel#miniValue{font-size:20px;font-weight:bold;color:#1F2A3C;}"
+-        "QLabel#miniCap{color:#6B7280;font-size:12px;}"
+-        "QPushButton#primaryBtn{background:#237653;color:white;border:none;border-radius:8px;"
+-        "padding:7px 14px;font-weight:bold;} QPushButton#primaryBtn:hover{background:#1B5BB8;}"
+-        "QPushButton#ghostBtn{background:white;color:#237653;border:1px solid #237653;border-radius:8px;"
+-        "padding:6px 12px;} QPushButton#ghostBtn:hover{background:#EEF8F0;}"
+-        "QPushButton#warnBtn{background:#EFA93C;color:white;border:none;border-radius:8px;padding:7px 14px;}"
+-        "QPushButton#settleBtn{background:#C5525A;color:white;border:none;border-radius:10px;"
+-        "padding:12px;font-size:15px;font-weight:bold;} QPushButton#settleBtn:hover{background:#A93E46;}");
++        "QFrame#pileCard{background:white;border:1px solid #E2E8E5;border-radius:12px;}"
++        "QFrame#miniCard{background:white;border:1px solid #E2E8E5;border-radius:12px;}"
++        "QLabel#cardCode{font-size:17px;font-weight:bold;color:#14201B;}"
++        "QLabel#badgeIdle{background:#E3EEFD;color:#00875A;border-radius:8px;padding:2px 8px;}"
++        "QLabel#badgeBusy{background:#D8F5E7;color:#00875A;border-radius:8px;padding:2px 8px;}"
++        "QLabel#badgeFault{background:#FCEEEF;color:#E5484D;border-radius:8px;padding:2px 8px;}"
++        "QLabel#miniValue{font-size:20px;font-weight:bold;color:#14201B;}"
++        "QLabel#miniCap{color:#6B7A73;font-size:12px;}"
++        "QPushButton#primaryBtn{background:#00C878;color:#04120C;border:none;border-radius:8px;"
++        "padding:7px 14px;font-weight:bold;} QPushButton#primaryBtn:hover{background:#00A664;}"
++        "QPushButton#ghostBtn{background:white;color:#00875A;border:1px solid #00875A;border-radius:8px;"
++        "padding:6px 12px;} QPushButton#ghostBtn:hover{background:#D8F5E7;}"
++        "QPushButton#warnBtn{background:#F59300;color:#04120C;border:none;border-radius:8px;padding:7px 14px;}"
++        "QPushButton#settleBtn{background:#E5484D;color:#FFFFFF;border:none;border-radius:10px;"
++        "padding:12px;font-size:15px;font-weight:bold;} QPushButton#settleBtn:hover{background:#D13B40;}");
+ 
+     QVBoxLayout *outer = new QVBoxLayout(this);
+     outer->setContentsMargins(0, 0, 0, 0);
+@@ -460,7 +460,7 @@ void ChargingPage::buildSelectView()
+     stationRow->addWidget(m_stationCombo, 1);
+     stationRow->addWidget(refreshBtn);
+     m_stationInfo = new QLabel(m_selectView);
+-    m_stationInfo->setStyleSheet("color:#6B7280;");
++    m_stationInfo->setStyleSheet("color:#6B7A73;");
+     stationRow->addWidget(m_stationInfo);
+ 
+     m_cardScroll = new QScrollArea(m_selectView);
+@@ -495,7 +495,7 @@ void ChargingPage::buildChargingView()
+     title->setObjectName("pageTitle");
+     m_orderTitle = new QLabel(m_chargingView);
+     m_orderTitle->setAlignment(Qt::AlignCenter);
+-    m_orderTitle->setStyleSheet("font-size:14px;color:#475569;");
++    m_orderTitle->setStyleSheet("font-size:14px;color:#6B7A73;");
+ 
+     m_ring = new ChargeRingWidget(m_chargingView);
+ 
+@@ -523,17 +523,17 @@ void ChargingPage::buildChargingView()
+ 
+     m_priceHint = new QLabel(m_chargingView);
+     m_priceHint->setAlignment(Qt::AlignCenter);
+-    m_priceHint->setStyleSheet("color:#6B7280;");
++    m_priceHint->setStyleSheet("color:#6B7A73;");
+ 
+     // 实时充电曲线
+     auto *chartRow = new QHBoxLayout();
+     chartRow->setSpacing(8);
+     auto *chartTitle = new QLabel(QStringLiteral("充电曲线 · 演示模拟"), m_chargingView);
+-    chartTitle->setStyleSheet("font-size:13px;font-weight:bold;color:#1A1B1C;");
++    chartTitle->setStyleSheet("font-size:13px;font-weight:bold;color:#14201B;");
+     m_chartModeBtn = new QPushButton(QStringLiteral("切换:电量"), m_chargingView);
+-    m_chartModeBtn->setStyleSheet("QPushButton{background:#EDF7F0;border:1px solid #91BFA0;"
+-                                   "border-radius:6px;padding:4px 12px;color:#237653;font-size:11px;}"
+-                                   "QPushButton:hover{background:#E2F2E7;}");
++    m_chartModeBtn->setStyleSheet("QPushButton{background:#F3F6F4;border:1px solid #00C878;"
++                                   "border-radius:6px;padding:4px 12px;color:#00875A;font-size:11px;}"
++                                   "QPushButton:hover{background:#D8F5E7;}");
+     m_chartModeBtn->setCursor(Qt::PointingHandCursor);
+     chartRow->addWidget(chartTitle);
+     chartRow->addStretch();
+@@ -580,7 +580,7 @@ void ChargingPage::buildWaitingView()
+ 
+     QLabel *icon = new QLabel(m_waitingView);
+     icon->setAlignment(Qt::AlignCenter);
+-    icon->setPixmap(IconFactory::icon(IconFactory::IconBattery, QColor("#237653")).pixmap(56, 56));
++    icon->setPixmap(IconFactory::icon(IconFactory::IconBattery, QColor("#00875A")).pixmap(56, 56));
+     m_waitTitle = new QLabel(m_waitingView);
+     m_waitTitle->setAlignment(Qt::AlignCenter);
+     QFont tf = m_waitTitle->font();
+@@ -589,7 +589,7 @@ void ChargingPage::buildWaitingView()
+     m_waitTitle->setFont(tf);
+     m_waitDesc = new QLabel(m_waitingView);
+     m_waitDesc->setAlignment(Qt::AlignCenter);
+-    m_waitDesc->setStyleSheet("color:#6B7280;font-size:13px;");
++    m_waitDesc->setStyleSheet("color:#6B7A73;font-size:13px;");
+     m_waitDesc->setWordWrap(true);
+ 
+     m_cancelWaitBtn = new QPushButton(m_waitingView);
+@@ -688,8 +688,8 @@ void ChargingPage::rebuildPileCards()
+         card->setObjectName("pileCard");
+         card->setMinimumWidth(210);
+         card->setMaximumWidth(330);
+-        const QString border = p.status == PileIdle ? "#BFE6D2"
+-                               : p.status == PileInUse ? "#F0DDB8" : "#EBC9CB";
++        const QString border = p.status == PileIdle ? "#2F7CF6"
++                               : p.status == PileInUse ? "#00C878" : "#E5484D";
+         card->setStyleSheet(QString("QFrame#pileCard{background:white;border:1.5px solid %1;"
+                                     "border-radius:12px;}").arg(border));
+ 
+@@ -716,7 +716,7 @@ void ChargingPage::rebuildPileCards()
+             QStringLiteral("%1 · %2 kW · 累计使用 %3 次")
+                 .arg(p.type == PileFast ? QStringLiteral("快充") : QStringLiteral("慢充"))
+                 .arg(p.power, 0, 'f', 1).arg(p.totalCount), card);
+-        spec->setStyleSheet("color:#6B7280;font-size:12px;");
++        spec->setStyleSheet("color:#6B7A73;font-size:12px;");
+ 
+         QHBoxLayout *btns = new QHBoxLayout();
+         btns->setSpacing(8);
+@@ -744,7 +744,7 @@ void ChargingPage::rebuildPileCards()
+             btns->addWidget(appoint);
+         } else {
+             QLabel *fault = new QLabel(QStringLiteral("设备检修中, 暂不可用"), card);
+-            fault->setStyleSheet("color:#C5525A;font-size:12px;");
++            fault->setStyleSheet("color:#E5484D;font-size:12px;");
+             btns->addWidget(fault);
+             btns->addStretch();
+         }
+diff --git a/code/client/pages/MessagePage.cpp b/code/client/pages/MessagePage.cpp
+index 9ff5cbe..06a15cf 100644
+--- a/code/client/pages/MessagePage.cpp
++++ b/code/client/pages/MessagePage.cpp
+@@ -33,20 +33,20 @@ public:
+         p->save(); p->setRenderHint(QPainter::Antialiasing);
+         const bool read = index.data(ReadRole).toBool();
+         const QRect card = option.rect.adjusted(0,4,-1,-5);
+-        p->setBrush(read ? QColor("#FFFFFF") : QColor("#F3FAF6"));
+-        p->setPen(QColor(option.state & QStyle::State_Selected ? "#6AA889" : "#DDE9E2"));
++        p->setBrush(read ? QColor("#FFFFFF") : QColor("#F3F6F4"));
++        p->setPen(QColor(option.state & QStyle::State_Selected ? "#00C878" : "#E2E8E5"));
+         p->drawRoundedRect(card,12,12);
+         const int x = card.left()+20, y = card.top()+16;
+         QFont font = option.font; font.setPixelSize(12); p->setFont(font);
+-        p->setPen(QColor("#387459"));
++        p->setPen(QColor("#00875A"));
+         p->drawText(QRect(x,y,120,20),Qt::AlignLeft|Qt::AlignVCenter,
+                     typeLabel(index.data(TypeRole).toInt()) + (read ? " · 已读" : " · 未读"));
+-        p->setPen(QColor("#819389"));
++        p->setPen(QColor("#8A968F"));
+         p->drawText(QRect(x+120,y,card.width()-160,20),Qt::AlignRight|Qt::AlignVCenter,index.data(TimeRole).toString());
+-        font.setPixelSize(16); font.setBold(!read); p->setFont(font); p->setPen(QColor("#203F32"));
++        font.setPixelSize(16); font.setBold(!read); p->setFont(font); p->setPen(QColor("#14201B"));
+         p->drawText(QRect(x,y+28,card.width()-40,24),Qt::AlignVCenter,
+                     QFontMetrics(font).elidedText(index.data(TitleRole).toString(),Qt::ElideRight,card.width()-40));
+-        font.setPixelSize(13); font.setBold(false); p->setFont(font); p->setPen(QColor("#667D70"));
++        font.setPixelSize(13); font.setBold(false); p->setFont(font); p->setPen(QColor("#6B7A73"));
+         p->drawText(QRect(x,y+60,card.width()-40,card.height()-92),Qt::TextWordWrap,index.data(BodyRole).toString());
+         p->restore();
+     }
+diff --git a/code/client/pages/NavigationPage.cpp b/code/client/pages/NavigationPage.cpp
+index 2730a5c..e70d103 100644
+--- a/code/client/pages/NavigationPage.cpp
++++ b/code/client/pages/NavigationPage.cpp
+@@ -687,7 +687,7 @@ void MapCanvas::paintEvent(QPaintEvent *event)
+     };
+ 
+     // 网格(模拟地图街区)
+-    p.setPen(QPen(QColor("#D8DFE8"), 1));
++    p.setPen(QPen(QColor("#E2E8E5"), 1));
+     for (int i = 0; i <= 8; ++i) {
+         const double x = area.left() + area.width() * i / 8;
+         p.drawLine(QPointF(x, area.top()), QPointF(x, area.bottom()));
+@@ -698,7 +698,7 @@ void MapCanvas::paintEvent(QPaintEvent *event)
+     }
+ 
+     // 路线: 有真实折线时画道路折线, 否则退回直线
+-    QPen routePen(QColor("#B0863F"), 3);
++    QPen routePen(QColor("#00C878"), 3);
+     p.setPen(routePen);
+     if (m_route.size() >= 2) {
+         QVector<QPointF> pts;
+@@ -708,7 +708,7 @@ void MapCanvas::paintEvent(QPaintEvent *event)
+         p.drawPolyline(pts.constData(), pts.size());
+     } else if (m_destIndex >= 0 && m_destIndex < m_stations.size()) {
+         const StationInfo &dest = m_stations[m_destIndex];
+-        QPen dashPen(QColor("#B0863F"), 3, Qt::DashLine);
++        QPen dashPen(QColor("#00C878"), 3, Qt::DashLine);
+         p.setPen(dashPen);
+         p.drawLine(QPointF(toX(m_curLon), toY(m_curLat)),
+                    QPointF(toX(dest.longitude), toY(dest.latitude)));
+@@ -720,25 +720,25 @@ void MapCanvas::paintEvent(QPaintEvent *event)
+         const StationInfo &s = m_stations[i];
+         const QPointF pt(toX(s.longitude), toY(s.latitude));
+         const bool isDest = (i == m_destIndex);
+-        p.setBrush(QColor(isDest ? "#C5525A" : "#1F9D67"));
++        p.setBrush(QColor(isDest ? "#E5484D" : "#00C878"));
+         p.setPen(QPen(Qt::white, 2));
+         p.drawEllipse(pt, isDest ? 9 : 7, isDest ? 9 : 7);
+-        p.setPen(QColor("#3A4758"));
++        p.setPen(QColor("#14201B"));
+         p.drawText(QPointF(pt.x() + 12, pt.y() + 4), s.name);
+     }
+ 
+     // 当前位置(定位圆点)
+     const QPointF cur(toX(m_curLon), toY(m_curLat));
+-    p.setPen(QPen(QColor("#B0863F"), 2));
+-    p.setBrush(QColor("#B0863F"));
++    p.setPen(QPen(QColor("#00C878"), 2));
++    p.setBrush(QColor("#00C878"));
+     p.drawEllipse(cur, 6, 6);
+     p.setBrush(QColor(176, 134, 63, 60));
+     p.drawEllipse(cur, 14, 14);
+-    p.setPen(QColor("#A9864F"));
++    p.setPen(QColor("#00875A"));
+     p.drawText(QPointF(cur.x() - 24, cur.y() - 20), "当前位置");
+ 
+     // 缩放倍率提示(右上角)
+-    p.setPen(QColor("#7A8BA0"));
++    p.setPen(QColor("#8A968F"));
+     p.drawText(QRectF(area.left(), area.top() - 24, area.width(), 20),
+                Qt::AlignRight | Qt::AlignTop,
+                QString("缩放 %1%").arg(qRound(m_zoom * 100)));
+diff --git a/code/client/pages/NearbyStationsPage.cpp b/code/client/pages/NearbyStationsPage.cpp
+index 0816810..3d1e50e 100644
+--- a/code/client/pages/NearbyStationsPage.cpp
++++ b/code/client/pages/NearbyStationsPage.cpp
+@@ -90,7 +90,7 @@ NearbyStationsPage::NearbyStationsPage(QWidget *parent)
+     auto *art = new QLabel(hero);
+     art->setObjectName("heroArt");
+     const QIcon plug(":/icons/lucide/plug-zap.svg");
+-    art->setPixmap(plug.isNull() ? IconFactory::icon(IconFactory::IconPile, QColor("#8BF0CE"), 90).pixmap(90, 90)
++    art->setPixmap(plug.isNull() ? IconFactory::icon(IconFactory::IconPile, QColor("#00C878"), 90).pixmap(90, 90)
+                                   : plug.pixmap(90, 90));
+     heroRow->addWidget(art);
+     layout->addWidget(hero);
+@@ -396,9 +396,9 @@ void NearbyStationsPage::showPileDetail(int stationId)
+         QString statusText;
+         QColor statusColor;
+         switch (p.status) {
+-        case PileIdle:  statusText = "空闲"; statusColor = QColor("#1F9D67"); break;
+-        case PileInUse: statusText = "充电中"; statusColor = QColor("#B0863F"); break;
+-        default:        statusText = "故障"; statusColor = QColor("#C5525A"); break;
++        case PileIdle:  statusText = "空闲"; statusColor = QColor("#2F7CF6"); break;
++        case PileInUse: statusText = "充电中"; statusColor = QColor("#00C878"); break;
++        default:        statusText = "故障"; statusColor = QColor("#E5484D"); break;
+         }
+         auto *statusItem = new QTableWidgetItem(statusText);
+         statusItem->setForeground(QBrush(statusColor));
+diff --git a/code/client/pages/OrderHistoryPage.cpp b/code/client/pages/OrderHistoryPage.cpp
+index 579de83..8e5b22a 100644
+--- a/code/client/pages/OrderHistoryPage.cpp
++++ b/code/client/pages/OrderHistoryPage.cpp
+@@ -74,7 +74,7 @@ OrderHistoryPage::OrderHistoryPage(QWidget *parent)
+     m_prevBtn = new QPushButton(QStringLiteral("上一页"), orderTab);
+     m_nextBtn = new QPushButton(QStringLiteral("下一页"), orderTab);
+     m_pageLabel = new QLabel(orderTab);
+-    m_pageLabel->setStyleSheet("color:#6B7280;");
++    m_pageLabel->setStyleSheet("color:#6B7A73;");
+     oTop->addWidget(refreshBtn);
+     oTop->addWidget(m_detailBtn);
+     oTop->addStretch();
+@@ -221,9 +221,9 @@ void OrderHistoryPage::refreshOrders()
+         m_orderTable->setItem(i, 6, new QTableWidgetItem(QString::number(o.amount, 'f', 2)));
+         m_orderTable->setItem(i, 7, new QTableWidgetItem(QString::number(o.simMinutes)));
+         auto *st = new QTableWidgetItem(orderStatusText(o.status));
+-        st->setForeground(QBrush(o.status == OrderFinished ? QColor("#1F9D67")
+-                                : o.status == OrderCharging ? QColor("#B0863F")
+-                                : o.status == OrderAbnormal ? QColor("#C5525A") : QColor("#94A3B8")));
++        st->setForeground(QBrush(o.status == OrderFinished ? QColor("#00875A")
++                                : o.status == OrderCharging ? QColor("#00875A")
++                                : o.status == OrderAbnormal ? QColor("#E5484D") : QColor("#94A3B8")));
+         m_orderTable->setItem(i, 8, st);
+     }
+     m_orderTable->resizeColumnsToContents();
+@@ -320,7 +320,7 @@ void OrderHistoryPage::refreshReservations()
+         m_resTable->setItem(i, 6, new QTableWidgetItem(QString::number(qMax(0, r.queuePos))));
+         auto *st = new QTableWidgetItem(resStatusText(r.status));
+         st->setForeground(QBrush(r.status == ReservationActive || r.status == ReservationAssigned
+-                                 ? QColor("#B0863F") : QColor("#94A3B8")));
++                                 ? QColor("#F59300") : QColor("#8A968F")));
+         m_resTable->setItem(i, 7, st);
+     }
+     m_resTable->resizeColumnsToContents();
+diff --git a/code/client/pages/UserInfoPage.cpp b/code/client/pages/UserInfoPage.cpp
+index 7ed4668..eb09e23 100644
+--- a/code/client/pages/UserInfoPage.cpp
++++ b/code/client/pages/UserInfoPage.cpp
+@@ -24,7 +24,7 @@ namespace {
+ // 默认灰色头像
+ QPixmap defaultAvatar()
+ {
+-    QPixmap pm = IconFactory::icon(IconFactory::IconUser, QColor("#237653"), 96).pixmap(96, 96);
++    QPixmap pm = IconFactory::icon(IconFactory::IconUser, QColor("#00875A"), 96).pixmap(96, 96);
+     return pm;
+ }
+ } // namespace
+diff --git a/code/common/AdminTableCard.h b/code/common/AdminTableCard.h
+index 8c02587..247f582 100644
+--- a/code/common/AdminTableCard.h
++++ b/code/common/AdminTableCard.h
+@@ -19,10 +19,10 @@ public:
+         QStyleOptionViewItem base(option); initStyleOption(&base, index); base.text.clear();
+         const auto *widget = option.widget;
+         (widget ? widget->style() : QApplication::style())->drawControl(QStyle::CE_ItemViewItem, &base, p, widget);
+-        QColor fg("#24724E"), bg("#E5F4EA");
+-        if (text.contains("故障") || text.contains("冻结") || text.contains("异常")) { fg=QColor("#AE454F"); bg=QColor("#FCEBED"); }
+-        else if (text.contains("充电") || text.contains("在用") || text.contains("排队") || text.contains("待")) { fg=QColor("#94631E"); bg=QColor("#FFF2D9"); }
+-        else if (text.contains("取消") || text.contains("结束")) { fg=QColor("#677B70"); bg=QColor("#EDF2EF"); }
++        QColor fg("#00875A"), bg("#D8F5E7");
++        if (text.contains("故障") || text.contains("冻结") || text.contains("异常")) { fg=QColor("#E5484D"); bg=QColor("#FCEEEF"); }
++        else if (text.contains("充电") || text.contains("在用") || text.contains("排队") || text.contains("待")) { fg=QColor("#00875A"); bg=QColor("#D8F5E7"); }
++        else if (text.contains("取消") || text.contains("结束")) { fg=QColor("#8A968F"); bg=QColor("#F1F5F2"); }
+         p->save(); p->setRenderHint(QPainter::Antialiasing);
+         const int width = qMin(option.rect.width()-12, option.fontMetrics.horizontalAdvance(text)+24);
+         QRect badge(option.rect.x()+8, option.rect.center().y()-12, qMax(0,width), 24);
+diff --git a/code/common/AppTheme.h b/code/common/AppTheme.h
+index 45d6560..eb19f7c 100644
+--- a/code/common/AppTheme.h
++++ b/code/common/AppTheme.h
+@@ -10,25 +10,25 @@ inline void apply(QApplication &app)
+ {
+     QPalette palette;
+     for (auto group : {QPalette::Active, QPalette::Inactive, QPalette::Disabled}) {
+-        palette.setColor(group, QPalette::Window, QColor("#F3F7F6"));
++        palette.setColor(group, QPalette::Window, QColor("#F3F6F4"));
+         palette.setColor(group, QPalette::Base, QColor("#FFFFFF"));
+-        palette.setColor(group, QPalette::AlternateBase, QColor("#F1F7F3"));
++        palette.setColor(group, QPalette::AlternateBase, QColor("#F1F5F2"));
+         palette.setColor(group, QPalette::Button, QColor("#FFFFFF"));
+-        palette.setColor(group, QPalette::WindowText, QColor("#243E33"));
+-        palette.setColor(group, QPalette::Text, QColor("#243E33"));
+-        palette.setColor(group, QPalette::ButtonText, QColor("#243E33"));
+-        palette.setColor(group, QPalette::Highlight, QColor("#DDEFE3"));
+-        palette.setColor(group, QPalette::HighlightedText, QColor("#174F35"));
+-        palette.setColor(group, QPalette::ToolTipBase, QColor("#FFFFFF"));
+-        palette.setColor(group, QPalette::ToolTipText, QColor("#243E33"));
++        palette.setColor(group, QPalette::WindowText, QColor("#14201B"));
++        palette.setColor(group, QPalette::Text, QColor("#14201B"));
++        palette.setColor(group, QPalette::ButtonText, QColor("#14201B"));
++        palette.setColor(group, QPalette::Highlight, QColor("#D8F5E7"));
++        palette.setColor(group, QPalette::HighlightedText, QColor("#06573A"));
++        palette.setColor(group, QPalette::ToolTipBase, QColor("#0D1F1A"));
++        palette.setColor(group, QPalette::ToolTipText, QColor("#FFFFFF"));
+         palette.setColor(group, QPalette::Light, QColor("#FFFFFF"));
+-        palette.setColor(group, QPalette::Mid, QColor("#D2E1D8"));
+-        palette.setColor(group, QPalette::Dark, QColor("#A0B8A9"));
+-        palette.setColor(group, QPalette::Shadow, QColor("#D2E1D8"));
+-        palette.setColor(group, QPalette::PlaceholderText, QColor("#73877C"));
++        palette.setColor(group, QPalette::Mid, QColor("#C6D0CA"));
++        palette.setColor(group, QPalette::Dark, QColor("#8A968F"));
++        palette.setColor(group, QPalette::Shadow, QColor("#8A968F"));
++        palette.setColor(group, QPalette::PlaceholderText, QColor("#8A968F"));
+     }
+-    palette.setColor(QPalette::Disabled, QPalette::Text, QColor("#87998E"));
+-    palette.setColor(QPalette::Disabled, QPalette::ButtonText, QColor("#87998E"));
++    palette.setColor(QPalette::Disabled, QPalette::Text, QColor("#9AA8A0"));
++    palette.setColor(QPalette::Disabled, QPalette::ButtonText, QColor("#9AA8A0"));
+     app.setPalette(palette);
+     QString stylesheet;
+     for (const auto *path : {":/qss/global.qss", ":/qss/client.qss"}) {
+diff --git a/code/common/ChargingParticles.h b/code/common/ChargingParticles.h
+index 14456f4..76e38de 100644
+--- a/code/common/ChargingParticles.h
++++ b/code/common/ChargingParticles.h
+@@ -27,7 +27,7 @@ protected:
+             const double seed=std::sin((i+1)*127.1)*43758.5453;
+             const double x=width()*(seed-std::floor(seed)) + 18*std::sin(t*.6+i);
+             const double y=height()*(1.08-1.16*eased);
+-            QColor c(i%3==0 ? "#59B7CC" : "#42BD8C");c.setAlphaF(.28*std::sin(phase*3.14159265359));
++            QColor c(i%3==0 ? "#2F7CF6" : "#00C878");c.setAlphaF(.28*std::sin(phase*3.14159265359));
+             const double radius=2+i%4;
+             QRadialGradient glow(QPointF(x,y),radius*4);glow.setColorAt(0,c);c.setAlpha(0);glow.setColorAt(1,c);
+             p.setBrush(glow);p.drawEllipse(QPointF(x,y),radius*4,radius*4);
+diff --git a/code/common/DonutChart.h b/code/common/DonutChart.h
+index 3521654..d6d9a9a 100644
+--- a/code/common/DonutChart.h
++++ b/code/common/DonutChart.h
+@@ -27,31 +27,31 @@ protected:
+         const QRectF ring=ringRect(); const qreal thickness=ring.width()*.13;
+         const QRectF arc=ring.adjusted(thickness/2,thickness/2,-thickness/2,-thickness/2);
+         const int total=m_values[0]+m_values[1]+m_values[2];
+-        p.setPen(QColor("#294D3D")); QFont font=p.font();font.setPixelSize(14);font.setBold(true);p.setFont(font);
++        p.setPen(QColor("#00875A")); QFont font=p.font();font.setPixelSize(14);font.setBold(true);p.setFont(font);
+         p.drawText(QRect(16,12,width()-32,24),Qt::AlignCenter,"设备状态分布");
+-        p.setBrush(Qt::NoBrush);p.setPen(QPen(QColor("#EDF3EF"),thickness));p.drawEllipse(arc);
++        p.setBrush(Qt::NoBrush);p.setPen(QPen(QColor("#E2E8E5"),thickness));p.drawEllipse(arc);
+         qreal start=90*16;
+         for(int i=0;i<3 && total>0;++i) {
+             const qreal span=360.0*16*m_values[i]/total*m_progress;
+             p.setPen(QPen(m_colors[i],thickness,Qt::SolidLine,Qt::FlatCap));
+             p.drawArc(arc,qRound(start),-qRound(span));start-=span;
+         }
+-        p.setPen(QColor("#214B36"));font.setPixelSize(qBound(18,int(ring.width()*.17),34));font.setBold(true);p.setFont(font);
++        p.setPen(QColor("#06573A"));font.setPixelSize(qBound(18,int(ring.width()*.17),34));font.setBold(true);p.setFont(font);
+         p.drawText(QRectF(ring.left(),ring.center().y()-26,ring.width(),36),Qt::AlignCenter,QString::number(total));
+-        font.setPixelSize(12);font.setBold(false);p.setFont(font);p.setPen(QColor("#74887B"));
++        font.setPixelSize(12);font.setBold(false);p.setFont(font);p.setPen(QColor("#6B7A73"));
+         p.drawText(QRectF(ring.left(),ring.center().y()+12,ring.width(),22),Qt::AlignCenter,total ? "电桩总数" : "暂无设备");
+         const QStringList names{"在用","闲置","故障"};
+         for(int i=0;i<3;++i) {
+             const int y=height()-80+i*24;
+             p.setPen(Qt::NoPen);p.setBrush(m_colors[i]);p.drawEllipse(QPointF(30,y+8),4,4);
+-            p.setPen(QColor("#576D60"));
++            p.setPen(QColor("#8A968F"));
+             p.drawText(QRect(44,y,width()-60,20),Qt::AlignVCenter,
+                 QString("%1   %2 台  ·  %3%").arg(names[i]).arg(m_values[i]).arg(total?100.0*m_values[i]/total:0,0,'f',1));
+         }
+     }
+ private:
+     int m_values[3];
+-    QColor m_colors[3]{QColor("#CCA052"),QColor("#31A675"),QColor("#D36A73")};
++    QColor m_colors[3]{QColor("#F59300"),QColor("#00C878"),QColor("#E5484D")};
+     QVariantAnimation m_reveal;
+     qreal m_progress=1;
+ };
+diff --git a/code/common/IconFactory.h b/code/common/IconFactory.h
+index ec7c816..7e7606a 100644
+--- a/code/common/IconFactory.h
++++ b/code/common/IconFactory.h
+@@ -27,7 +27,7 @@ public:
+         IconCompass,       // 罗盘: 一键导航
+     };
+ 
+-    static QIcon icon(IconType type, const QColor &color = QColor("#D8E4F0"), int px = 48)
++    static QIcon icon(IconType type, const QColor &color = QColor("#8FA69C"), int px = 48)
+     {
+         QPixmap pm(px, px);
+         pm.fill(Qt::transparent);
+diff --git a/code/common/UiMotion.h b/code/common/UiMotion.h
+index 38e0e5c..61b480b 100644
+--- a/code/common/UiMotion.h
++++ b/code/common/UiMotion.h
+@@ -49,12 +49,12 @@ protected:
+         QPainter p(this); p.setRenderHint(QPainter::Antialiasing);
+         if (m_ripple) {
+             QPainterPath clip; clip.addRoundedRect(QRectF(rect()), 7, 7); p.setClipPath(clip);
+-            QColor color("#60BB91"); color.setAlphaF(.25 * (1 - m_progress));
++            QColor color("#00C878"); color.setAlphaF(.25 * (1 - m_progress));
+             p.setPen(Qt::NoPen); p.setBrush(color);
+             const qreal radius = std::hypot(qMax(m_origin.x(), width()-m_origin.x()), qMax(m_origin.y(),height()-m_origin.y())) * m_progress;
+             p.drawEllipse(m_origin, radius, radius);
+         } else {
+-            QColor color("#F3F7F6"); color.setAlphaF(.65 * (1 - m_progress));
++            QColor color("#F3F6F4"); color.setAlphaF(.65 * (1 - m_progress));
+             p.fillRect(rect(), color);
+         }
+     }
+@@ -96,7 +96,7 @@ protected:
+     }
+     void paintEvent(QPaintEvent *) override {
+         QPainter p(this); p.setRenderHint(QPainter::Antialiasing);
+-        QColor c("#38B987"); c.setAlphaF(focused ? .45+.45*level : .12*level);
++        QColor c("#00C878"); c.setAlphaF(focused ? .45+.45*level : .12*level);
+         p.setPen(focused ? QPen(c,2) : QPen(Qt::NoPen));
+         p.setBrush(focused ? Qt::NoBrush : QBrush(c));
+         p.drawRoundedRect(QRectF(rect()).adjusted(1,1,-1,-1),7,7);
+diff --git a/code/common/WindowChrome.h b/code/common/WindowChrome.h
+index 2aad8d5..f6756ff 100644
+--- a/code/common/WindowChrome.h
++++ b/code/common/WindowChrome.h
+@@ -32,7 +32,7 @@ protected:
+     }
+     void paintEvent(QPaintEvent *) override {
+         QPainter p(this); p.setRenderHint(QPainter::Antialiasing); p.setPen(Qt::NoPen);
+-        p.fillRect(rect(), QColor(parentWidget()->property("dialogSurface").toBool() ? "#FFFFFF" : "#F3F7F6"));
++        p.fillRect(rect(), QColor(parentWidget()->property("dialogSurface").toBool() ? "#FFFFFF" : "#F3F6F4"));
+     }
+ private:
+     void updateShape() {
+@@ -59,8 +59,8 @@ public:
+             auto *b=new QPushButton(text,this); b->setObjectName(name); b->setFixedSize(32,28);
+             b->setFocusPolicy(Qt::NoFocus); b->setAutoDefault(false);
+             b->setStyleSheet(dialogSurface
+-                ? "QPushButton{padding:0;min-height:0;border:none;background:transparent;color:white;} QPushButton:hover{background:#326A57;}"
+-                : "QPushButton{padding:0;min-height:0;border:none;background:transparent;} QPushButton:hover{background:#DDEFE3;}");
++                ? "QPushButton{padding:0;min-height:0;border:none;background:transparent;color:white;} QPushButton:hover{background:#123328;}"
++                : "QPushButton{padding:0;min-height:0;border:none;background:transparent;} QPushButton:hover{background:#D8F5E7;}");
+             row->addWidget(b); return b;
+         };
+         auto *min=add(QStringLiteral("−"),"windowMinimize"); min->setToolTip("最小化");
+@@ -123,7 +123,7 @@ inline void installChrome(QWidget *w) {
+     w->setAttribute(Qt::WA_TranslucentBackground, false);
+     w->setAutoFillBackground(true);
+     QPalette palette = w->palette();
+-    palette.setColor(QPalette::Window, QColor(dialogSurface ? "#FFFFFF" : "#F3F7F6"));
++    palette.setColor(QPalette::Window, QColor(dialogSurface ? "#FFFFFF" : "#F3F6F4"));
+     w->setPalette(palette);
+     w->setContentsMargins(0,0,0,0);
+     new WindowBackdrop(w);
+diff --git a/code/resources/map/map.html b/code/resources/map/map.html
+index 31fb304..db55b5b 100644
+--- a/code/resources/map/map.html
++++ b/code/resources/map/map.html
+@@ -12,23 +12,23 @@
+         #map { position: absolute; inset: 0; }
+         #status {
+             display: none; position: absolute; z-index: 5; left: 16px; right: 16px; top: 14px;
+-            padding: 10px 14px; color: #72572c; background: rgba(255, 249, 235, .96);
+-            border: 1px solid #e7d6ae; border-radius: 7px; box-shadow: 0 3px 12px rgba(24, 38, 61, .12);
++            padding: 10px 14px; color: #06573A; background: rgba(216, 245, 231, .96);
++            border: 1px solid #A8E4C8; border-radius: 7px; box-shadow: 0 3px 12px rgba(10, 20, 17, .12);
+         }
+         .station-marker, .current-marker {
+             width: 20px; height: 20px; border-radius: 50%; box-sizing: border-box;
+-            border: 3px solid #fff; box-shadow: 0 2px 7px rgba(24, 38, 61, .42); cursor: pointer;
++            border: 3px solid #fff; box-shadow: 0 2px 7px rgba(10, 20, 17, .42); cursor: pointer;
+         }
+-        .station-marker { background: #1f9d67; }
+-        .station-marker.selected { width: 25px; height: 25px; background: #c5525a; }
+-        .current-marker { width: 24px; height: 24px; background: #a9864f; }
++        .station-marker { background: #00C878; }
++        .station-marker.selected { width: 25px; height: 25px; background: #E5484D; }
++        .current-marker { width: 24px; height: 24px; background: #2F7CF6; }
+         .current-marker::after {
+-            content: ""; position: absolute; inset: -9px; border: 2px solid rgba(169, 134, 79, .45);
++            content: ""; position: absolute; inset: -9px; border: 2px solid rgba(47, 124, 246, .45);
+             border-radius: 50%;
+         }
+-        .popup-title { color: #18263d; font-size: 14px; font-weight: 700; margin-bottom: 5px; }
+-        .popup-row { color: #526176; line-height: 1.6; max-width: 250px; }
+-        .popup-idle { color: #1f8058; font-weight: 700; }
++        .popup-title { color: #14201B; font-size: 14px; font-weight: 700; margin-bottom: 5px; }
++        .popup-row { color: #6B7A73; line-height: 1.6; max-width: 250px; }
++        .popup-idle { color: #00875A; font-weight: 700; }
+         .maplibregl-popup-content { border-radius: 8px; padding: 12px 14px; }
+     </style>
+ </head>
+@@ -116,7 +116,7 @@
+             map.addLayer({
+                 id: 'route-line', type: 'line', source: 'route',
+                 layout: {'line-cap': 'round', 'line-join': 'round'},
+-                paint: {'line-color': '#a9864f', 'line-width': 5}
++                paint: {'line-color': '#00C878', 'line-width': 5}
+             });
+         } else {
+             map.getSource('route').setData(routeGeoJson);
+diff --git a/code/resources/qss/client.qss b/code/resources/qss/client.qss
+index dd57332..ad83703 100644
+--- a/code/resources/qss/client.qss
++++ b/code/resources/qss/client.qss
+@@ -1,83 +1,83 @@
+-/* 客户端和管理端共用浅色主题。 */
+-QWidget#appCentral, QStackedWidget#contentStack { background: #F3F7F6; }
+-QWidget#sidebar { background: #123D35; border: none; }
++/* 客户端 VoltGrid 主题：深墨绿侧边栏 + 电力绿强调 + 浅色内容区。 */
++QWidget#appCentral, QStackedWidget#contentStack { background: #F3F6F4; }
++QWidget#sidebar { background: #0D1F1A; border: none; }
+ QWidget#logoBox { background: transparent; border: none; margin: 12px 6px; }
+-QLabel#logoLabel { color: #EDFFF7; font-size: 19px; }
+-QListWidget#navList { color: #B7D2C8; padding: 4px; }
+-QListWidget#navList::item { border: none; border-radius: 9px; padding: 13px 10px; margin: 4px 8px; }
+-QListWidget#navList::item:selected { background: #256352; color: #DAFFAE; border: none; }
+-QListWidget#navList::item:hover { background: #1B5044; color: white; }
+-QLabel#sideNote { color: #B4D2C4; font-size: 12px; padding: 18px 22px; }
+-QPushButton#logoutBtn { color: #B7D2C8; margin: 0px 10px; }
+-QPushButton#logoutBtn:hover { color: white; background: #256352; }
+-QWidget#headerBar { background: #FFFFFF; border-bottom: 1px solid #E3ECE7; }
+-QLabel#headerTitle { color: #173E33; }
+-QLabel#headerUser { background: #F0F7F3; color: #416254; border: none; }
+-QLabel#pageTitle { color: #173E33; }
+-QLabel#pageHint { color: #667C73; }
+-QFrame#discoveryHero { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #164D40,stop:1 #28715B); border-radius: 18px; }
+-QLabel#heroEyebrow { color: #AAD6C1; font-size: 10px; letter-spacing: 2px; background: transparent; }
+-QLabel#heroTitle { color: #F6FFF5; font-size: 28px; font-weight: 700; background: transparent; }
+-QLabel#heroSubtitle { color: #D3ECDD; font-size: 13px; background: transparent; }
++QLabel#logoLabel { color: #00C878; font-size: 19px; }
++QListWidget#navList { color: #8FA69C; padding: 4px; }
++QListWidget#navList::item { border: none; border-left: 3px solid transparent; border-radius: 6px; padding: 13px 10px; margin: 4px 8px; }
++QListWidget#navList::item:selected { background: #123328; color: #FFFFFF; border-left: 3px solid #00C878; }
++QListWidget#navList::item:hover { background: #123328; color: white; }
++QLabel#sideNote { color: #8FA69C; font-size: 12px; padding: 18px 22px; }
++QPushButton#logoutBtn { color: #8FA69C; margin: 0px 10px; }
++QPushButton#logoutBtn:hover { color: white; background: #123328; }
++QWidget#headerBar { background: #FFFFFF; border-bottom: 1px solid #E2E8E5; }
++QLabel#headerTitle { color: #14201B; }
++QLabel#headerUser { background: #F3F6F4; color: #6B7A73; border: none; }
++QLabel#pageTitle { color: #14201B; }
++QLabel#pageHint { color: #6B7A73; }
++QFrame#discoveryHero { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #0E5C3C,stop:1 #123328); border-radius: 18px; }
++QLabel#heroEyebrow { color: #00C878; font-size: 10px; letter-spacing: 2px; background: transparent; }
++QLabel#heroTitle { color: #FFFFFF; font-size: 28px; font-weight: 700; background: transparent; }
++QLabel#heroSubtitle { color: #8FA69C; font-size: 13px; background: transparent; }
+ QLabel#heroArt { background: transparent; padding: 0px 12px; }
+-QLabel#discoverySummary { color: #2E6852; background: #E6F1E9; border-radius: 9px; padding: 11px 16px; }
++QLabel#discoverySummary { color: #06573A; background: #D8F5E7; border-radius: 9px; padding: 11px 16px; }
+ QWidget#stationCardHost, QWidget#chargingCardHost, QScrollArea { background: transparent; border: none; }
+-QFrame#stationCard { background: white; border: 1px solid #DFEAE4; border-radius: 14px; }
+-QFrame#stationCard:hover { border: 1px solid #6DA98B; background: #FDFFFD; }
+-QLabel#stationName { color: #193F33; font-size: 17px; font-weight: 700; }
+-QLabel#stationPrice { color: #197451; font-size: 19px; font-weight: 700; }
+-QLabel#availableBadge { color: #196B4A; background: #E5F6EB; border-radius: 6px; padding: 5px 10px; font-weight: 600; }
+-QLabel#busyBadge { color: #986522; background: #FFF2DB; border-radius: 6px; padding: 5px 10px; }
+-QLabel#emptyState { color: #73847B; background: white; border-radius: 12px; padding: 24px; }
+-QPushButton { border: 1px solid #D2E1D8; border-radius: 8px; color: #395F4D; padding: 7px 14px; }
+-QPushButton:hover, QPushButton#secondaryBtn:hover { background: #ECF6EF; border-color: #7CAD90; color: #195C3D; }
+-QPushButton:pressed { background: #DCEFE1; }
+-QPushButton#primaryBtn, QPushButton#searchButton, QPushButton#successBtn { background: #237653; color: white; border: 1px solid #237653; }
+-QPushButton#primaryBtn:hover, QPushButton#searchButton:hover, QPushButton#successBtn:hover { background: #195E42; border-color: #195E42; }
+-QPushButton#primaryBtn:disabled, QPushButton:disabled { background: #EDF1ED; color: #94A298; border: 1px solid #E1E8E2; }
+-QPushButton:focus { border: 2px solid #70B18C; }
+-QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit { border: 1px solid #D3E0D8; selection-background-color: #237653; }
+-QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QTextEdit:focus { border: 2px solid #4E9870; }
+-QLineEdit:hover, QComboBox:hover { border-color: #7CAD90; }
+-QComboBox QAbstractItemView { selection-background-color: #E2F3E7; selection-color: #18573A; }
+-QCheckBox::indicator:checked { background: #237653; border-color: #237653; }
+-QTableWidget, QTableView { selection-background-color: #E6F3EA; selection-color: #245E3E; gridline-color: #EDF3EF; }
+-QTableWidget::item:hover { background: #F0F8F2; }
+-QHeaderView::section { background: #EDF4EF; color: #4B6858; }
+-QScrollBar:vertical { background: #ECF2EE; width: 7px; border: none; margin: 0px; }
+-QScrollBar::handle:vertical { background: #B5CDBE; min-height: 32px; border-radius: 3px; }
++QFrame#stationCard { background: white; border: 1px solid #E2E8E5; border-radius: 14px; }
++QFrame#stationCard:hover { border: 1px solid #00C878; background: #FDFFFD; }
++QLabel#stationName { color: #14201B; font-size: 17px; font-weight: 700; }
++QLabel#stationPrice { color: #00875A; font-size: 19px; font-weight: 700; }
++QLabel#availableBadge { color: #00875A; background: #D8F5E7; border-radius: 6px; padding: 5px 10px; font-weight: 600; }
++QLabel#busyBadge { color: #F59300; background: #FDF0DC; border-radius: 6px; padding: 5px 10px; }
++QLabel#emptyState { color: #6B7A73; background: white; border-radius: 12px; padding: 24px; }
++QPushButton { border: 1px solid #E2E8E5; border-radius: 8px; color: #14201B; padding: 7px 14px; }
++QPushButton:hover, QPushButton#secondaryBtn:hover { background: #EAF6F0; border-color: #00875A; color: #00875A; }
++QPushButton:pressed { background: #D8F5E7; }
++QPushButton#primaryBtn, QPushButton#searchButton, QPushButton#successBtn { background: #00C878; color: #04120C; border: 1px solid #00C878; }
++QPushButton#primaryBtn:hover, QPushButton#searchButton:hover, QPushButton#successBtn:hover { background: #00A664; border-color: #00A664; }
++QPushButton#primaryBtn:disabled, QPushButton:disabled { background: #EDF1EF; color: #9AA8A0; border: 1px solid #E2E8E5; }
++QPushButton:focus { border: 2px solid #00C878; }
++QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit { border: 1px solid #E2E8E5; selection-background-color: #00C878; }
++QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QTextEdit:focus { border: 2px solid #00C878; }
++QLineEdit:hover, QComboBox:hover { border-color: #00875A; }
++QComboBox QAbstractItemView { selection-background-color: #D8F5E7; selection-color: #06573A; }
++QCheckBox::indicator:checked { background: #00C878; border-color: #00C878; }
++QTableWidget, QTableView { selection-background-color: #D8F5E7; selection-color: #06573A; gridline-color: #E2E8E5; }
++QTableWidget::item:hover { background: #F3F6F4; }
++QHeaderView::section { background: #F1F5F2; color: #6B7A73; }
++QScrollBar:vertical { background: #F1F5F2; width: 7px; border: none; margin: 0px; }
++QScrollBar::handle:vertical { background: #C6D0CA; min-height: 32px; border-radius: 3px; }
+ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
+ 
+ QMainWindow, QDialog, QStackedWidget, QScrollArea, QTabWidget::pane {
+-    background: #F3F7F6; color: #243E33;
++    background: #F3F6F4; color: #14201B;
+ }
+-QAbstractScrollArea::corner { background: #F3F7F6; border: none; }
++QAbstractScrollArea::corner { background: #F3F6F4; border: none; }
+ QTableWidget, QTableView, QListWidget, QTextEdit {
+-    background: #FFFFFF; alternate-background-color: #F1F7F3; color: #243E33;
++    background: #FFFFFF; alternate-background-color: #F1F5F2; color: #14201B;
+ }
+-QHeaderView, QHeaderView::section, QTableCornerButton::section { background: #EDF4EF; color: #4B6858; }
+-QTabWidget::pane { border: 1px solid #DCE8DF; border-radius: 8px; }
+-QTabBar::tab { background: #EAF1EC; color: #5C7466; padding: 10px 18px; border: none; }
+-QTabBar::tab:selected { background: #FFFFFF; color: #237653; border-bottom: 3px solid #237653; }
+-QTabBar::tab:hover { background: #E0F0E5; }
+-QToolTip { background: #FFFFFF; color: #243E33; border: 1px solid #B5CDBE; }
+-QDateEdit, QDateTimeEdit, QTimeEdit { background: #FFFFFF; color: #243E33; border: 1px solid #D3E0D8; border-radius: 6px; padding: 7px; }
+-QStatusBar { background: #F3F7F6; color: #667C73; }
++QHeaderView, QHeaderView::section, QTableCornerButton::section { background: #F1F5F2; color: #6B7A73; }
++QTabWidget::pane { border: 1px solid #E2E8E5; border-radius: 8px; }
++QTabBar::tab { background: #F1F5F2; color: #6B7A73; padding: 10px 18px; border: none; }
++QTabBar::tab:selected { background: #FFFFFF; color: #00875A; border-bottom: 3px solid #00C878; }
++QTabBar::tab:hover { background: #EAF6F0; }
++QToolTip { background: #0D1F1A; color: #FFFFFF; border: 1px solid #1E3A2E; }
++QDateEdit, QDateTimeEdit, QTimeEdit { background: #FFFFFF; color: #14201B; border: 1px solid #E2E8E5; border-radius: 6px; padding: 7px; }
++QStatusBar { background: #F3F6F4; color: #6B7A73; }
+ 
+ /* 账户与通知：统一卡片层级和舒适的输入区。 */
+-QFrame#accountProfile, QFrame#accountSection { background: white; border: 1px solid #DFEAE4; border-radius: 16px; }
+-QLabel#accountAvatar { background: #EAF5ED; border: none; border-radius: 18px; }
+-QLabel#accountName { color: #193F33; font-size: 22px; font-weight: 700; }
+-QFrame#accountWallet { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #174D3E,stop:1 #2C7357); border: none; border-radius: 16px; }
+-QLabel#walletCaption { color: #CDE5D6; background: transparent; font-size: 12px; }
++QFrame#accountProfile, QFrame#accountSection { background: white; border: 1px solid #E2E8E5; border-radius: 16px; }
++QLabel#accountAvatar { background: #D8F5E7; border: none; border-radius: 18px; }
++QLabel#accountName { color: #14201B; font-size: 22px; font-weight: 700; }
++QFrame#accountWallet { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #0E5C3C,stop:1 #123328); border: none; border-radius: 16px; }
++QLabel#walletCaption { color: #8FA69C; background: transparent; font-size: 12px; }
+ QLabel#walletAmount { color: #FFFFFF; background: transparent; font-size: 40px; font-weight: 700; }
+ QWidget#accountPage QPushButton { min-height: 22px; }
+ QWidget#accountPage QLineEdit, QWidget#accountPage QDoubleSpinBox { min-height: 22px; padding: 7px 12px; }
+ QWidget#accountPage QDoubleSpinBox QLineEdit { min-height: 0px; padding: 0px; border: none; background: transparent; }
+-QPushButton#amountPreset { background: #F7FAF8; border: 1px solid #DCE7DF; }
+-QPushButton#amountPreset:checked { background: #E5F3E9; color: #17613F; border: 1px solid #5B9E77; font-weight: 700; }
+-QLabel#messageSummary { background: #E5F1E9; color: #245E42; border-radius: 12px; padding: 20px; font-size: 18px; font-weight: 600; }
++QPushButton#amountPreset { background: #F3F6F4; border: 1px solid #E2E8E5; }
++QPushButton#amountPreset:checked { background: #D8F5E7; color: #00875A; border: 1px solid #00C878; font-weight: 700; }
++QLabel#messageSummary { background: #D8F5E7; color: #06573A; border-radius: 12px; padding: 20px; font-size: 18px; font-weight: 600; }
+ QListWidget#messageList { background: transparent; border: none; padding: 0px; outline: none; }
+ QListWidget#messageList::item { padding: 0px; margin: 0px; border: none; }
+-QLabel#messageEmpty { background: white; color: #72867A; border: 1px solid #DFEAE4; border-radius: 16px; font-size: 15px; padding: 24px; }
++QLabel#messageEmpty { background: white; color: #6B7A73; border: 1px solid #E2E8E5; border-radius: 16px; font-size: 15px; padding: 24px; }
+ QComboBox#messageFilter { min-height: 22px; min-width: 130px; }
+diff --git a/code/resources/qss/global.qss b/code/resources/qss/global.qss
+index 1118674..7dc30c0 100644
+--- a/code/resources/qss/global.qss
++++ b/code/resources/qss/global.qss
+@@ -1,35 +1,35 @@
+-/* 企业稳重主题：深藏青 + 暖金 */
++/* VoltGrid 主题：深墨绿 chrome + 电力绿主色 + 浅色内容区 */
+ QMainWindow, QDialog {
+-    background: #F3F7F6;
++    background: #F3F6F4;
+ }
+ 
+ QWidget {
+-    color: #243247;
++    color: #14201B;
+     font-family: "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+     font-size: 13px;
+ }
+ 
+ QWidget#sidebar {
+-    background: #18263D;
+-    border-right: 1px solid #101B2D;
++    background: #0D1F1A;
++    border-right: 1px solid #0A1411;
+ }
+ 
+ QWidget#logoBox {
+-    background: #223653;
+-    border: 1px solid #324A6B;
++    background: #123328;
++    border: 1px solid #1E3A2E;
+     border-radius: 8px;
+     margin: 10px 12px 8px;
+     padding: 10px 8px;
+ }
+ QLabel#logoLabel {
+-    color: #DAFFAE;
++    color: #00C878;
+     font-size: 16px;
+     font-weight: 700;
+ }
+ 
+ QListWidget#navList {
+     background: transparent;
+-    color: #AEBBD0;
++    color: #8FA69C;
+     border: none;
+     outline: 0;
+     padding: 4px 6px;
+@@ -42,183 +42,183 @@ QListWidget#navList::item {
+     border-left: 3px solid transparent;
+ }
+ QListWidget#navList::item:hover {
+-    background: #263A59;
++    background: #123328;
+     color: #FFFFFF;
+ }
+ QListWidget#navList::item:selected {
+-    background: #237653;
++    background: #123328;
+     color: #FFFFFF;
+-    border-left: 3px solid #F7E2A9;
++    border-left: 3px solid #00C878;
+     font-weight: 700;
+ }
+ 
+ QPushButton {
+     background: #FFFFFF;
+-    color: #344257;
+-    border: 1px solid #CCD4DF;
++    color: #14201B;
++    border: 1px solid #E2E8E5;
+     border-radius: 6px;
+     padding: 8px 16px;
+     min-height: 18px;
+ }
+-QPushButton:hover { background: #ECF6EF; border-color: #7CAD90; color: #195C3D; }
+-QPushButton:pressed { background: #DCEFE1; }
+-QPushButton:disabled { background: #EEF1F5; color: #9AA6B5; border-color: #DCE2EA; }
++QPushButton:hover { background: #EAF6F0; border-color: #00875A; color: #00875A; }
++QPushButton:pressed { background: #D8F5E7; }
++QPushButton:disabled { background: #EDF1EF; color: #9AA8A0; border-color: #E2E8E5; }
+ QPushButton#primaryBtn, QPushButton#addButton, QPushButton#searchButton,
+ QPushButton#openWebBtn, QPushButton#successBtn {
+-    background: #237653;
+-    color: #FFFFFF;
+-    border: 1px solid #195E42;
++    background: #00C878;
++    color: #04120C;
++    border: 1px solid #00A664;
+     font-weight: 700;
+ }
+ QPushButton#primaryBtn:hover, QPushButton#addButton:hover, QPushButton#searchButton:hover,
+-QPushButton#openWebBtn:hover, QPushButton#successBtn:hover { background: #358661; }
++QPushButton#openWebBtn:hover, QPushButton#successBtn:hover { background: #00A664; }
+ QPushButton#secondaryBtn {
+     background: #FFFFFF;
+-    color: #526176;
+-    border: 1px solid #CBD3DD;
++    color: #6B7A73;
++    border: 1px solid #E2E8E5;
+ }
+-QPushButton#secondaryBtn:hover { background: #ECF6EF; border-color: #7CAD90; color: #195C3D; }
++QPushButton#secondaryBtn:hover { background: #EAF6F0; border-color: #00875A; color: #00875A; }
+ QPushButton#dangerBtn, QPushButton#restartButton, QPushButton#freezeButton, QPushButton#settleBtn {
+     background: #FFFFFF;
+-    color: #A13D45;
+-    border: 1px solid #DCAEB2;
++    color: #E5484D;
++    border: 1px solid #F0B9BB;
+ }
+ QPushButton#dangerBtn:hover, QPushButton#restartButton:hover, QPushButton#freezeButton:hover,
+-QPushButton#settleBtn:hover { background: #FCEEEF; border-color: #C97880; }
++QPushButton#settleBtn:hover { background: #FCEEEF; border-color: #E5484D; }
+ QPushButton#logoutBtn {
+     background: transparent;
+     border: 1px solid transparent;
+-    color: #AEBBD0;
++    color: #8FA69C;
+     text-align: left;
+     padding: 10px 14px;
+ }
+-QPushButton#logoutBtn:hover { background: #263A59; color: #DAFFAE; }
++QPushButton#logoutBtn:hover { background: #123328; color: #00C878; }
+ 
+ QWidget#headerBar {
+     background: #FFFFFF;
+-    border-bottom: 1px solid #DCE2EA;
++    border-bottom: 1px solid #E2E8E5;
+ }
+-QLabel#headerTitle { color: #18263D; font-size: 17px; font-weight: 700; }
++QLabel#headerTitle { color: #14201B; font-size: 17px; font-weight: 700; }
+ QLabel#headerUser {
+-    color: #6B7788;
+-    background: #F6F7F9;
+-    border: 1px solid #E1E5EB;
++    color: #6B7A73;
++    background: #F3F6F4;
++    border: 1px solid #E2E8E5;
+     border-radius: 13px;
+     padding: 6px 14px;
+ }
+ 
+-QLabel#pageTitle { color: #18263D; font-size: 21px; font-weight: 700; padding-bottom: 2px; }
+-QLabel#pageHint { color: #8290A2; font-size: 12px; }
+-QLabel#sectionTitle { color: #344257; font-size: 15px; font-weight: 700; }
+-QLabel#summaryLabel { color: #66758A; background: #FFFFFF; border: 1px solid #E0E5EC; border-radius: 6px; padding: 9px 12px; }
++QLabel#pageTitle { color: #14201B; font-size: 21px; font-weight: 700; padding-bottom: 2px; }
++QLabel#pageHint { color: #6B7A73; font-size: 12px; }
++QLabel#sectionTitle { color: #14201B; font-size: 15px; font-weight: 700; }
++QLabel#summaryLabel { color: #6B7A73; background: #FFFFFF; border: 1px solid #E2E8E5; border-radius: 6px; padding: 9px 12px; }
+ 
+ QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit {
+     background: #FFFFFF;
+-    color: #243247;
+-    border: 1px solid #CCD4DF;
++    color: #14201B;
++    border: 1px solid #E2E8E5;
+     border-radius: 6px;
+     padding: 8px 10px;
+-    selection-background-color: #237653;
+-    selection-color: #FFFFFF;
++    selection-background-color: #00C878;
++    selection-color: #04120C;
+ }
+ QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QTextEdit:focus {
+-    border: 2px solid #7CAD90;
++    border: 2px solid #00C878;
+     padding: 7px 9px;
+ }
+-QLineEdit:hover, QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover { border-color: #7CAD90; }
+-QLineEdit::placeholder { color: #A0AABA; }
++QLineEdit:hover, QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover { border-color: #00875A; }
++QLineEdit::placeholder { color: #8A968F; }
+ QComboBox::drop-down { width: 24px; border: none; }
+-QComboBox::down-arrow { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid #7C8999; margin-right: 6px; }
+-QComboBox QAbstractItemView { background: #FFFFFF; border: 1px solid #CCD4DF; selection-background-color: #E2F3E7; selection-color: #18573A; padding: 4px; }
++QComboBox::down-arrow { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid #6B7A73; margin-right: 6px; }
++QComboBox QAbstractItemView { background: #FFFFFF; border: 1px solid #E2E8E5; selection-background-color: #D8F5E7; selection-color: #06573A; padding: 4px; }
+ 
+-QCheckBox { color: #657286; spacing: 8px; }
+-QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #C4CDD8; border-radius: 4px; background: #FFFFFF; }
+-QCheckBox::indicator:checked { background: #237653; border-color: #195E42; }
++QCheckBox { color: #6B7A73; spacing: 8px; }
++QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #C6D0CA; border-radius: 4px; background: #FFFFFF; }
++QCheckBox::indicator:checked { background: #00C878; border-color: #00A664; }
+ 
+ QTableWidget, QTableView {
+     background: #FFFFFF;
+-    alternate-background-color: #F8F9FB;
+-    color: #344257;
+-    border: 1px solid #DCE2EA;
++    alternate-background-color: #F1F5F2;
++    color: #14201B;
++    border: 1px solid #E2E8E5;
+     border-radius: 8px;
+-    gridline-color: #EDF0F4;
+-    selection-background-color: #E2F3E7;
+-    selection-color: #18573A;
++    gridline-color: #E2E8E5;
++    selection-background-color: #D8F5E7;
++    selection-color: #06573A;
+     outline: 0;
+ }
+ QTableWidget::item, QTableView::item { padding: 8px; border: none; }
+-QTableWidget::item:hover, QTableView::item:hover { background: #FBF7EF; }
++QTableWidget::item:hover, QTableView::item:hover { background: #F3F6F4; }
+ QHeaderView::section {
+-    background: #EEF1F5;
+-    color: #526176;
++    background: #F1F5F2;
++    color: #6B7A73;
+     border: none;
+-    border-right: 1px solid #DCE2EA;
+-    border-bottom: 1px solid #DCE2EA;
++    border-right: 1px solid #E2E8E5;
++    border-bottom: 1px solid #E2E8E5;
+     padding: 10px 8px;
+     font-weight: 700;
+ }
+-QTableCornerButton::section { background: #EEF1F5; border: none; }
++QTableCornerButton::section { background: #F1F5F2; border: none; }
+ 
+ QFrame#metricCard, QFrame#statCard {
+     background: #FFFFFF;
+-    border: 1px solid #DCE2EA;
+-    border-radius: 9px;
+-}
+-QFrame#metricCard:hover, QFrame#statCard:hover { border-color: #7CAD90; }
+-QLabel#metricTitle { color: #7A8798; font-size: 12px; background: transparent; }
+-QLabel#metricValue { color: #237653; font-size: 27px; font-weight: 700; background: transparent; }
+-QWidget#chartHost, QWidget#chartArea, QWidget#detailPanel, QWidget#profileCard { background: #FFFFFF; border: 1px solid #DCE2EA; border-radius: 8px; }
+-QLabel#avatarLabel { border: 1px solid #C9D2DD; border-radius: 6px; background: #EEF1F5; }
+-QLabel#phoneLabel { color: #344257; font-size: 16px; font-weight: 700; }
+-QLabel#balanceLabel { color: #237653; font-size: 15px; font-weight: 700; }
+-QWidget#mapCanvas { background: #E9EDF2; border: 1px solid #D2DAE4; border-radius: 8px; }
++    border: 1px solid #E2E8E5;
++    border-radius: 12px;
++}
++QFrame#metricCard:hover, QFrame#statCard:hover { border-color: #00C878; }
++QLabel#metricTitle { color: #6B7A73; font-size: 12px; background: transparent; }
++QLabel#metricValue { color: #00875A; font-size: 27px; font-weight: 700; background: transparent; }
++QWidget#chartHost, QWidget#chartArea, QWidget#detailPanel, QWidget#profileCard { background: #FFFFFF; border: 1px solid #E2E8E5; border-radius: 12px; }
++QLabel#avatarLabel { border: 1px solid #C6D0CA; border-radius: 6px; background: #F1F5F2; }
++QLabel#phoneLabel { color: #14201B; font-size: 16px; font-weight: 700; }
++QLabel#balanceLabel { color: #00875A; font-size: 15px; font-weight: 700; }
++QWidget#mapCanvas { background: #F1F5F2; border: 1px solid #E2E8E5; border-radius: 8px; }
+ QLabel#navResult {
+-    color: #18573A;
+-    background: #FBF4E5;
+-    border: 1px solid #E7D6AE;
++    color: #06573A;
++    background: #D8F5E7;
++    border: 1px solid #A8E4C8;
+     border-radius: 6px;
+     padding: 9px 12px;
+ }
+-QLabel#orderLabel { color: #526176; font-size: 14px; }
+-QLabel#chargingValue { color: #237653; font-size: 22px; font-weight: 700; padding: 2px 0; }
+-QLabel#minutesLabel { color: #344257; font-size: 14px; }
++QLabel#orderLabel { color: #6B7A73; font-size: 14px; }
++QLabel#chargingValue { color: #00875A; font-size: 22px; font-weight: 700; padding: 2px 0; }
++QLabel#minutesLabel { color: #14201B; font-size: 14px; }
+ 
+ QScrollBar:vertical { background: transparent; width: 10px; margin: 2px; }
+-QScrollBar::handle:vertical { background: #C3CCD8; border-radius: 4px; min-height: 30px; }
+-QScrollBar::handle:vertical:hover { background: #237653; }
++QScrollBar::handle:vertical { background: #C6D0CA; border-radius: 4px; min-height: 30px; }
++QScrollBar::handle:vertical:hover { background: #00C878; }
+ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }
+ QScrollBar:horizontal { background: transparent; height: 10px; margin: 2px; }
+-QScrollBar::handle:horizontal { background: #C3CCD8; border-radius: 4px; min-width: 30px; }
+-QScrollBar::handle:horizontal:hover { background: #237653; }
++QScrollBar::handle:horizontal { background: #C6D0CA; border-radius: 4px; min-width: 30px; }
++QScrollBar::handle:horizontal:hover { background: #00C878; }
+ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
+ 
+-QStatusBar { background: #FFFFFF; color: #778497; border-top: 1px solid #DCE2EA; }
+-QSplitter::handle { background: #DCE2EA; }
++QStatusBar { background: #FFFFFF; color: #6B7A73; border-top: 1px solid #E2E8E5; }
++QSplitter::handle { background: #E2E8E5; }
+ QSplitter::handle:horizontal { width: 3px; }
+ QMessageBox { background: #FFFFFF; }
+-QMessageBox QLabel { color: #344257; }
+-QToolTip { background: #18263D; color: #FFFFFF; border: 1px solid #7CAD90; padding: 6px 10px; }
++QMessageBox QLabel { color: #14201B; }
++QToolTip { background: #0D1F1A; color: #FFFFFF; border: 1px solid #1E3A2E; padding: 6px 10px; }
+ 
+ /* 管理端数据卡片 */
+ QFrame#adminDataCard, QWidget#chartArea {
+-    background: #FFFFFF; border: 1px solid #DDE9E2; border-radius: 14px;
++    background: #FFFFFF; border: 1px solid #E2E8E5; border-radius: 14px;
+ }
+-QLabel#dataCardTitle { color: #254B38; font-size: 15px; font-weight: 700; background: transparent; }
+-QLabel#dataCountBadge { color: #4D7D62; background: #ECF5EF; border-radius: 10px; padding: 4px 10px; font-size: 12px; }
+-QLabel#dataCardHint { color: #88998F; font-size: 11px; background: transparent; padding: 3px 0; }
++QLabel#dataCardTitle { color: #14201B; font-size: 15px; font-weight: 700; background: transparent; }
++QLabel#dataCountBadge { color: #00875A; background: #D8F5E7; border-radius: 10px; padding: 4px 10px; font-size: 12px; }
++QLabel#dataCardHint { color: #8A968F; font-size: 11px; background: transparent; padding: 3px 0; }
+ QFrame#adminDataCard QTableWidget {
+-    background: #FFFFFF; alternate-background-color: #F7FAF8; border: none;
+-    selection-background-color: #E0F1E7; selection-color: #214B36; outline: 0;
++    background: #FFFFFF; alternate-background-color: #F1F5F2; border: none;
++    selection-background-color: #D8F5E7; selection-color: #06573A; outline: 0;
+ }
+-QFrame#adminDataCard QTableWidget::item { border: none; border-bottom: 1px solid #EEF3EF; padding: 8px; }
+-QFrame#adminDataCard QTableWidget::item:hover { background: #EEF7F1; }
++QFrame#adminDataCard QTableWidget::item { border: none; border-bottom: 1px solid #E2E8E5; padding: 8px; }
++QFrame#adminDataCard QTableWidget::item:hover { background: #F3F6F4; }
+ QFrame#adminDataCard QHeaderView::section {
+-    background: #F0F6F2; color: #64806E; border: none; padding: 10px 8px; font-size: 12px; font-weight: 600;
++    background: #F1F5F2; color: #6B7A73; border: none; padding: 10px 8px; font-size: 12px; font-weight: 600;
+ }
+-QFrame#metricCard, QFrame#statCard { border: 1px solid #DFEAE3; border-radius: 14px; background: #FFFFFF; }
+-QFrame#metricCard:hover, QFrame#statCard:hover { border-color: #96BFA7; background: #FBFDFB; }
+-QWidget#lanConnectionPanel { background: #EAF4EE; border-bottom: 1px solid #D6E7DC; }
++QFrame#metricCard, QFrame#statCard { border: 1px solid #E2E8E5; border-radius: 14px; background: #FFFFFF; }
++QFrame#metricCard:hover, QFrame#statCard:hover { border-color: #00C878; background: #FFFFFF; }
++QWidget#lanConnectionPanel { background: #EAF6F0; border-bottom: 1px solid #E2E8E5; }
+ 
+ /* Shared card surfaces and focus baseline; animated highlights live in UiMotion. */
+ QFrame#pileCard, QFrame#miniCard, QFrame#stationCard, QWidget#profileCard,
+@@ -226,8 +226,8 @@ QFrame#adminDataCard, QFrame#metricCard, QFrame#statCard {
+     border-radius: 14px;
+ }
+ QFrame#pileCard:hover, QFrame#miniCard:hover, QFrame#stationCard:hover,
+-QFrame#adminDataCard:hover { border-color: #91BFA7; }
+-QPlainTextEdit:focus { border: 2px solid #7CAD90; }
++QFrame#adminDataCard:hover { border-color: #00C878; }
++QPlainTextEdit:focus { border: 2px solid #00C878; }
+ QWidget#customTitleBar { background: transparent; }
+-QWidget#customTitleBar QLabel { background: transparent; color: #365747; font-weight: 600; }
++QWidget#customTitleBar QLabel { background: transparent; color: #00875A; font-weight: 600; }
+ QStatusBar { border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }
+diff --git a/code/resources/qss/login.qss b/code/resources/qss/login.qss
+index 6a154b1..b812c2c 100644
+--- a/code/resources/qss/login.qss
++++ b/code/resources/qss/login.qss
+@@ -1,12 +1,12 @@
+-/* 登录对话框主题：统一浅绿背景、深绿品牌色与白色登录卡片 */
++/* 登录对话框主题：VoltGrid 深色品牌方案 + 电力绿强调 */
+ 
+ #loginDialog {
+     background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+-                stop:0 #F3F7F6, stop:0.55 #EDF6F0, stop:1 #E2F1E7);
++                stop:0 #0A1411, stop:1 #081310);
+ }
+ 
+ #titleLabel {
+-    color: #174F3B;
++    color: #FFFFFF;
+     font-size: 28px;
+     font-weight: bold;
+     background: transparent;
+@@ -14,65 +14,65 @@
+ }
+ 
+ #subtitleLabel {
+-    color: #5C7C6B;
++    color: #7E8F87;
+     font-size: 14px;
+     background: transparent;
+     letter-spacing: 1px;
+ }
+ 
+ #hintLabel {
+-    color: #708478;
++    color: #7E8F87;
+     font-size: 12px;
+     background: transparent;
+ }
+ 
+ #exitBtn {
+-    color: #557361;
+-    background: #FFFFFF;
+-    border: 1px solid #D3E4D8;
++    color: #8FA69C;
++    background: #101F19;
++    border: 1px solid #1E3A2E;
+     border-radius: 7px;
+     font-size: 12px;
+     padding: 6px 16px;
+ }
+ #exitBtn:hover {
+-    color: #174F3B;
+-    background: #E3F3E8;
+-    border-color: #83B496;
++    color: #00C878;
++    background: #16211C;
++    border-color: #00C878;
+ }
+ 
+ #card {
+-    background: #FFFFFF;
++    background: #101F19;
+     border-radius: 12px;
+-    border: 1px solid #DAE8DF;
++    border: 1px solid #1E3A2E;
+ }
+ 
+ #cardTitle {
+-    color: #243E33;
++    color: #FFFFFF;
+     font-size: 16px;
+     font-weight: bold;
+     background: transparent;
+ }
+ 
+ QLineEdit {
+-    background: #F6FAF7;
+-    border: 1px solid #D3E1D8;
++    background: #16211C;
++    border: 1px solid #1E3A2E;
+     border-radius: 8px;
+     padding: 11px 14px;
+     font-size: 14px;
+-    color: #243E33;
+-    selection-background-color: #237653;
+-    selection-color: #FFFFFF;
++    color: #FFFFFF;
++    selection-background-color: #00C878;
++    selection-color: #04120C;
+ }
+ QLineEdit:focus {
+-    border: 2px solid #6DA385;
+-    background: #FFFFFF;
++    border: 2px solid #00C878;
++    background: #16211C;
+     padding: 10px 13px;
+ }
+-QLineEdit::placeholder { color: #A0AABA; }
++QLineEdit::placeholder { color: #7E8F87; }
+ 
+ QPushButton#userLoginBtn, QPushButton#adminLoginBtn {
+-    background: #237653;
+-    color: #FFFFFF;
++    background: #00C878;
++    color: #04120C;
+     border: none;
+     border-radius: 8px;
+     padding: 12px 16px;
+@@ -80,24 +80,24 @@ QPushButton#userLoginBtn, QPushButton#adminLoginBtn {
+     font-weight: bold;
+     letter-spacing: 3px;
+ }
+-QPushButton#userLoginBtn:hover, QPushButton#adminLoginBtn:hover { background: #2D8660; }
+-QPushButton#userLoginBtn:pressed, QPushButton#adminLoginBtn:pressed { background: #195E42; }
++QPushButton#userLoginBtn:hover, QPushButton#adminLoginBtn:hover { background: #00A664; }
++QPushButton#userLoginBtn:pressed, QPushButton#adminLoginBtn:pressed { background: #00875A; }
+ 
+ #tipLabel {
+-    color: #6B8173;
++    color: #7E8F87;
+     font-size: 12px;
+     background: transparent;
+ }
+ 
+ #fieldLabel {
+-    color: #456451;
++    color: #8FA69C;
+     font-size: 13px;
+     font-weight: bold;
+     background: transparent;
+ }
+ 
+ QCheckBox {
+-    color: #587362;
++    color: #8FA69C;
+     font-size: 13px;
+     background: transparent;
+     spacing: 8px;
+@@ -105,23 +105,23 @@ QCheckBox {
+ QCheckBox::indicator {
+     width: 16px;
+     height: 16px;
+-    border: 1px solid #C5D8CB;
++    border: 1px solid #1E3A2E;
+     border-radius: 4px;
+-    background: #FFFFFF;
++    background: #16211C;
+ }
+ QCheckBox::indicator:checked {
+-    background: #237653;
+-    border-color: #195E42;
++    background: #00C878;
++    border-color: #00A664;
+ }
+ 
+-QLabel#loginMark { background: #DDF0E4; border: 1px solid #C8E2D1; border-radius: 14px; padding: 10px; }
+-QPushButton#userLoginBtn:focus, QPushButton#adminLoginBtn:focus { border: 2px solid #85BB99; }
++QLabel#loginMark { background: #123328; border: 1px solid #1E3A2E; border-radius: 14px; padding: 10px; }
++QPushButton#userLoginBtn:focus, QPushButton#adminLoginBtn:focus { border: 2px solid #00A664; }
+ 
+-#serverLabel { color: #456451; font-size: 13px; }
+-#connectionStatus { color: #456451; font-size: 12px; }
+-QSpinBox { background: #F6FAF7; color: #243E33; border: 1px solid #D3E1D8; border-radius: 6px; padding: 10px 6px; min-width: 74px; }
+-#connectBtn { background: #E3F3E8; color: #174F3B; border: 1px solid #83B496; border-radius: 7px; padding: 8px; }
+-#connectBtn:disabled { color: #708478; background: #EDF1EE; }
++#serverLabel { color: #8FA69C; font-size: 13px; }
++#connectionStatus { color: #7E8F87; font-size: 12px; }
++QSpinBox { background: #16211C; color: #FFFFFF; border: 1px solid #1E3A2E; border-radius: 6px; padding: 10px 6px; min-width: 74px; }
++#connectBtn { background: #123328; color: #00C878; border: 1px solid #1E3A2E; border-radius: 7px; padding: 8px; }
++#connectBtn:disabled { color: #7E8F87; background: #101F19; }
+ 
+ /* 用户登录输入框保留完整文字高度，避免窗口压缩时上下裁切。 */
+ QPushButton#userLoginBtn {
+@@ -133,7 +133,7 @@ QLineEdit#serverHostEdit, QLineEdit#phoneEdit, QSpinBox#serverPortSpin {
+     font-size: 14px;
+ }
+ QLineEdit#serverHostEdit:focus, QLineEdit#phoneEdit:focus, QSpinBox#serverPortSpin:focus {
+-    border: 2px solid #6DA385;
++    border: 2px solid #00C878;
+     padding: 5px 11px;
+ }
+ /* SpinBox 自己已有边框和内边距，内部编辑器不能再叠加一层。 */
+diff --git a/code/server/AdminLoginDialog.cpp b/code/server/AdminLoginDialog.cpp
+index f67e758..dab6b07 100644
+--- a/code/server/AdminLoginDialog.cpp
++++ b/code/server/AdminLoginDialog.cpp
+@@ -30,7 +30,7 @@ AdminLoginDialog::AdminLoginDialog(QWidget *parent)
+     ui->exitBtn->setAutoDefault(false);
+     auto *mark = new QLabel(this);
+     mark->setObjectName("loginMark");
+-    mark->setPixmap(IconFactory::icon(IconFactory::IconBolt, QColor("#237653")).pixmap(32, 32));
++    mark->setPixmap(IconFactory::icon(IconFactory::IconBolt, QColor("#00C878")).pixmap(32, 32));
+     ui->rootLayout->insertWidget(0, mark, 0, Qt::AlignHCenter);
+ 
+     loadStyleSheet();
+diff --git a/code/server/AdminMainWindow.cpp b/code/server/AdminMainWindow.cpp
+index 535a7a5..c75ecea 100644
+--- a/code/server/AdminMainWindow.cpp
++++ b/code/server/AdminMainWindow.cpp
+@@ -79,7 +79,7 @@ void AdminMainWindow::initUi()
+     logoLayout->setContentsMargins(0, 0, 0, 0);
+     logoLayout->setSpacing(8);
+     QLabel *logoIcon = new QLabel(logoBox);
+-    logoIcon->setPixmap(IconFactory::icon(IconFactory::IconBolt, QColor("#37C6FF")).pixmap(22, 22));
++    logoIcon->setPixmap(IconFactory::icon(IconFactory::IconBolt, QColor("#00C878")).pixmap(22, 22));
+     QLabel *logo = new QLabel("充电桩管理平台", logoBox);
+     logo->setObjectName("logoLabel");
+     logoLayout->addStretch();
+diff --git a/code/server/pages/OrderManagePage.cpp b/code/server/pages/OrderManagePage.cpp
+index 7e2304a..c1ce582 100644
+--- a/code/server/pages/OrderManagePage.cpp
++++ b/code/server/pages/OrderManagePage.cpp
+@@ -37,10 +37,10 @@ QString orderStatusText(int s)
+ QColor orderStatusColor(int s)
+ {
+     switch (s) {
+-    case OrderCharging: return QColor("#B0863F");
+-    case OrderFinished: return QColor("#1F9D67");
+-    case OrderAbnormal: return QColor("#C5525A");
+-    default:            return QColor("#94A3B8");
++    case OrderCharging: return QColor("#00875A");
++    case OrderFinished: return QColor("#00875A");
++    case OrderAbnormal: return QColor("#E5484D");
++    default:            return QColor("#8A968F");
+     }
+ }
+ 
+@@ -368,9 +368,9 @@ void OrderManagePage::refreshReservations()
+         m_resTable->setItem(i, 7, new QTableWidgetItem(middle));
+         auto *stItem = new QTableWidgetItem(resStatusText(r.status));
+         if (r.status == ReservationActive || r.status == ReservationAssigned)
+-            stItem->setForeground(QBrush(QColor("#B0863F")));
++            stItem->setForeground(QBrush(QColor("#00875A")));
+         else if (r.status == ReservationFulfilled)
+-            stItem->setForeground(QBrush(QColor("#1F9D67")));
++            stItem->setForeground(QBrush(QColor("#00875A")));
+         m_resTable->setItem(i, 8, stItem);
+     }
+     m_resTable->resizeColumnsToContents();
+diff --git a/code/server/pages/PileManagePage.cpp b/code/server/pages/PileManagePage.cpp
+index c3002b1..e93ed25 100644
+--- a/code/server/pages/PileManagePage.cpp
++++ b/code/server/pages/PileManagePage.cpp
+@@ -26,9 +26,9 @@ QString pileStatusText(int status)
+ QColor pileStatusColor(int status)
+ {
+     switch (status) {
+-    case PileInUse: return QColor("#B0863F");
+-    case PileFault: return QColor("#C5525A");
+-    default:        return QColor("#1F9D67");
++    case PileInUse: return QColor("#00875A");
++    case PileFault: return QColor("#E5484D");
++    default:        return QColor("#2F7CF6");
+     }
+ }
+ } // namespace
+diff --git a/code/server/pages/PileStatusPage.cpp b/code/server/pages/PileStatusPage.cpp
+index f3b463c..0785e4e 100644
+--- a/code/server/pages/PileStatusPage.cpp
++++ b/code/server/pages/PileStatusPage.cpp
+@@ -63,10 +63,10 @@ PileStatusPage::PileStatusPage(QWidget *parent)
+         cards->addWidget(card, 1);
+         *valueOut = value;
+     };
+-    makeCard("在用 (充电中)", QColor("#B0863F"), &m_inUseValue);
+-    makeCard("闲置 (可用)",   QColor("#1F9D67"), &m_idleValue);
+-    makeCard("故障 (需处理)", QColor("#C5525A"), &m_faultValue);
+-    makeCard("在线率",        QColor("#B0863F"), &m_rateValue);
++    makeCard("在用 (充电中)", QColor("#00C878"), &m_inUseValue);
++    makeCard("闲置 (可用)",   QColor("#2F7CF6"), &m_idleValue);
++    makeCard("故障 (需处理)", QColor("#E5484D"), &m_faultValue);
++    makeCard("在线率",        QColor("#00C878"), &m_rateValue);
+ 
+     m_summaryLabel = new QLabel(this);
+     m_summaryLabel->setObjectName("summaryLabel");
+diff --git a/code/server/pages/SalesPage.cpp b/code/server/pages/SalesPage.cpp
+index 1460dec..14473d0 100644
+--- a/code/server/pages/SalesPage.cpp
++++ b/code/server/pages/SalesPage.cpp
+@@ -89,21 +89,21 @@ protected:
+         const int step = n > 1 ? n - 1 : 1;
+ 
+         // 网格 + Y 轴刻度
+-        QPen gridPen(QColor("#E2E8F0"));
++        QPen gridPen(QColor("#E2E8E5"));
+         gridPen.setWidth(1);
+         p.setPen(gridPen);
+         for (int i = 0; i <= 4; ++i) {
+             const double y = plot.top() + plot.height() * i / 4.0;
+             p.drawLine(QPointF(plot.left(), y), QPointF(plot.right(), y));
+             const double val = maxV - range * i / 4.0;
+-            p.setPen(QColor("#64748B"));
++            p.setPen(QColor("#6B7A73"));
+             p.drawText(QRectF(0, y - 10, plot.left() - 8, 20),
+                        Qt::AlignRight | Qt::AlignVCenter, QString::number(val, 'f', 0));
+             p.setPen(gridPen);
+         }
+ 
+         // X 轴标签
+-        p.setPen(QColor("#64748B"));
++        p.setPen(QColor("#6B7A73"));
+         for (int i = 0; i < n; ++i) {
+             const double x = plot.left() + plot.width() * i / step;
+             p.drawText(QRectF(x - 32, plot.bottom() + 6, 64, 20),
+@@ -120,13 +120,13 @@ protected:
+             else
+                 path.lineTo(x, y);
+         }
+-        QPen linePen(QColor("#237653"));
++        QPen linePen(QColor("#00C878"));
+         linePen.setWidth(2);
+         p.setPen(linePen);
+         p.setBrush(Qt::NoBrush);
+         p.drawPath(path);
+ 
+-        p.setBrush(QColor("#237653"));
++        p.setBrush(QColor("#00C878"));
+         for (int i = 0; i < n; ++i) {
+             const double x = plot.left() + plot.width() * i / step;
+             const double y = plot.bottom() - plot.height() * (m_data[i].second - minV) / range;
+@@ -169,21 +169,21 @@ protected:
+             maxV = 1.0;
+ 
+         // 网格 + Y 轴刻度
+-        QPen gridPen(QColor("#E2E8F0"));
++        QPen gridPen(QColor("#E2E8E5"));
+         gridPen.setWidth(1);
+         p.setPen(gridPen);
+         for (int i = 0; i <= 4; ++i) {
+             const double y = plot.top() + plot.height() * i / 4.0;
+             p.drawLine(QPointF(plot.left(), y), QPointF(plot.right(), y));
+             const double val = maxV * (4 - i) / 4.0;
+-            p.setPen(QColor("#64748B"));
++            p.setPen(QColor("#6B7A73"));
+             p.drawText(QRectF(0, y - 10, plot.left() - 8, 20),
+                        Qt::AlignRight | Qt::AlignVCenter, QString::number(val, 'f', 0));
+             p.setPen(gridPen);
+         }
+ 
+         // X 轴标签
+-        p.setPen(QColor("#64748B"));
++        p.setPen(QColor("#6B7A73"));
+         for (int i = 0; i < n; ++i) {
+             const double x = plot.left() + plot.width() * (i + 0.5) / n;
+             p.drawText(QRectF(x - 32, plot.bottom() + 6, 64, 20),
+@@ -197,7 +197,7 @@ protected:
+             const double h = plot.height() * (m_data[i].second / maxV);
+             const double x = plot.left() + plot.width() * (i + 0.5) / n - barW / 2;
+             const QRectF bar(x, plot.bottom() - h, barW, h);
+-            p.setBrush(QColor("#64A986"));
++            p.setBrush(QColor("#00C878"));
+             p.drawRoundedRect(bar, 2, 2);
+         }
+     }
+@@ -299,7 +299,7 @@ void SalesPage::refresh()
+     chart->setTitle(QString("营收趋势 (近%1日, 单位: 元)").arg(days));
+     chart->legend()->hide();
+ 
+-    QPen pen(QColor("#237653"));
++    QPen pen(QColor("#00C878"));
+     pen.setWidth(2);
+     series->setPen(pen);
+     chart->addSeries(series);
+diff --git a/code/server/pages/StationManagePage.cpp b/code/server/pages/StationManagePage.cpp
+index a6e539c..a6c4980 100644
+--- a/code/server/pages/StationManagePage.cpp
++++ b/code/server/pages/StationManagePage.cpp
+@@ -181,9 +181,9 @@ void StationManagePage::loadPileDetail(int stationId, const QString &stationName
+         auto *statusItem = new QTableWidgetItem(pileStatusText(p.status));
+         QColor statusColor;
+         switch (p.status) {
+-        case PileInUse: statusColor = QColor("#B0863F"); break;
+-        case PileFault: statusColor = QColor("#C5525A"); break;
+-        default:        statusColor = QColor("#1F9D67"); break;
++        case PileInUse: statusColor = QColor("#00C878"); break;
++        case PileFault: statusColor = QColor("#E5484D"); break;
++        default:        statusColor = QColor("#2F7CF6"); break;
+         }
+         statusItem->setForeground(QBrush(statusColor));
+         m_pileTable->setItem(i, 3, statusItem);
+diff --git a/code/server/pages/UserManagePage.cpp b/code/server/pages/UserManagePage.cpp
+index 7320f7d..90b4fb6 100644
+--- a/code/server/pages/UserManagePage.cpp
++++ b/code/server/pages/UserManagePage.cpp
+@@ -92,7 +92,7 @@ void UserManagePage::refresh()
+         m_table->setItem(i, 4, new QTableWidgetItem(u.registerTime));
+         auto *statusItem = new QTableWidgetItem(u.status == UserFrozen ? "冻结" : "正常");
+         statusItem->setForeground(
+-            QBrush(u.status == UserFrozen ? QColor("#C5525A") : QColor("#1F9D67")));
++            QBrush(u.status == UserFrozen ? QColor("#E5484D") : QColor("#00875A")));
+         m_table->setItem(i, 5, statusItem);
+     }
+     m_table->resizeColumnsToContents();
+diff --git a/code/tests/discovery_ui_test.cpp b/code/tests/discovery_ui_test.cpp
+index 4670009..33c6939 100644
+--- a/code/tests/discovery_ui_test.cpp
++++ b/code/tests/discovery_ui_test.cpp
+@@ -150,7 +150,7 @@ private slots:
+         dark.setColor(QPalette::Base, Qt::black);
+         qApp->setPalette(dark);
+         AppTheme::apply(*qApp);
+-        QCOMPARE(qApp->palette().color(QPalette::Window), QColor("#F3F7F6"));
++        QCOMPARE(qApp->palette().color(QPalette::Window), QColor("#F3F6F4"));
+         QCOMPARE(qApp->palette().color(QPalette::Base), QColor("#FFFFFF"));
+         ClientSession::instance().userId=1;
+         ClientSession::instance().nickname="体验用户";
+diff --git a/code/web/index.html b/code/web/index.html
+index 8b31380..c9dc4e2 100644
+--- a/code/web/index.html
++++ b/code/web/index.html
+@@ -8,15 +8,15 @@
+ // 防呆: 检测是否以"文件方式"(file://, 即双击 index.html)打开 —— 这种方式浏览器会拦截数据请求
+ if (window.location.protocol === 'file:') {
+   document.write(
+-    '<div style="position:fixed;inset:0;background:#7A1F1F;color:#fff;display:flex;' +
++    '<div style="position:fixed;inset:0;background:#0A1411;color:#E5484D;display:flex;' +
+     'flex-direction:column;align-items:center;justify-content:center;' +
+     'font-family:sans-serif;text-align:center;padding:40px;z-index:99999;">' +
+     '<h1 style="font-size:34px;margin-bottom:20px;">❌ 当前是【双击文件】方式打开的，不会有数据</h1>' +
+-    '<p style="font-size:20px;line-height:1.9;">请<b style="color:#FFD76A;">先启动服务端 ChargingServer</b>，' +
++    '<p style="font-size:20px;line-height:1.9;">请<b style="color:#F59300;">先启动服务端 ChargingServer</b>，' +
+     '然后在浏览器地址栏输入：</p>' +
+     '<p style="font-size:28px;font-weight:bold;background:#00000055;padding:12px 30px;border-radius:8px;margin:16px 0;">' +
+     'http://localhost:8080</p>' +
+-    '<p style="font-size:17px;color:#FFD0D0;">（或把 localhost 换成服务器的 IP，例如 http://192.168.x.x:8080）</p>' +
++    '<p style="font-size:17px;color:#F0B9BB;">（或把 localhost 换成服务器的 IP，例如 http://192.168.x.x:8080）</p>' +
+     '</div>');
+ }
+ </script>
+@@ -24,33 +24,33 @@ if (window.location.protocol === 'file:') {
+ <style>
+   * { margin: 0; padding: 0; box-sizing: border-box; }
+   html, body { width: 100%; min-height: 100%; overflow: auto;
+-               background: #F3F7F6; color: #243E33;
++               background: #070D0B; color: #DCE8E0;
+                font-family: "Microsoft YaHei", "PingFang SC", sans-serif; }
+   #screen { display: flex; flex-direction: column; width: 100%; min-height: 100vh; padding: 24px; max-width: 1800px; margin: auto; }
+ 
+   #header { min-height: 76px; gap: 16px; display: flex; align-items: center; justify-content: space-between;
+-            background: linear-gradient(90deg, #FFFFFF, #EDF7F0, #FFFFFF);
+-            border: 1px solid #DCE8DF; border-radius: 8px; padding: 0 24px; }
+-  #header h1 { font-size: 26px; letter-spacing: 1px; color: #173E33; }
+-  #header h1 span { color: #237653; }
+-  #updated { font-size: 13px; color: #667C73; }
++            background: #0C1512;
++            border: 1px solid #1E3A2E; border-radius: 8px; padding: 0 24px; }
++  #header h1 { font-size: 26px; letter-spacing: 1px; color: #FFFFFF; }
++  #header h1 span { color: #00C878; }
++  #updated { font-size: 13px; color: #7E8F87; }
+ 
+   #metrics { display: flex; gap: 16px; margin: 12px 0; }
+-  .metric { flex: 1; height: 96px; background: #FFFFFF; border: 1px solid #DCE8DF;
++  .metric { flex: 1; height: 96px; background: #101F19; border: 1px solid #1E3A2E;
+             border-radius: 8px; display: flex; flex-direction: column;
+             align-items: center; justify-content: center; }
+-  .metric .label { font-size: 14px; color: #667C73; margin-bottom: 8px; }
+-  .metric .value { font-size: 32px; font-weight: bold; color: #237653; }
+-  .metric.green .value { color: #368D69; }
+-  .metric.orange .value { color: #B7802B; }
++  .metric .label { font-size: 14px; color: #7E8F87; margin-bottom: 8px; }
++  .metric .value { font-size: 32px; font-weight: bold; color: #00C878; }
++  .metric.green .value { color: #00C878; }
++  .metric.orange .value { color: #F59300; }
+ 
+   #charts { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+             grid-template-rows: repeat(2, minmax(280px, 1fr)); gap: 14px; min-height: 0; }
+-  .panel { background: #FFFFFF; border: 1px solid #DCE8DF; border-radius: 8px;
++  .panel { background: #101F19; border: 1px solid #1E3A2E; border-radius: 8px;
+            display: flex; flex-direction: column; padding: 10px 14px; min-height: 0; }
+-  .panel h3 { font-size: 15px; color: #345C47; margin: 2px 0 6px; }
++  .panel h3 { font-size: 15px; color: #DCE8E0; margin: 2px 0 6px; }
+   .chart { flex: 1; min-height: 240px; min-width: 0; }
+-  .metric, .panel { box-shadow: 0 4px 20px rgba(24, 65, 44, .035); border-radius: 14px; }
++  .metric, .panel { box-shadow: 0 4px 20px rgba(0, 0, 0, .35); border-radius: 14px; }
+   .panel { min-width: 0; padding: 18px; }
+   #header h1 { font-size: clamp(18px, 2vw, 26px); }
+   #updated { line-height: 1.6; }
+@@ -117,59 +117,59 @@ function render(data) {
+   document.getElementById('mPeak').textContent = data.predict.peakHour + ' 时';
+ 
+   charts.trend.setOption({
+-    backgroundColor: '#FFFFFF',
++    backgroundColor: 'transparent',
+     tooltip: { trigger: 'axis' },
+     grid: { left: 12, right: 20, top: 20, bottom: 12, containLabel: true },
+     xAxis: { type: 'category', data: data.daily7.dates,
+-             axisLine: { lineStyle: { color: '#B9CDC0' } }, axisLabel: { color: '#667C73' } },
+-    yAxis: { type: 'value', axisLabel: { color: '#667C73' },
+-             splitLine: { lineStyle: { color: '#E4EEE7' } } },
++             axisLine: { lineStyle: { color: '#1A2E26' } }, axisLabel: { color: '#7E8F87' } },
++    yAxis: { type: 'value', axisLabel: { color: '#7E8F87' },
++             splitLine: { lineStyle: { color: '#1A2E26' } } },
+     series: [{ type: 'line', smooth: true, data: data.daily7.values,
+-               areaStyle: { color: 'rgba(35,118,83,0.12)' },
+-               lineStyle: { color: '#237653', width: 2 },
+-               itemStyle: { color: '#237653' } }]
++               areaStyle: { color: 'rgba(0,200,120,0.18)' },
++               lineStyle: { color: '#00C878', width: 2 },
++               itemStyle: { color: '#00C878' } }]
+   });
+ 
+   charts.pile.setOption({
+-    backgroundColor: '#FFFFFF',
++    backgroundColor: 'transparent',
+     tooltip: { trigger: 'item', formatter: '{b}: {c} 台 ({d}%)' },
+-    legend: { bottom: 0, textStyle: { color: '#667C73' } },
++    legend: { bottom: 0, textStyle: { color: '#7E8F87' } },
+     series: [{ type: 'pie', radius: ['38%', '62%'], center: ['50%', '46%'],
+-               label: { color: '#345C47' },
++               label: { color: '#7E8F87' },
+                data: [
+-                 { value: data.pileStatus.idle, name: '闲置', itemStyle: { color: '#368D69' } },
+-                 { value: data.pileStatus.inUse, name: '在用', itemStyle: { color: '#237653' } },
+-                 { value: data.pileStatus.fault, name: '故障', itemStyle: { color: '#C5525A' } }
++                 { value: data.pileStatus.idle, name: '闲置', itemStyle: { color: '#2F7CF6' } },
++                 { value: data.pileStatus.inUse, name: '在用', itemStyle: { color: '#00C878' } },
++                 { value: data.pileStatus.fault, name: '故障', itemStyle: { color: '#E5484D' } }
+                ] }]
+   });
+ 
+   charts.station.setOption({
+-    backgroundColor: '#FFFFFF',
++    backgroundColor: 'transparent',
+     tooltip: { trigger: 'axis' },
+     grid: { left: 12, right: 20, top: 20, bottom: 12, containLabel: true },
+     xAxis: { type: 'category', data: data.stationRevenue.names,
+-             axisLine: { lineStyle: { color: '#B9CDC0' } }, axisLabel: { color: '#667C73' } },
+-    yAxis: { type: 'value', axisLabel: { color: '#667C73' },
+-             splitLine: { lineStyle: { color: '#E4EEE7' } } },
++             axisLine: { lineStyle: { color: '#1A2E26' } }, axisLabel: { color: '#7E8F87' } },
++    yAxis: { type: 'value', axisLabel: { color: '#7E8F87' },
++             splitLine: { lineStyle: { color: '#1A2E26' } } },
+     series: [{ type: 'bar', barWidth: '45%', data: data.stationRevenue.values,
+-               itemStyle: { color: '#B7802B', borderRadius: [4, 4, 0, 0] } }]
++               itemStyle: { color: '#00C878', borderRadius: [4, 4, 0, 0] } }]
+   });
+ 
+   charts.predict.setOption({
+-    backgroundColor: '#FFFFFF',
++    backgroundColor: 'transparent',
+     tooltip: { trigger: 'axis' },
+     grid: { left: 12, right: 20, top: 20, bottom: 12, containLabel: true },
+     xAxis: { type: 'category', data: data.predict.hours, boundaryGap: false,
+-             axisLine: { lineStyle: { color: '#B9CDC0' } },
+-             axisLabel: { color: '#667C73', interval: 3 } },
+-    yAxis: { type: 'value', axisLabel: { color: '#667C73' },
+-             splitLine: { lineStyle: { color: '#E4EEE7' } } },
++             axisLine: { lineStyle: { color: '#1A2E26' } },
++             axisLabel: { color: '#7E8F87', interval: 3 } },
++    yAxis: { type: 'value', axisLabel: { color: '#7E8F87' },
++             splitLine: { lineStyle: { color: '#1A2E26' } } },
+     series: [{ type: 'line', smooth: true, data: data.predict.loads,
+-               areaStyle: { color: 'rgba(54,141,105,0.12)' },
+-               lineStyle: { color: '#368D69', width: 2 },
+-               itemStyle: { color: '#368D69' },
++               areaStyle: { color: 'rgba(245,147,0,0.12)' },
++               lineStyle: { color: '#F59300', width: 2 },
++               itemStyle: { color: '#F59300' },
+                markPoint: { data: [{ type: 'max', name: '高峰' }],
+-                            itemStyle: { color: '#C5525A' } } }]
++                            itemStyle: { color: '#E5484D' } } }]
+   });
+ }
+ 
