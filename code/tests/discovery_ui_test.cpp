@@ -203,7 +203,7 @@ private slots:
         window->resize(1200,820); window->show();
         auto *nav=window->findChild<QListWidget*>("navList");
         QCOMPARE(nav->currentRow(),0);
-        QCOMPARE(nav->count(),6);
+        QCOMPARE(nav->count(),8);
         auto *home=window->findChild<HomePage*>();
         QVERIFY(home);
         QCOMPARE(home->findChildren<QPushButton*>("bentoCard").size(),6);
@@ -220,15 +220,17 @@ private slots:
         int refreshablePages = 0;
         for (auto *page : window->findChildren<QWidget *>())
             if (page->metaObject()->indexOfMethod("refreshPage()") >= 0) ++refreshablePages;
-        QCOMPARE(refreshablePages, 6);
+        QCOMPARE(refreshablePages, 8);
         const int requestsBeforeTick = stationRequestCount;
         QVERIFY(QMetaObject::invokeMethod(pageTimer, "timeout", Qt::DirectConnection));
         QTRY_VERIFY(stationRequestCount > requestsBeforeTick);
     }
     void homepageAndFilters() {
         auto *nav=window->findChild<QListWidget*>("navList");
-        QCOMPARE(nav->count(),6); QCOMPARE(nav->item(0)->text(),QString("首页"));
+        QCOMPARE(nav->count(),8); QCOMPARE(nav->item(0)->text(),QString("首页"));
         QCOMPARE(nav->item(1)->text(),QString("附近充电站"));
+        QCOMPARE(nav->item(4)->text(),QString("我的车辆"));
+        QCOMPARE(nav->item(5)->text(),QString("历史消费"));
         nav->setCurrentRow(0); QTest::qWait(20);
         auto *home=window->findChild<HomePage*>();
         auto *stationPreview=accessibleButton(home,"附近充电站");
@@ -424,13 +426,13 @@ private slots:
     }
     void accountAndMessageCards() {
         auto *nav = window->findChild<QListWidget*>("navList");
-        nav->setCurrentRow(5); QTest::qWait(250);
+        nav->setCurrentRow(7); QTest::qWait(250);
         auto *account = window->findChild<UserInfoPage*>();
         QCOMPARE(account->findChild<QLabel*>("walletAmount")->text(),QString("128.50"));
         button(account,"200 元")->click();
         QCOMPARE(account->findChild<QDoubleSpinBox*>("rechargeSpin")->value(),200.0);
         QVERIFY(window->grab().save("/tmp/charging-account-redesign.png"));
-        nav->setCurrentRow(4); QTest::qWait(250);
+        nav->setCurrentRow(6); QTest::qWait(250);
         auto *page = window->findChild<MessagePage*>();
         QVERIFY(window->grab().save("/tmp/charging-messages-empty.png"));
         const int before = MessageCenter::instance().unreadCount();
@@ -457,7 +459,7 @@ private slots:
         QCOMPARE(list->count(),2);
         window->resize(800,600); QTest::qWait(20);
         QVERIFY(window->grab().save("/tmp/charging-messages-compact.png"));
-        nav->setCurrentRow(5); QTest::qWait(20);
+        nav->setCurrentRow(7); QTest::qWait(20);
         QVERIFY(window->grab().save("/tmp/charging-account-compact.png"));
         window->resize(1200,820);
     }

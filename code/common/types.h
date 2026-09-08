@@ -342,4 +342,44 @@ struct ReservationInfo
     }
 };
 
+// 用户车辆信息(user_vehicle)
+struct VehicleInfo
+{
+    int id = 0;
+    int userId = 0;
+    QString plateNo;         // 车牌号
+    QString brand;           // 品牌
+    QString model;           // 车型
+    double batteryCapacity = 0.0;  // 电池容量(kWh)
+    int isDefault = 0;       // 是否默认车辆
+    QString createTime;
+
+    static VehicleInfo fromJson(const QJsonObject &o)
+    {
+        VehicleInfo v;
+        v.id = o.value("id").toInt();
+        v.userId = o.value("userId").toInt();
+        v.plateNo = o.value("plateNo").toString();
+        v.brand = o.value("brand").toString();
+        v.model = o.value("model").toString();
+        v.batteryCapacity = o.value("batteryCapacity").toDouble();
+        v.isDefault = o.value("isDefault").toInt();
+        v.createTime = o.value("createTime").toString();
+        return v;
+    }
+    QJsonObject toJson() const
+    {
+        QJsonObject o;
+        o.insert("id", id);
+        o.insert("userId", userId);
+        o.insert("plateNo", plateNo);
+        o.insert("brand", brand);
+        o.insert("model", model);
+        o.insert("batteryCapacity", batteryCapacity);
+        o.insert("isDefault", isDefault);
+        o.insert("createTime", createTime);
+        return o;
+    }
+};
+
 #endif // TYPES_H

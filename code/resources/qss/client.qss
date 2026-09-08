@@ -267,3 +267,49 @@ QLabel#orderDetailField {
     color: #28483B; background: #F5F8F6; border: 1px solid #E3ECE6;
     border-radius: 10px; padding: 12px; line-height: 1.5;
 }
+
+/* 我的车辆：爱车卡片 + 车牌/默认徽章。 */
+QWidget#vehiclePage, QWidget#vehicleCardsHost, QScrollArea#vehicleCardScroll {
+    background: transparent; border: none;
+}
+QLabel#vehicleSummary { color: #315D49; background: #E8F2EB; border-radius: 10px; padding: 10px 14px; font-size: 13px; }
+QFrame#vehicleCard { background: #FFFFFF; border: 1px solid #DEE9E2; border-radius: 16px; }
+QFrame#vehicleCard[defaultVehicle="true"] { border-left: 4px solid #237653; }
+QFrame#vehicleCard:hover { background: #FCFEFC; border-color: #8DB49D; }
+QLabel#vehiclePlate { color: #1D6547; background: #E7F3EA; border-radius: 8px; padding: 6px 12px; font-size: 14px; font-weight: 700; letter-spacing: 1px; }
+QLabel#vehicleBrand { color: #193D31; font-size: 18px; font-weight: 700; }
+QLabel#vehicleDefaultBadge { color: #1C6848; background: #E5F4E9; border-radius: 9px; padding: 5px 10px; font-size: 12px; font-weight: 600; }
+QLabel#vehicleInfo { color: #74867B; font-size: 12px; }
+QPushButton#vehicleAction { color: #215E43; background: transparent; border: 1px solid #DCE7E0; padding: 6px 12px; }
+QPushButton#vehicleAction:hover { color: #123F2C; background: #EAF5ED; }
+QPushButton#vehicleDelete { color: #A0444C; background: transparent; border: 1px solid #EBD6D8; padding: 6px 12px; }
+QPushButton#vehicleDelete:hover { color: #7D2F36; background: #FCEEEF; }
+QLabel#vehicleEmpty { color: #7D8D84; background: #FFFFFF; border: 1px dashed #CBDCD1; border-radius: 16px; padding: 40px; min-height: 160px; }
+
+/* 我的历史消费：总览 Hero + 指标 + 月度趋势 + 最近明细。 */
+QWidget#consumptionPage { background: transparent; border: none; }
+QFrame#consumeHero {
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #173F34,stop:1 #28644E);
+    border: none; border-radius: 18px;
+}
+QLabel#consumeHeroCaption { color: #B8D5C5; background: transparent; font-size: 12px; letter-spacing: 1px; }
+QLabel#consumeHeroAmount { color: #FFFFFF; background: transparent; font-size: 40px; font-weight: 700; }
+QLabel#consumeHeroHint { color: #D6EADF; background: transparent; font-size: 12px; }
+QFrame#consumeSection { background: #FFFFFF; border: 1px solid #DFEAE4; border-radius: 16px; }
+QLabel#consumeSectionTitle { color: #193F33; font-size: 16px; font-weight: 700; }
+QFrame#consumeMetric { background: #FFFFFF; border: 1px solid #DFEAE4; border-radius: 14px; }
+QLabel#consumeMetricCaption { color: #87978E; background: transparent; font-size: 12px; }
+QLabel#consumeMetricValue { color: #2C4B3E; background: transparent; font-size: 20px; font-weight: 700; }
+QLabel#consumeBarMonth { color: #75877E; background: transparent; font-size: 12px; }
+QFrame#consumeBarTrack { background: #EFF4F0; border: none; border-radius: 6px; }
+QFrame#consumeBarFill {
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #2C7357,stop:1 #5BAE83);
+    border: none; border-radius: 6px; min-height: 14px;
+}
+QLabel#consumeBarAmount { color: #315D49; background: transparent; font-size: 13px; font-weight: 600; }
+QFrame#consumeRecordCard { background: #F8FBF9; border: 1px solid #EAF1EC; border-radius: 12px; }
+QFrame#consumeRecordCard:hover { background: #FFFFFF; border-color: #C6D9CC; }
+QLabel#consumeRecordDate { color: #87978E; background: transparent; font-size: 12px; }
+QLabel#consumeRecordStation { color: #2C4B3E; background: transparent; font-size: 14px; font-weight: 600; }
+QLabel#consumeRecordEnergy { color: #74867B; background: transparent; font-size: 13px; }
+QLabel#consumeRecordAmount { color: #1D6547; background: transparent; font-size: 15px; font-weight: 700; }

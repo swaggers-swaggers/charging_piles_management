@@ -45,6 +45,15 @@ enum MessageType {
     ReqMyReservations   = 17,  // {userId} → {reservations:[...ReservationInfo]}
     ReqAppointSlots     = 18,  // {pileId, date} → {slots:["08:00",...], booked:[{start,end}]}
 
+    // ---- v3 新增: 我的车辆 / 我的历史消费 ----
+    ReqMyVehicles       = 19,  // {userId} → {vehicles:[...VehicleInfo]}
+    ReqSaveVehicle      = 20,  // {userId, id?, plateNo, brand, model, batteryCapacity, isDefault}
+                               //   → {vehicle:{...VehicleInfo}}  (id==0 新增, 否则更新)
+    ReqDeleteVehicle    = 21,  // {userId, vehicleId} → {ok}
+    ReqConsumptionSummary = 22, // {userId} → {totalSpent, totalEnergy, totalOrders, totalMinutes,
+                               //            monthSpent, monthEnergy,
+                               //            monthly:[{month,spent,energy,count}], recent:[...OrderInfo]}
+
     // 服务端推送
     PushOrderProgress   = 101, // {orderId, energy, amount, minutes, targetType?, targetValue?, targetProgress?}
     PushOrderEvent      = 102, // {orderId?, reservationId?, event, message, queuePos?, refundAmount?, balance?}
