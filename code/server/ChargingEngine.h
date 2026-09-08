@@ -72,6 +72,10 @@ public:
                              double power, double unitPrice, double balance,
                              int *errorCode = nullptr);
 
+signals:
+    // 充电开始、结束或故障结算后通知管理端立即刷新设备状态。
+    void pileStatusChanged(int pileId, int status);
+
 private slots:
     void onTick();
 

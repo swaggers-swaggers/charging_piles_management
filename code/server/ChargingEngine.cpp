@@ -244,6 +244,8 @@ ChargingEngine::StartResult ChargingEngine::startCharging(int userId, int pileId
     if (UserDao::getById(userId, &after, nullptr, connName))
         r.balanceAfter = after.balance;
 
+    emit ChargingEngine::instance().pileStatusChanged(pileId, PileInUse);
+
     // 充电开始推送(消息系统)
     QJsonObject startEv;
     startEv.insert("type", PushOrderEvent);
@@ -332,6 +334,9 @@ ChargingEngine::SettleResult ChargingEngine::settleOrder(int orderId, int finish
     UserInfo u;
     if (UserDao::getById(userId, &u, nullptr, connName))
         r.balanceAfter = u.balance;
+
+    const int pileStatus = PileDao::getById(pileId, nullptr, connName).status;
+    emit pileStatusChanged(pileId, pileStatus);
 
     // 4) 释放后尝试分配排队队首
     assignQueueHead(pileId, connName);

@@ -17,6 +17,9 @@ class MessagePage : public QWidget
 public:
     explicit MessagePage(QWidget *parent = nullptr);
 
+public slots:
+    void refreshPage();
+
 private slots:
     void refresh();
     void onItemClicked(int row);

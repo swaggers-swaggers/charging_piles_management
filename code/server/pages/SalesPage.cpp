@@ -247,6 +247,11 @@ SalesPage::SalesPage(QWidget *parent)
     refresh();
 }
 
+void SalesPage::refreshPage()
+{
+    refresh();
+}
+
 void SalesPage::refresh()
 {
     // ---- 指标卡 ----

@@ -3,16 +3,17 @@
 #include "AdminMainWindow.h"
 
 #include "DatabaseManager.h"
+#include "ChargingEngine.h"
 #include "ServerSession.h"
 #include "SalesPage.h"
 #include "PileStatusPage.h"
-#include "PileManagePage.h"
 #include "OrderManagePage.h"
 #include "StationManagePage.h"
 #include "UserManagePage.h"
 #include "IconFactory.h"
 
 #include <QDesktopServices>
+#include <QApplication>
 #include <QNetworkInterface>
 #include <QTcpServer>
 #include <QComboBox>
@@ -29,6 +30,8 @@
 #include <QSize>
 #include <QStackedWidget>
 #include <QStatusBar>
+#include <QTableWidget>
+#include <QHeaderView>
 #include <QUrl>
 #include <QVector>
 #include <QVBoxLayout>
@@ -90,11 +93,11 @@ void AdminMainWindow::initUi()
     m_navList = new QListWidget(sidebar);
     m_navList->setObjectName("navList");
     const QStringList navNames = {
-        "销售业绩", "电桩状态", "充电桩管理", "订单管理", "充电站管理", "用户管理",
+        "销售业绩", "电桩状态", "充电站与电桩管理", "订单管理", "用户管理",
     };
     const QVector<IconFactory::IconType> navIcons = {
-        IconFactory::IconChartLine, IconFactory::IconBattery, IconFactory::IconPile,
-        IconFactory::IconBolt, IconFactory::IconBuilding, IconFactory::IconUsers,
+        IconFactory::IconChartLine, IconFactory::IconBattery, IconFactory::IconBuilding,
+        IconFactory::IconBolt, IconFactory::IconUsers,
     };
     for (int i = 0; i < navNames.size(); ++i) {
         auto *item = new QListWidgetItem(navNames[i]);
@@ -147,9 +150,8 @@ void AdminMainWindow::initUi()
     m_stack->setObjectName("contentStack");
     m_stack->addWidget(new SalesPage());
     m_stack->addWidget(new PileStatusPage());
-    m_stack->addWidget(new PileManagePage());
-    m_stack->addWidget(new OrderManagePage());
     m_stack->addWidget(new StationManagePage());
+    m_stack->addWidget(new OrderManagePage());
     m_stack->addWidget(new UserManagePage());
 
     rightLayout->addWidget(header);
@@ -164,6 +166,15 @@ void AdminMainWindow::initUi()
             this, &AdminMainWindow::onLogoutClicked);
     connect(openWebBtn, &QPushButton::clicked,
             this, &AdminMainWindow::onOpenWebClicked);
+
+    m_autoRefreshTimer = new QTimer(this);
+    m_autoRefreshTimer->setObjectName("pageAutoRefreshTimer");
+    m_autoRefreshTimer->setInterval(5000);
+    connect(m_autoRefreshTimer, &QTimer::timeout,
+            this, &AdminMainWindow::refreshCurrentPage);
+    connect(&ChargingEngine::instance(), &ChargingEngine::pileStatusChanged,
+            this, [this](int, int) { refreshCurrentPage(); });
+    m_autoRefreshTimer->start();
 }
 
 void AdminMainWindow::onNavChanged(int row)
@@ -172,6 +183,22 @@ void AdminMainWindow::onNavChanged(int row)
         return;
     m_stack->setCurrentIndex(row);
     m_headerTitle->setText(m_navList->item(row)->data(Qt::UserRole).toString());
+    QTimer::singleShot(0, this, &AdminMainWindow::refreshCurrentPage);
+}
+
+void AdminMainWindow::refreshCurrentPage()
+{
+    if (!isVisible() || !m_stack || !m_stack->currentWidget())
+        return;
+    if (QApplication::activeModalWidget() || QApplication::activePopupWidget())
+        return;
+    QWidget *page = m_stack->currentWidget();
+    QMetaObject::invokeMethod(page, "refreshPage", Qt::DirectConnection);
+    // resizeColumnsToContents() 会暂时压缩末列；刷新完成后重新让末列填满卡片。
+    for (auto *table : page->findChildren<QTableWidget *>()) {
+        table->horizontalHeader()->setStretchLastSection(false);
+        table->horizontalHeader()->setStretchLastSection(true);
+    }
 }
 
 void AdminMainWindow::onLogoutClicked()

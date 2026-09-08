@@ -77,8 +77,14 @@ PileManagePage::PileManagePage(QWidget *parent)
     refresh();
 }
 
+void PileManagePage::refreshPage()
+{
+    refresh();
+}
+
 void PileManagePage::refresh()
 {
+    const int selectedId = m_selectedId;
     const QList<PileInfo> piles = PileDao::listAll();
     m_table->setRowCount(piles.size());
     for (int i = 0; i < piles.size(); ++i) {
@@ -98,6 +104,12 @@ void PileManagePage::refresh()
                          new QTableWidgetItem(QString::number(p.totalDuration / 60.0, 'f', 1)));
     }
     m_table->resizeColumnsToContents();
+    for (int row = 0; row < m_table->rowCount(); ++row) {
+        if (m_table->item(row, 0)->data(Qt::UserRole).toInt() == selectedId) {
+            m_table->selectRow(row);
+            return;
+        }
+    }
     onSelectionChanged();
 }
 

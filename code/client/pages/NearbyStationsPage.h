@@ -27,6 +27,9 @@ public:
     double currentLon() const { return m_lon; }
     double currentLat() const { return m_lat; }
 
+public slots:
+    void refreshPage();
+
 signals:
     void chargeRequested(int stationId);
     void navigationRequested(int stationId, double lon, double lat);

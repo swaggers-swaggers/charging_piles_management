@@ -1,6 +1,8 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QLabel>
+#include <QLineEdit>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QClipboard>
 #include <QTcpSocket>
@@ -14,7 +16,9 @@
 #include <QHeaderView>
 #include <QSqlQuery>
 #include <QSqlError>
+#include <QSplitter>
 #include <QDebug>
+#include <QTimer>
 #include <QtTest>
 #include "AppTheme.h"
 #include "DonutChart.h"
@@ -23,6 +27,7 @@
 #include "ChargingEngine.h"
 #include "ChargingPowerModel.h"
 #include "dao/OrderDao.h"
+#include "dao/PileDao.h"
 #include "dao/UserDao.h"
 #include <QSemaphore>
 #include <thread>
@@ -178,14 +183,133 @@ int main(int argc,char **argv) {
     }
     if (QApplication::clipboard()->text() != addresses->currentData().toString()) return 17;
     window.resize(1200,820);window.show();
+    auto *pageTimer = window.findChild<QTimer *>("pageAutoRefreshTimer");
+    if (!pageTimer || !pageTimer->isActive() || pageTimer->interval() != 5000) return 57;
+    int refreshablePages = 0;
+    for (auto *page : window.findChildren<QWidget *>())
+        if (page->metaObject()->indexOfMethod("refreshPage()") >= 0) ++refreshablePages;
+    if (refreshablePages != 5) return 58;
     auto *nav=window.findChild<QListWidget*>("navList");
+    if (!nav || nav->count() != 5
+        || nav->item(2)->text() != QStringLiteral("充电站与电桩管理")) return 59;
+    nav->setCurrentRow(2);
+    QTest::qWait(50);
+    auto *stationTable = window.findChild<QTableWidget *>("stationTable");
+    auto *pileTable = window.findChild<QTableWidget *>("pileTable");
+    auto *searchEdit = window.findChild<QLineEdit *>("stationPileSearch");
+    auto *statusFilter = window.findChild<QComboBox *>("pileStatusFilter");
+    auto *faultButton = window.findChild<QPushButton *>("faultButton");
+    auto *stationPileSplitter = window.findChild<QSplitter *>("stationPileSplitter");
+    if (!stationTable || !pileTable || !searchEdit || !statusFilter || !faultButton)
+        return 60;
+    if (!stationPileSplitter || stationPileSplitter->orientation()!=Qt::Horizontal)
+        return 76;
+    if (statusFilter->findData(PileIdle) < 0 || statusFilter->findData(PileInUse) < 0
+        || statusFilter->findData(PileFault) < 0) return 61;
+
+    // 客户端开始充电后，数据库和当前管理页都应立即显示“使用中”。
+    if (!q.exec("SELECT p.id,p.station_id,p.code FROM pile p WHERE p.status=0 LIMIT 1")
+        || !q.next()) return 62;
+    const int livePileId = q.value(0).toInt();
+    const int liveStationId = q.value(1).toInt();
+    const QString livePileCode = q.value(2).toString();
+    q.finish();
+    if (!q.exec(QString("UPDATE user SET balance=1000 WHERE id=%1").arg(userId))) return 63;
+
+    auto findDataRow=[](QTableWidget *table, int column, int value) {
+        for (int row=0; row<table->rowCount(); ++row) {
+            QTableWidgetItem *item=table->item(row,column);
+            if (item && item->data(Qt::UserRole).toInt()==value) return row;
+        }
+        return -1;
+    };
+    auto findTextRow=[](QTableWidget *table, int column, const QString &value) {
+        for (int row=0; row<table->rowCount(); ++row) {
+            QTableWidgetItem *item=table->item(row,column);
+            if (item && item->text()==value) return row;
+        }
+        return -1;
+    };
+    int stationRow=findDataRow(stationTable,0,liveStationId);
+    if (stationRow<0) return 64;
+    stationTable->selectRow(stationRow);
+    QCoreApplication::processEvents();
+    const int oldInUse=stationTable->item(stationRow,6)->text().toInt();
+    auto liveCharge=ChargingEngine::startCharging(userId,livePileId,TargetNone,0,QString());
+    if (!liveCharge.ok || PileDao::getById(livePileId).status!=PileInUse) return 65;
+    QCoreApplication::processEvents();
+    stationRow=findDataRow(stationTable,0,liveStationId);
+    const int livePileRow=findTextRow(pileTable,0,livePileCode);
+    if (stationRow<0 || stationTable->item(stationRow,6)->text().toInt()!=oldInUse+1
+        || stationTable->item(stationRow,8)->text()!=QStringLiteral("使用中")
+        || livePileRow<0 || pileTable->item(livePileRow,3)->text()!=QStringLiteral("使用中"))
+        return 66;
+    if (!ChargingEngine::instance().settleOrder(liveCharge.order.id,FinishByUser,
+                                                 QStringLiteral("状态联动测试")).ok)
+        return 67;
+    QCoreApplication::processEvents();
+    stationRow=findDataRow(stationTable,0,liveStationId);
+    const int idlePileRow=findTextRow(pileTable,0,livePileCode);
+    if (PileDao::getById(livePileId).status!=PileIdle || stationRow<0
+        || stationTable->item(stationRow,6)->text().toInt()!=oldInUse
+        || idlePileRow<0 || pileTable->item(idlePileRow,3)->text()!=QStringLiteral("闲置"))
+        return 68;
+
+    // 电桩编号搜索、状态筛选和故障/恢复按钮应共同作用于合并页面。
+    searchEdit->setText(livePileCode);
+    QMetaObject::invokeMethod(searchEdit,"returnPressed",Qt::DirectConnection);
+    QCoreApplication::processEvents();
+    if (stationTable->rowCount()!=1 || pileTable->rowCount()!=1
+        || pileTable->item(0,0)->text()!=livePileCode) return 69;
+    searchEdit->clear();
+    statusFilter->setCurrentIndex(statusFilter->findData(PileFault));
+    QCoreApplication::processEvents();
+    for (int row=0; row<pileTable->rowCount(); ++row)
+        if (pileTable->item(row,3)->text()!=QStringLiteral("故障")) return 70;
+    for (int row=0; row<stationTable->rowCount(); ++row)
+        if (stationTable->item(row,7)->text().toInt()<=0) return 71;
+    statusFilter->setCurrentIndex(statusFilter->findData(-1));
+    QCoreApplication::processEvents();
+    stationRow=findDataRow(stationTable,0,liveStationId);
+    if (stationRow<0) return 72;
+    stationTable->selectRow(stationRow);
+    QCoreApplication::processEvents();
+    int pileRow=findTextRow(pileTable,0,livePileCode);
+    if (pileRow<0) return 73;
+    pileTable->selectRow(pileRow);
+    QCoreApplication::processEvents();
+    auto acceptQuestion=[] {
+        for (QWidget *widget : QApplication::topLevelWidgets()) {
+            if (auto *box=qobject_cast<QMessageBox *>(widget)) {
+                if (QAbstractButton *yes=box->button(QMessageBox::Yes))
+                    yes->click();
+            }
+        }
+    };
+    QTimer::singleShot(50,acceptQuestion);
+    faultButton->click();
+    if (PileDao::getById(livePileId).status!=PileFault
+        || faultButton->text()!=QStringLiteral("恢复正常")) {
+        qCritical()<<"fault toggle failed"<<PileDao::getById(livePileId).status
+                   <<faultButton->text()<<faultButton->isEnabled();
+        return 74;
+    }
+    QTimer::singleShot(50,acceptQuestion);
+    faultButton->click();
+    if (PileDao::getById(livePileId).status!=PileIdle
+        || faultButton->text()!=QStringLiteral("设为故障")) return 75;
+
     for(int i=0;i<nav->count();++i) {
         nav->setCurrentRow(i);QTest::qWait(500);
         if(!window.grab().save(QString("/tmp/charging-admin-%1.png").arg(i))) return 9;
     }
     for(auto *table:window.findChildren<QTableWidget*>()) {
         if(!table->horizontalHeader()->stretchLastSection()) return 10;
-        if(table->isVisible() && table->horizontalHeader()->length()<table->viewport()->width()-2) return 11;
+        if(table->isVisible() && table->horizontalHeader()->length()<table->viewport()->width()-2) {
+            qCritical() << "visible table does not fill card" << table->objectName()
+                        << table->horizontalHeader()->length() << table->viewport()->width();
+            return 11;
+        }
     }
     if (window.findChildren<QFrame*>("adminDataCard").size() != window.findChildren<QTableWidget*>().size()) {
         for (auto *table:window.findChildren<QTableWidget*>()) qCritical()<<table->objectName()<<table->property("cardDecorated");
@@ -205,6 +329,6 @@ int main(int argc,char **argv) {
         if (button->text() == "刷新") button->click();
     }
     if (!window.findChild<QLabel*>("lanStatusLabel")->text().contains("未启动")) return 18;
-    qInfo()<<"PASS: real TCP login, LAN address/port, clipboard, listener failure, variable energy, billing consistency, settlement, six admin pages and tables";
+    qInfo()<<"PASS: charging state linkage, merged station/pile management, search/status filters, fault toggle, TCP login, auto refresh and five admin pages";
     return 0;
 }

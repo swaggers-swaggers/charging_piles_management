@@ -128,13 +128,21 @@ void UserInfoPage::showEvent(QShowEvent *event)
     QTimer::singleShot(0, this, &UserInfoPage::onRefresh);
 }
 
+void UserInfoPage::refreshPage()
+{
+    m_silentRefresh = true;
+    onRefresh();
+    m_silentRefresh = false;
+}
+
 void UserInfoPage::onRefresh()
 {
     ClientSession &s = ClientSession::instance();
     QJsonObject reply = TcpClient::instance().request(
         Protocol::ReqGetUserInfo, QJsonObject{{"userId", s.userId}});
     if (!reply.value("ok").toBool()) {
-        QMessageBox::warning(this, "提示", reply.value("error").toString("获取用户信息失败"));
+        if (!m_silentRefresh)
+            QMessageBox::warning(this, "提示", reply.value("error").toString("获取用户信息失败"));
         return;
     }
 
@@ -145,7 +153,8 @@ void UserInfoPage::onRefresh()
     m_phoneLabel->setText(QString("手机号: %1").arg(s.phone));
     m_balanceLabel->setText(QString::number(s.balance, 'f', 2));
     m_nameLabel->setText(s.nickname.isEmpty() ? "充电用户" : s.nickname);
-    m_nickEdit->setText(s.nickname);
+    if (!m_nickEdit->hasFocus() && !m_nickEdit->isModified())
+        m_nickEdit->setText(s.nickname);
 
     m_avatarLabel->setPixmap(defaultAvatar().scaled(56,56,Qt::KeepAspectRatio,Qt::SmoothTransformation));
     // 头像: base64 → 图片, 失败用默认灰色头像

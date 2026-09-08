@@ -6,6 +6,7 @@
 class QLabel;
 class QListWidget;
 class QStackedWidget;
+class QTimer;
 
 // 用户客户端主窗口 (模拟手机端交互)
 // 首页串联查站、导航与选桩；侧栏保留充电进度、订单、消息和账户。
@@ -19,6 +20,7 @@ public:
 private slots:
     void onNavChanged(int row);
     void onLogoutClicked();
+    void refreshCurrentPage();
 
 private:
     void initUi();
@@ -27,6 +29,7 @@ private:
     QStackedWidget *m_stack;
     QLabel *m_headerTitle;
     QLabel *m_headerUser;
+    QTimer *m_autoRefreshTimer = nullptr;
 };
 
 #endif // USERMAINWINDOW_H

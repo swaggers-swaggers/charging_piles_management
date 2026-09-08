@@ -20,7 +20,6 @@
 #include <QPushButton>
 #include <QTableWidget>
 #include <QTabWidget>
-#include <QTimer>
 #include <QVBoxLayout>
 
 namespace {
@@ -209,20 +208,19 @@ OrderManagePage::OrderManagePage(QWidget *parent)
 
     refreshOrders();
 
-    // 自动刷新: 每 3 秒刷新当前 Tab, 无需手动点刷新按钮
-    m_autoRefresh = new QTimer(this);
-    m_autoRefresh->setInterval(3000);
-    connect(m_autoRefresh, &QTimer::timeout, this, [this]() {
-        if (m_tabs->currentIndex() == 0)
-            refreshOrders();
-        else
-            refreshReservations();
-    });
-    m_autoRefresh->start();
+}
+
+void OrderManagePage::refreshPage()
+{
+    if (m_tabs->currentIndex() == 0)
+        refreshOrders();
+    else
+        refreshReservations();
 }
 
 void OrderManagePage::refreshOrders()
 {
+    const int selectedId = m_selectedOrderId;
     const int filter = m_statusFilter->currentData().toInt();
     const QList<OrderInfo> orders = OrderDao::listAll(filter);
     m_orderTable->setRowCount(orders.size());
@@ -251,6 +249,12 @@ void OrderManagePage::refreshOrders()
             o.refundAmount > 0 ? QString::number(o.refundAmount, 'f', 2) : QString()));
     }
     m_orderTable->resizeColumnsToContents();
+    for (int row = 0; row < m_orderTable->rowCount(); ++row) {
+        if (m_orderTable->item(row, 0)->data(Qt::UserRole).toInt() == selectedId) {
+            m_orderTable->selectRow(row);
+            return;
+        }
+    }
     onOrderSelectionChanged();
 }
 
@@ -351,6 +355,7 @@ void OrderManagePage::onShowDetail()
 
 void OrderManagePage::refreshReservations()
 {
+    const int selectedId = m_selectedResId;
     const int typeFilter = m_resFilter->currentData().toInt();
     const QList<ReservationInfo> list = ReservationDao::listAll(-1, typeFilter);
     m_resTable->setRowCount(list.size());
@@ -382,6 +387,12 @@ void OrderManagePage::refreshReservations()
         m_resTable->setItem(i, 8, stItem);
     }
     m_resTable->resizeColumnsToContents();
+    for (int row = 0; row < m_resTable->rowCount(); ++row) {
+        if (m_resTable->item(row, 0)->data(Qt::UserRole).toInt() == selectedId) {
+            m_resTable->selectRow(row);
+            return;
+        }
+    }
     onReservationSelectionChanged();
 }
 

@@ -174,6 +174,12 @@ void NearbyStationsPage::showEvent(QShowEvent *event)
     QTimer::singleShot(0, this, &NearbyStationsPage::refresh);
 }
 
+void NearbyStationsPage::refreshPage()
+{
+    if (isVisible())
+        refresh();
+}
+
 void NearbyStationsPage::onLocate()
 {
     const QString addr = m_addrEdit->text().trimmed();

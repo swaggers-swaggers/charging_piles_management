@@ -15,6 +15,9 @@ class PileStatusPage : public QWidget
 public:
     explicit PileStatusPage(QWidget *parent = nullptr);
 
+public slots:
+    void refreshPage();
+
 private slots:
     void refresh();
 

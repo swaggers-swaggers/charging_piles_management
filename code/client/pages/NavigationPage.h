@@ -29,6 +29,9 @@ public:
     explicit NavigationPage(QWidget *parent = nullptr);
     void setDestination(int stationId, double lon, double lat);
 
+public slots:
+    void refreshPage();
+
 protected:
     void showEvent(QShowEvent *event) override;
 
@@ -42,6 +45,7 @@ private slots:
 
 private:
     QTimer *m_refreshTimer;
+    QTimer *m_autoRefreshTimer;
     bool m_refreshing = false;
     QComboBox *m_startCombo;
     QComboBox *m_destCombo;

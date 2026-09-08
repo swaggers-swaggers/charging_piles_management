@@ -76,6 +76,9 @@ inline void decorate(QWidget *root) {
         table->setAlternatingRowColors(true); table->setMouseTracking(true);
         table->verticalHeader()->setDefaultSectionSize(44);
         table->horizontalHeader()->setMinimumHeight(40);
+        if (table->columnCount() > 0)
+            table->horizontalHeader()->setSectionResizeMode(table->columnCount() - 1,
+                                                             QHeaderView::Stretch);
         for (int c=0;c<table->columnCount();++c) {
             if (table->horizontalHeaderItem(c) && table->horizontalHeaderItem(c)->text().contains("状态"))
                 table->setItemDelegateForColumn(c,new StatusDelegate(table));

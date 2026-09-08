@@ -7,10 +7,11 @@ class QTcpServer;
 class QLabel;
 class QListWidget;
 class QStackedWidget;
+class QTimer;
 
 // 服务端管理后台主窗口
-// 左侧导航 + 右侧页面栈, 六个功能页面:
-//   销售业绩 / 电桩状态 / 充电桩管理 / 订单管理 / 充电站管理 / 用户管理
+// 左侧导航 + 右侧页面栈, 五个功能页面:
+//   销售业绩 / 电桩状态 / 充电站与电桩管理 / 订单管理 / 用户管理
 class AdminMainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -28,6 +29,7 @@ private slots:
     void onNavChanged(int row);
     void onLogoutClicked();
     void onOpenWebClicked();
+    void refreshCurrentPage();
 
 private:
     void initUi();
@@ -38,6 +40,7 @@ private:
     QStackedWidget *m_stack;
     QLabel *m_headerTitle;
     QLabel *m_headerUser;
+    QTimer *m_autoRefreshTimer = nullptr;
 };
 
 #endif // ADMINMAINWINDOW_H

@@ -604,7 +604,10 @@ void ChargingPage::refreshStations()
     const QJsonObject reply = TcpClient::instance().request(
         Protocol::ReqStationList, QJsonObject{{"lon", 123.45}, {"lat", 41.70}});
     if (!reply.value("ok").toBool()) {
-        QMessageBox::warning(this, QStringLiteral("查询失败"), reply.value("error").toString());
+        if (m_silentRefresh)
+            m_stationInfo->setText(QStringLiteral("自动刷新失败，将稍后重试"));
+        else
+            QMessageBox::warning(this, QStringLiteral("查询失败"), reply.value("error").toString());
         return;
     }
     m_stations.clear();
@@ -855,6 +858,7 @@ void ChargingPage::onCancelWaiting()
 
 void ChargingPage::enterChargingView(const OrderInfo &order)
 {
+    const bool sameOrder = m_hasOrder && m_currentOrder.id == order.id;
     m_currentOrder = order;
     m_hasOrder = true;
     m_orderTitle->setText(QStringLiteral("订单 #%1    %2    电桩 %3")
@@ -863,8 +867,17 @@ void ChargingPage::enterChargingView(const OrderInfo &order)
     m_amountVal->setText(QString::number(order.amount, 'f', 2));
     m_minutesVal->setText(QString::number(order.simMinutes));
     m_ring->setCenterText(QString::number(order.energy, 'f', 1), QStringLiteral("度"));
-    m_ring->setProgress(order.targetType == TargetNone ? -1 : 0);
-    if (m_chart) {
+    double progress = -1.0;
+    if (order.targetValue > 0) {
+        if (order.targetType == TargetEnergy)
+            progress = order.energy / order.targetValue;
+        else if (order.targetType == TargetAmount)
+            progress = order.amount / order.targetValue;
+        else if (order.targetType == TargetMinutes)
+            progress = double(order.simMinutes) / order.targetValue;
+    }
+    m_ring->setProgress(progress);
+    if (m_chart && !sameOrder) {
         m_chart->clearData();
         if (order.simMinutes > 0)
             m_chart->addPoint(order.simMinutes, order.energy, order.amount);
@@ -923,14 +936,28 @@ void ChargingPage::refreshWaiting()
 void ChargingPage::showEvent(QShowEvent *event)
 {
     QWidget::showEvent(event);
+    refreshPage();
+}
+
+void ChargingPage::refreshPage()
+{
+    if (!isVisible() || TcpClient::instance().isBusy())
+        return;
+
+    m_silentRefresh = true;
 
     const QJsonObject reply = TcpClient::instance().request(
         Protocol::ReqUnfinishedOrder,
         QJsonObject{{"userId", ClientSession::instance().userId}});
+    if (!reply.value("ok").toBool()) {
+        m_silentRefresh = false;
+        return;
+    }
     if (reply.value("ok").toBool() && reply.value("hasOrder").toBool()) {
         m_currentOrder = OrderInfo::fromJson(reply.value("order").toObject());
         m_requestedStationId = -1;
         enterChargingView(m_currentOrder);
+        m_silentRefresh = false;
         return;
     }
 
@@ -938,6 +965,10 @@ void ChargingPage::showEvent(QShowEvent *event)
     const QJsonObject res = TcpClient::instance().request(
         Protocol::ReqMyReservations,
         QJsonObject{{"userId", ClientSession::instance().userId}});
+    if (!res.value("ok").toBool()) {
+        m_silentRefresh = false;
+        return;
+    }
     bool waiting = false;
     if (res.value("ok").toBool()) {
         const QJsonArray arr = res.value("reservations").toArray();
@@ -955,6 +986,7 @@ void ChargingPage::showEvent(QShowEvent *event)
         enterSelectView();
         refreshStations();
     }
+    m_silentRefresh = false;
 }
 
 void ChargingPage::onPushReceived(const QJsonObject &msg)

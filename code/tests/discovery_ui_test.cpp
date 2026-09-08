@@ -42,6 +42,7 @@ class DiscoveryTest : public QObject {
     bool failed = false;
     bool activeOrder = false;
     int lastPileStation = -1;
+    int stationRequestCount = 0;
     double lastLon = 0;
     double lastLat = 0;
     int replyDelay = 0;
@@ -126,7 +127,7 @@ private slots:
                     int type=req["type"].toInt();
                     QJsonObject reply{{"type",type},{"ok",true}};
                     if(type==Protocol::ReqGetUserInfo) { reply["nickname"]="体验用户"; reply["balance"]=128.50; }
-                    if(type==6) { reply["stations"]=stations(); lastLon=req["lon"].toDouble(); lastLat=req["lat"].toDouble();
+                    if(type==6) { ++stationRequestCount; reply["stations"]=stations(); lastLon=req["lon"].toDouble(); lastLat=req["lat"].toDouble();
                         if(failed) { reply["ok"]=false; reply["error"]="test unavailable"; } }
                     if(type==7) { lastPileStation=req["stationId"].toInt();
                         reply["piles"]=QJsonArray{QJsonObject{{"id",101},{"stationId",lastPileStation},{"code","DC-01"},
@@ -153,6 +154,17 @@ private slots:
         window=new UserMainWindow;
         window->resize(1200,820); window->show();
         QTRY_COMPARE(window->findChildren<QFrame*>("stationCard").size(),3);
+        auto *pageTimer = window->findChild<QTimer *>("pageAutoRefreshTimer");
+        QVERIFY(pageTimer);
+        QVERIFY(pageTimer->isActive());
+        QCOMPARE(pageTimer->interval(), 5000);
+        int refreshablePages = 0;
+        for (auto *page : window->findChildren<QWidget *>())
+            if (page->metaObject()->indexOfMethod("refreshPage()") >= 0) ++refreshablePages;
+        QCOMPARE(refreshablePages, 5);
+        const int requestsBeforeTick = stationRequestCount;
+        QVERIFY(QMetaObject::invokeMethod(pageTimer, "timeout", Qt::DirectConnection));
+        QTRY_VERIFY(stationRequestCount > requestsBeforeTick);
     }
     void homepageAndFilters() {
         auto *nav=window->findChild<QListWidget*>("navList");

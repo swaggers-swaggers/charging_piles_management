@@ -67,8 +67,14 @@ UserManagePage::UserManagePage(QWidget *parent)
     refresh();
 }
 
+void UserManagePage::refreshPage()
+{
+    refresh();
+}
+
 void UserManagePage::refresh()
 {
+    const int selectedId = m_selectedUserId;
     const QList<UserInfo> users = UserDao::list(m_searchEdit->text().trimmed());
     m_table->setRowCount(users.size());
     for (int i = 0; i < users.size(); ++i) {
@@ -87,6 +93,12 @@ void UserManagePage::refresh()
         m_table->setItem(i, 5, statusItem);
     }
     m_table->resizeColumnsToContents();
+    for (int row = 0; row < m_table->rowCount(); ++row) {
+        if (m_table->item(row, 0)->data(Qt::UserRole).toInt() == selectedId) {
+            m_table->selectRow(row);
+            return;
+        }
+    }
     onSelectionChanged();
 }
 

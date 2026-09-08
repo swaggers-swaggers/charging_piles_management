@@ -16,6 +16,9 @@ class SalesPage : public QWidget
 public:
     explicit SalesPage(QWidget *parent = nullptr);
 
+public slots:
+    void refreshPage();
+
 private slots:
     void refresh();
 

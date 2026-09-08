@@ -44,7 +44,6 @@ SOURCES += \
     dao/LogDao.cpp \
     pages/SalesPage.cpp \
     pages/PileStatusPage.cpp \
-    pages/PileManagePage.cpp \
     pages/OrderManagePage.cpp \
     pages/StationManagePage.cpp \
     pages/UserManagePage.cpp \
@@ -69,7 +68,6 @@ HEADERS += \
     dao/LogDao.h \
     pages/SalesPage.h \
     pages/PileStatusPage.h \
-    pages/PileManagePage.h \
     pages/OrderManagePage.h \
     pages/StationManagePage.h \
     pages/UserManagePage.h \

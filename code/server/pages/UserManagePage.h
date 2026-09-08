@@ -15,6 +15,9 @@ class UserManagePage : public QWidget
 public:
     explicit UserManagePage(QWidget *parent = nullptr);
 
+public slots:
+    void refreshPage();
+
 private slots:
     void refresh();
     void onFreezeClicked();

@@ -16,6 +16,9 @@ class OrderHistoryPage : public QWidget
 public:
     explicit OrderHistoryPage(QWidget *parent = nullptr);
 
+public slots:
+    void refreshPage();
+
 protected:
     void showEvent(QShowEvent *event) override;
 
@@ -43,6 +46,7 @@ private:
     int m_selectedOrderId = -1;
     int m_selectedResId = -1;
     int m_selectedResStatus = -1;
+    bool m_silentRefresh = false;
 };
 
 #endif // ORDERHISTORYPAGE_H

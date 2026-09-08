@@ -71,6 +71,11 @@ NavigationPage::NavigationPage(QWidget *parent)
     m_refreshTimer = new QTimer(this);
     m_refreshTimer->setSingleShot(true);
     connect(m_refreshTimer, &QTimer::timeout, this, &NavigationPage::refresh);
+    m_autoRefreshTimer = new QTimer(this);
+    m_autoRefreshTimer->setObjectName("pageAutoRefreshTimer");
+    m_autoRefreshTimer->setInterval(5000);
+    connect(m_autoRefreshTimer, &QTimer::timeout, this, &NavigationPage::refreshPage);
+    m_autoRefreshTimer->start();
     QVBoxLayout *layout = new QVBoxLayout(this);
     layout->setContentsMargins(24, 20, 24, 24);
     layout->setSpacing(16);
@@ -181,6 +186,12 @@ void NavigationPage::showEvent(QShowEvent *event)
     QWidget::showEvent(event);
     // 延迟到界面显示完成后查询站点；不再进入页面就消耗一次第三方定位额度。
     m_refreshTimer->start(0);
+}
+
+void NavigationPage::refreshPage()
+{
+    if (isVisible() && !m_refreshing && !TcpClient::instance().isBusy())
+        m_refreshTimer->start(0);
 }
 
 void NavigationPage::onStartChanged(int index)

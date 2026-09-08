@@ -14,6 +14,7 @@
 #include "IconFactory.h"
 
 #include <QFile>
+#include <QApplication>
 #include <QDialog>
 #include <QTimer>
 #include <QGuiApplication>
@@ -211,6 +212,13 @@ void UserMainWindow::initUi()
         statusBar()->showMessage("服务端连接已断开，请重新操作以重连");
         QMessageBox::warning(this, "连接断开", "服务端连接已断开，请检查服务端后重试。");
     });
+
+    m_autoRefreshTimer = new QTimer(this);
+    m_autoRefreshTimer->setObjectName("pageAutoRefreshTimer");
+    m_autoRefreshTimer->setInterval(5000);
+    connect(m_autoRefreshTimer, &QTimer::timeout,
+            this, &UserMainWindow::refreshCurrentPage);
+    m_autoRefreshTimer->start();
 }
 
 void UserMainWindow::onNavChanged(int row)
@@ -223,6 +231,21 @@ void UserMainWindow::onNavChanged(int row)
     m_headerUser->setText(QString("%1  |  余额: %2 元")
                               .arg(ClientSession::instance().nickname)
                               .arg(ClientSession::instance().balance, 0, 'f', 2));
+}
+
+void UserMainWindow::refreshCurrentPage()
+{
+    if (!isVisible() || !m_stack || !m_stack->currentWidget()
+        || TcpClient::instance().isBusy())
+        return;
+    if (QApplication::activeModalWidget() || QApplication::activePopupWidget())
+        return;
+
+    QWidget *page = m_stack->currentWidget();
+    if (auto *scroll = qobject_cast<QScrollArea *>(page))
+        page = scroll->widget();
+    if (page)
+        QMetaObject::invokeMethod(page, "refreshPage", Qt::QueuedConnection);
 }
 
 void UserMainWindow::onLogoutClicked()

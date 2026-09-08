@@ -17,6 +17,9 @@ class UserInfoPage : public QWidget
 public:
     explicit UserInfoPage(QWidget *parent = nullptr);
 
+public slots:
+    void refreshPage();
+
 protected:
     void resizeEvent(QResizeEvent *event) override;
     void showEvent(QShowEvent *event) override;
@@ -38,6 +41,7 @@ private:
     QPushButton *m_saveNickBtn;
     QDoubleSpinBox *m_rechargeSpin;
     QPushButton *m_rechargeBtn;
+    bool m_silentRefresh = false;
 };
 
 #endif // USERINFOPAGE_H

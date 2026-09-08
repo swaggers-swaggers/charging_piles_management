@@ -118,6 +118,7 @@ void MessagePage::refresh() {
     m_emptyLabel->setText(msgs.isEmpty() ? "暂时没有新消息\n\n充电进度、预约提醒和退款通知将在这里展示"
                                       : "当前分类暂无消息\n\n切换到全部消息，查看其他通知");
 }
+void MessagePage::refreshPage() { refresh(); }
 void MessagePage::onItemClicked(int row) {
     auto *item = m_list->item(row);
     if(item && !item->data(ReadRole).toBool()) MessageCenter::instance().markRead(item->data(Qt::UserRole).toInt());

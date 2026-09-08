@@ -15,6 +15,9 @@ class PileManagePage : public QWidget
 public:
     explicit PileManagePage(QWidget *parent = nullptr);
 
+public slots:
+    void refreshPage();
+
 private slots:
     void refresh();
     void onSelectionChanged();

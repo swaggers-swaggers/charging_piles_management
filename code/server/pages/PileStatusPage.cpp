@@ -111,6 +111,11 @@ QWidget *PileStatusPage::buildChart(int inUse, int idle, int fault)
     return new DonutChart(inUse, idle, fault);
 }
 
+void PileStatusPage::refreshPage()
+{
+    refresh();
+}
+
 void PileStatusPage::refresh()
 {
     int idle = 0, inUse = 0, fault = 0;

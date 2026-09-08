@@ -173,15 +173,30 @@ void OrderHistoryPage::showEvent(QShowEvent *event)
     refreshReservations();
 }
 
+void OrderHistoryPage::refreshPage()
+{
+    m_silentRefresh = true;
+    if (m_tabs->currentIndex() == 0)
+        refreshOrders();
+    else
+        refreshReservations();
+    m_silentRefresh = false;
+}
+
 void OrderHistoryPage::refreshOrders()
 {
+    int selectedId = -1;
+    if (!m_orderTable->selectedItems().isEmpty())
+        selectedId = m_orderTable->item(m_orderTable->selectedItems().first()->row(), 0)
+                         ->data(Qt::UserRole).toInt();
     QJsonObject req;
     req.insert("userId", ClientSession::instance().userId);
     req.insert("page", m_page);
     req.insert("pageSize", m_pageSize);
     const QJsonObject reply = TcpClient::instance().request(Protocol::ReqOrderHistory, req);
     if (!reply.value("ok").toBool()) {
-        QMessageBox::warning(this, QStringLiteral("加载失败"), reply.value("error").toString());
+        if (!m_silentRefresh)
+            QMessageBox::warning(this, QStringLiteral("加载失败"), reply.value("error").toString());
         return;
     }
     m_total = reply.value("total").toInt();
@@ -211,6 +226,12 @@ void OrderHistoryPage::refreshOrders()
     m_pageLabel->setText(QStringLiteral("第 %1/%2 页 · 共 %3 单").arg(m_page + 1).arg(totalPages).arg(m_total));
     m_prevBtn->setEnabled(m_page > 0);
     m_nextBtn->setEnabled(m_page + 1 < totalPages);
+    for (int row = 0; row < m_orderTable->rowCount(); ++row) {
+        if (m_orderTable->item(row, 0)->data(Qt::UserRole).toInt() == selectedId) {
+            m_orderTable->selectRow(row);
+            break;
+        }
+    }
 }
 
 void OrderHistoryPage::onPrevPage()
@@ -258,6 +279,7 @@ void OrderHistoryPage::onShowDetail()
 
 void OrderHistoryPage::refreshReservations()
 {
+    const int selectedId = m_selectedResId;
     QJsonObject req;
     req.insert("userId", ClientSession::instance().userId);
     const QJsonObject reply = TcpClient::instance().request(Protocol::ReqMyReservations, req);
@@ -290,6 +312,12 @@ void OrderHistoryPage::refreshReservations()
         m_resTable->setItem(i, 7, st);
     }
     m_resTable->resizeColumnsToContents();
+    for (int row = 0; row < m_resTable->rowCount(); ++row) {
+        if (m_resTable->item(row, 0)->data(Qt::UserRole).toInt() == selectedId) {
+            m_resTable->selectRow(row);
+            break;
+        }
+    }
 }
 
 void OrderHistoryPage::onCancelReservation()

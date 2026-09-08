@@ -44,6 +44,9 @@ public:
     explicit ChargingPage(QWidget *parent = nullptr);
     void selectStation(int stationId);
 
+public slots:
+    void refreshPage();
+
 protected:
     void showEvent(QShowEvent *event) override;
 
@@ -102,6 +105,7 @@ private:
     QList<PileInfo> m_piles;
     OrderInfo m_currentOrder;
     bool m_hasOrder = false;
+    bool m_silentRefresh = false;
 
     // 当前等待中的排队/预约
     int m_waitingId = -1;
