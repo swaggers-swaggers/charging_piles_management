@@ -7,6 +7,8 @@
 #include <QPushButton>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPainterPath>
+#include <QRegion>
 #include <QWindow>
 #include <QSizeGrip>
 
@@ -17,21 +19,32 @@ public:
     explicit WindowBackdrop(QWidget *w) : QWidget(w) {
         setAttribute(Qt::WA_TransparentForMouseEvents);
         setAttribute(Qt::WA_NoSystemBackground);
-        w->installEventFilter(this); setGeometry(w->rect()); lower(); show();
+        w->installEventFilter(this); setGeometry(w->rect()); updateWindowMask(); lower(); show();
     }
 protected:
     bool eventFilter(QObject *, QEvent *e) override {
-        if (e->type()==QEvent::Resize) setGeometry(parentWidget()->rect());
+        if (e->type()==QEvent::Resize || e->type()==QEvent::WindowStateChange) {
+            setGeometry(parentWidget()->rect());
+            updateWindowMask();
+        }
         return false;
     }
     void paintEvent(QPaintEvent *) override {
         QPainter p(this); p.setRenderHint(QPainter::Antialiasing); p.setPen(Qt::NoPen);
-        for (int i=12;i>0;--i) {
-            p.setBrush(QColor(24,55,43,2+(12-i)/3));
-            p.drawRoundedRect(QRectF(rect()).adjusted(i,i,i*-1,i*-1),20,20);
-        }
         p.setBrush(QColor("#F3F7F6"));
-        p.drawRoundedRect(QRectF(rect()).adjusted(12,12,-12,-12),16,16);
+        p.drawRoundedRect(QRectF(rect()).adjusted(.5,.5,-.5,-.5),14,14);
+    }
+private:
+    void updateWindowMask() {
+        QWidget *host = parentWidget();
+        if (!host) return;
+        if (host->isMaximized() || host->isFullScreen()) {
+            host->clearMask();
+            return;
+        }
+        QPainterPath path;
+        path.addRoundedRect(QRectF(host->rect()), 14, 14);
+        host->setMask(QRegion(path.toFillPolygon().toPolygon()));
     }
 };
 class TitleBar : public QWidget {
@@ -85,15 +98,16 @@ inline void installChrome(QWidget *w) {
     if (!qobject_cast<QMainWindow*>(w) && !qobject_cast<QDialog*>(w)) return;
     w->setProperty("chromeInstalled",true);
     w->setWindowFlag(Qt::FramelessWindowHint);
+    // 透明区域只保留在四个圆角，不再预留外围阴影带。
     w->setAttribute(Qt::WA_TranslucentBackground);
-    w->setContentsMargins(12,12,12,12);
+    w->setContentsMargins(0,0,0,0);
     new WindowBackdrop(w);
     auto *title=new TitleBar(w);
     if(auto *main=qobject_cast<QMainWindow*>(w)) main->setMenuWidget(title);
     else {
         auto *body=new QWidget(w);
         if(w->layout()) body->setLayout(w->layout());
-        auto *layout=new QVBoxLayout(w); layout->setContentsMargins(0,0,0,6); layout->setSpacing(0);
+        auto *layout=new QVBoxLayout(w); layout->setContentsMargins(0,0,0,0); layout->setSpacing(0);
         layout->addWidget(title); layout->addWidget(body,1);
         layout->addWidget(new QSizeGrip(w),0,Qt::AlignRight);
     }

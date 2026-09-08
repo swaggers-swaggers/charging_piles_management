@@ -86,6 +86,8 @@ private slots:
         QTimer::singleShot(100,&dialog,[&]{
             QVERIFY(dialog.windowFlags().testFlag(Qt::FramelessWindowHint));
             QVERIFY(dialog.findChild<QWidget*>("customTitleBar"));
+            QVERIFY(dialog.testAttribute(Qt::WA_TranslucentBackground));
+            QCOMPARE(dialog.contentsMargins(), QMargins(0,0,0,0));
             QVERIFY(input->isVisible());
             dialog.accept();
         });
