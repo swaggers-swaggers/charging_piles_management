@@ -126,7 +126,7 @@ HomePage::HomePage(QWidget *parent)
     addAction(hero, "查看附近充电站  →");
 
     auto *connection = createBaseCard("服务连接", "当前客户端连接地址",
-                                      IconFactory::IconCompass, "paper", "regular", 5,
+                                      IconFactory::IconCompass, "paper", "regular", 7,
                                       &m_connectionStatus);
     auto *connectionBody = cardBody(connection);
     m_endpoint = detailLabel("--:--", connection, "homeEndpoint");
@@ -149,7 +149,7 @@ HomePage::HomePage(QWidget *parent)
     addAction(charge, "进入充电服务  →");
 
     auto *account = createBaseCard("我的账户", "个人资料与可用余额",
-                                   IconFactory::IconUser, "amber", "regular", 5);
+                                   IconFactory::IconUser, "amber", "regular", 7);
     auto *accountBody = cardBody(account);
     m_accountBalance = detailLabel("¥ --", account, "homeBalance");
     m_accountName = detailLabel("--", account, "homeFeatureTitle");
@@ -187,7 +187,7 @@ HomePage::HomePage(QWidget *parent)
     addAction(orders, "查看订单与预约  →");
 
     auto *messages = createBaseCard("消息通知", "充电动态与服务提醒",
-                                    IconFactory::IconBattery, "paper", "detail", 4,
+                                    IconFactory::IconBattery, "paper", "detail", 6,
                                     &m_messageSummary);
     auto *messageBody = cardBody(messages);
     for (int i = 0; i < 2; ++i) {
