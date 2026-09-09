@@ -1,12 +1,15 @@
 #include "UserManagePage.h"
 
+#include "ChargingEngine.h"
 #include "LogDao.h"
 #include "ServerSession.h"
 #include "UserDao.h"
+#include "protocol.h"
 
 #include <QBrush>
 #include <QColor>
 #include <QHeaderView>
+#include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -142,5 +145,14 @@ void UserManagePage::onFreezeClicked()
     LogDao::record(ServerSession::instance().adminName,
                    toFrozen ? "冻结用户" : "解冻用户",
                    QString("用户 %1 (%2)").arg(phone).arg(m_selectedUserId));
+
+    QJsonObject statusEvent;
+    statusEvent.insert("type", Protocol::PushOrderEvent);
+    statusEvent.insert("event", 12);
+    statusEvent.insert("status", toFrozen ? UserFrozen : UserNormal);
+    statusEvent.insert("message", toFrozen
+        ? QStringLiteral("您的账号已被冻结，当前无法充值或开始充电。")
+        : QStringLiteral("您的账号已解除冻结，充值与充电服务已恢复。"));
+    ChargingEngine::instance().pushToUser(m_selectedUserId, statusEvent);
     refresh();
 }

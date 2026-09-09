@@ -208,11 +208,17 @@ void LoginDialog::onLoginClicked()
     s.phone = reply.value("phone").toString();
     s.nickname = reply.value("nickname").toString();
     s.balance = reply.value("balance").toDouble();
+    s.status = reply.value("status").toInt(UserNormal);
 
     const bool isNewUser = reply.value("isNew").toBool();
-    QMessageBox::information(this, "提示",
-                             QString(isNewUser ? "注册成功, 欢迎 %1 !"
-                                               : "登录成功, 欢迎 %1 !").arg(s.nickname));
+    if (s.status == UserFrozen) {
+        QMessageBox::warning(this, "账号已冻结",
+                             "您的账号已被冻结，当前无法充值或开始充电。");
+    } else {
+        QMessageBox::information(this, "提示",
+                                 QString(isNewUser ? "注册成功, 欢迎 %1 !"
+                                                   : "登录成功, 欢迎 %1 !").arg(s.nickname));
+    }
     accept();
 }
 

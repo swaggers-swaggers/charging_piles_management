@@ -109,17 +109,28 @@ bool UserDao::recharge(int userId, double amount, double *newBalance,
 {
     QSqlDatabase db = QSqlDatabase::database(connName);
     QSqlQuery query(db);
-    query.prepare("UPDATE user SET balance = balance + :a WHERE id = :id");
+    // 状态判断放在同一条 UPDATE 中，避免冻结与充值并发时绕过校验。
+    query.prepare("UPDATE user SET balance = balance + :a "
+                  "WHERE id = :id AND status = :normal");
     query.bindValue(":a", amount);
     query.bindValue(":id", userId);
+    query.bindValue(":normal", UserNormal);
     if (!query.exec()) {
         if (errMsg)
             *errMsg = "充值失败: " + query.lastError().text();
         return false;
     }
     if (query.numRowsAffected() <= 0) {
-        if (errMsg)
-            *errMsg = "用户不存在";
+        QSqlQuery stateQuery(db);
+        stateQuery.prepare("SELECT status FROM user WHERE id = :id");
+        stateQuery.bindValue(":id", userId);
+        if (errMsg) {
+            if (stateQuery.exec() && stateQuery.next()
+                && stateQuery.value(0).toInt() == UserFrozen)
+                *errMsg = QStringLiteral("账号已冻结，无法充值");
+            else
+                *errMsg = QStringLiteral("用户不存在");
+        }
         return false;
     }
     if (newBalance) {

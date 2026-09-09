@@ -48,11 +48,15 @@ UserMainWindow::UserMainWindow(QWidget *parent)
     initUi();
     UiMotion::install(this);
 
-    statusBar()->showMessage(QString("当前用户: %1 (%2)    |    服务器: %3:%4    |    已连接")
-                                 .arg(ClientSession::instance().nickname,
-                                      ClientSession::instance().phone,
-                                      TcpClient::instance().serverHost(),
-                                      QString::number(TcpClient::instance().serverPort())));
+    if (ClientSession::instance().status == UserFrozen) {
+        statusBar()->showMessage("账号已冻结    |    无法充值或开始充电");
+    } else {
+        statusBar()->showMessage(QString("当前用户: %1 (%2)    |    服务器: %3:%4    |    已连接")
+                                     .arg(ClientSession::instance().nickname,
+                                          ClientSession::instance().phone,
+                                          TcpClient::instance().serverHost(),
+                                          QString::number(TcpClient::instance().serverPort())));
+    }
 }
 
 void UserMainWindow::initUi()
@@ -200,6 +204,22 @@ void UserMainWindow::initUi()
             this, &UserMainWindow::onNavChanged);
     connect(logoutBtn, &QPushButton::clicked,
             this, &UserMainWindow::onLogoutClicked);
+    connect(&TcpClient::instance(), &TcpClient::pushReceived, this,
+            [this](const QJsonObject &msg) {
+        if (msg.value("type").toInt() != Protocol::PushOrderEvent
+            || msg.value("event").toInt() != 12)
+            return;
+        const int status = msg.value("status").toInt(UserNormal);
+        ClientSession::instance().status = status;
+        if (status == UserFrozen) {
+            statusBar()->showMessage("账号已冻结    |    无法充值或开始充电");
+            QMessageBox::warning(this, "账号已冻结",
+                                 msg.value("message").toString(
+                                     "您的账号已被冻结，当前无法充值或开始充电。"));
+        } else {
+            statusBar()->showMessage("账号已解除冻结，充值与充电服务已恢复", 5000);
+        }
+    });
     connect(&TcpClient::instance(), &TcpClient::connectionLost, this, [this]() {
         statusBar()->showMessage("服务端连接已断开，请重新操作以重连");
         QMessageBox::warning(this, "连接断开", "服务端连接已断开，请检查服务端后重试。");

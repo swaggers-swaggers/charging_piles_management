@@ -13,6 +13,7 @@
 #include <QColor>
 #include <QComboBox>
 #include <QDialog>
+#include <QFont>
 #include <QHeaderView>
 #include <QJsonArray>
 #include <QLabel>
@@ -153,6 +154,24 @@ protected:
         painter.drawEllipse(node, 5.5, 5.5);
         painter.setBrush(QColor("#4FE3A0"));
         painter.drawEllipse(node, 2.8, 2.8);
+
+        // 在留白区域放置页面名称，与能量路线保持清晰的前后层次。
+        const QRectF titlePanel(28, 24, qMin<qreal>(250, width() * 0.34), 64);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(QColor(4, 45, 39, 154));
+        painter.drawRoundedRect(titlePanel, 12, 12);
+        painter.setBrush(QColor("#57E2A5"));
+        painter.drawRoundedRect(QRectF(titlePanel.left() + 16, titlePanel.top() + 15,
+                                       3, titlePanel.height() - 30), 1.5, 1.5);
+
+        QFont titleFont = painter.font();
+        titleFont.setPixelSize(width() < 720 ? 20 : 24);
+        titleFont.setWeight(QFont::DemiBold);
+        painter.setFont(titleFont);
+        painter.setPen(QColor("#F2FFF8"));
+        painter.drawText(titlePanel.adjusted(31, 0, -12, 0),
+                         Qt::AlignVCenter | Qt::AlignLeft,
+                         QStringLiteral("附近充电桩"));
 
         painter.setClipping(false);
         painter.setPen(QPen(QColor(197, 239, 219, 58), 1));

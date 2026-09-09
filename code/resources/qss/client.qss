@@ -406,11 +406,14 @@ QFrame#accountWallet { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #1
 QLabel#walletCaption { color: #CDE5D6; background: transparent; font-size: 12px; }
 QLabel#walletAmount { color: #FFFFFF; background: transparent; font-size: 40px; font-weight: 700; }
 QLabel#walletPill { color: #E9F8EF; background: rgba(255,255,255,35); border: 1px solid rgba(255,255,255,45); border-radius: 9px; padding: 4px 8px; font-size: 10px; }
+QLabel#walletPill[accountFrozen="true"] { color: #FFECEE; background: rgba(166,62,72,115); border-color: rgba(255,220,224,100); }
+QLabel#accountFreezeNotice { color: #98424A; background: #FBEDEE; border: 1px solid #F0CDD1; border-radius: 9px; padding: 8px 11px; font-size: 11px; font-weight: 700; }
 QWidget#accountPage QPushButton { min-height: 22px; }
 QWidget#accountPage QLineEdit, QWidget#accountPage QDoubleSpinBox { min-height: 22px; padding: 7px 12px; }
 QWidget#accountPage QDoubleSpinBox QLineEdit { min-height: 0px; padding: 0px; border: none; background: transparent; }
 QPushButton#amountPreset { background: #F7FAF8; border: 1px solid #DCE7DF; }
 QPushButton#amountPreset:checked { background: #E5F3E9; color: #17613F; border: 1px solid #5B9E77; font-weight: 700; }
+QPushButton#amountPreset:disabled { color: #A8B1AC; background: #F2F4F3; border-color: #E3E7E5; }
 QPushButton#addVehicleBtn { color: white; background: #1F704E; border: 1px solid #175D40; border-radius: 10px; padding: 8px 15px; font-weight: 700; }
 QPushButton#addVehicleBtn:hover { background: #2D805C; }
 QFrame#vehicleCard { background: #F7FAF8; border: 1px solid #E1EBE5; border-radius: 13px; }

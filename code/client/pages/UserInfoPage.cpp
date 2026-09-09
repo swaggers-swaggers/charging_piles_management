@@ -22,6 +22,7 @@
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QShowEvent>
+#include <QStyle>
 #include <QTimer>
 #include <QVBoxLayout>
 
@@ -132,7 +133,8 @@ UserInfoPage::UserInfoPage(QWidget *parent) : QWidget(parent)
     auto *wallet = new QFrame(this); wallet->setObjectName("accountWallet");
     auto *walletLayout = new QVBoxLayout(wallet); walletLayout->setContentsMargins(24, 22, 24, 22); walletLayout->setSpacing(7);
     auto *walletHead = new QHBoxLayout; walletHead->addWidget(label("充电钱包", "walletCaption", wallet)); walletHead->addStretch();
-    walletHead->addWidget(label("可随时充值", "walletPill", wallet)); walletLayout->addLayout(walletHead);
+    m_walletPill = label("可随时充值", "walletPill", wallet);
+    walletHead->addWidget(m_walletPill); walletLayout->addLayout(walletHead);
     m_balanceLabel = label(QString::number(ClientSession::instance().balance, 'f', 2), "walletAmount", wallet);
     walletLayout->addWidget(m_balanceLabel); walletLayout->addWidget(label("元  ·  按实际充电量实时扣除", "walletCaption", wallet)); walletLayout->addStretch();
     m_overview = new QBoxLayout(QBoxLayout::LeftToRight); m_overview->setSpacing(18);
@@ -149,6 +151,9 @@ UserInfoPage::UserInfoPage(QWidget *parent) : QWidget(parent)
     auto *recharge = new QFrame(this); recharge->setObjectName("accountSection");
     auto *rechargeLayout = new QVBoxLayout(recharge); rechargeLayout->setContentsMargins(24, 20, 24, 22); rechargeLayout->setSpacing(12);
     rechargeLayout->addWidget(label("钱包充值", "sectionTitle", recharge)); rechargeLayout->addWidget(label("选择常用金额，或输入自定义金额", "pageHint", recharge));
+    m_freezeNotice = label("账号已冻结，当前无法充值", "accountFreezeNotice", recharge);
+    m_freezeNotice->setVisible(false);
+    rechargeLayout->addWidget(m_freezeNotice);
     auto *amountRow = new QHBoxLayout;
     m_rechargeSpin = new QDoubleSpinBox(recharge); m_rechargeSpin->setObjectName("rechargeSpin");
     m_rechargeSpin->setRange(1, 10000); m_rechargeSpin->setDecimals(2); m_rechargeSpin->setValue(100); m_rechargeSpin->setPrefix("¥ ");
@@ -174,6 +179,13 @@ UserInfoPage::UserInfoPage(QWidget *parent) : QWidget(parent)
     connect(m_saveNickBtn, &QPushButton::clicked, this, &UserInfoPage::onSaveNickname);
     connect(m_rechargeBtn, &QPushButton::clicked, this, &UserInfoPage::onRecharge);
     connect(addVehicle, &QPushButton::clicked, this, &UserInfoPage::onAddVehicle);
+    connect(&TcpClient::instance(), &TcpClient::pushReceived, this,
+            [this](const QJsonObject &msg) {
+        if (msg.value("type").toInt() == Protocol::PushOrderEvent
+            && msg.value("event").toInt() == 12)
+            applyAccountStatus(msg.value("status").toInt(UserNormal));
+    });
+    applyAccountStatus(ClientSession::instance().status);
 }
 
 void UserInfoPage::resizeEvent(QResizeEvent *event)
@@ -199,6 +211,7 @@ void UserInfoPage::onRefresh()
         return;
     }
     session.nickname = reply.value("nickname").toString(); session.balance = reply.value("balance").toDouble(); session.avatar = reply.value("avatar").toString();
+    applyAccountStatus(reply.value("status").toInt(UserNormal));
     m_phoneLabel->setText(QString("手机号  %1").arg(session.phone)); m_balanceLabel->setText(QString::number(session.balance, 'f', 2));
     m_nameLabel->setText(session.nickname.isEmpty() ? "充电用户" : session.nickname);
     if (!m_nickEdit->hasFocus() && !m_nickEdit->isModified()) m_nickEdit->setText(session.nickname);
@@ -293,7 +306,37 @@ void UserInfoPage::onSaveNickname()
 
 void UserInfoPage::onRecharge()
 {
+    if (m_accountStatus == UserFrozen) {
+        QMessageBox::warning(this, "账号已冻结", "您的账号已被冻结，当前无法充值。");
+        return;
+    }
     const QJsonObject reply = TcpClient::instance().request(Protocol::ReqRecharge, QJsonObject{{"amount", m_rechargeSpin->value()}});
-    if (!reply.value("ok").toBool()) { QMessageBox::warning(this, "充值失败", reply.value("error").toString()); return; }
+    if (!reply.value("ok").toBool()) {
+        const QString error = reply.value("error").toString();
+        if (error.contains(QStringLiteral("冻结"))) applyAccountStatus(UserFrozen);
+        QMessageBox::warning(this, "充值失败", error);
+        return;
+    }
     ClientSession::instance().balance = reply.value("balance").toDouble(); m_balanceLabel->setText(QString::number(ClientSession::instance().balance, 'f', 2));
+}
+
+void UserInfoPage::applyAccountStatus(int status)
+{
+    m_accountStatus = status;
+    ClientSession::instance().status = status;
+    const bool frozen = (status == UserFrozen);
+
+    m_rechargeSpin->setEnabled(!frozen);
+    m_rechargeBtn->setEnabled(!frozen);
+    m_rechargeBtn->setText(frozen ? QStringLiteral("账号已冻结")
+                                  : QStringLiteral("确认充值"));
+    for (QPushButton *button : findChildren<QPushButton *>("amountPreset"))
+        button->setEnabled(!frozen);
+
+    m_freezeNotice->setVisible(frozen);
+    m_walletPill->setText(frozen ? QStringLiteral("账号冻结")
+                                 : QStringLiteral("可随时充值"));
+    m_walletPill->setProperty("accountFrozen", frozen);
+    m_walletPill->style()->unpolish(m_walletPill);
+    m_walletPill->style()->polish(m_walletPill);
 }

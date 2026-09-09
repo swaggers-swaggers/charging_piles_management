@@ -49,6 +49,14 @@ int main(int argc,char **argv) {
     if(!q.exec("SELECT id FROM user WHERE status=0 LIMIT 1")||!q.next()) return 2;
     const int userId=q.value(0).toInt();
     q.exec(QString("UPDATE user SET balance=10000 WHERE id=%1").arg(userId));
+    QString freezeError;
+    if (!UserDao::setStatus(userId, UserFrozen, &freezeError)) return 90;
+    double rejectedBalance = -1;
+    if (UserDao::recharge(userId, 50, &rejectedBalance, &freezeError)
+        || !freezeError.contains(QStringLiteral("冻结"))) return 91;
+    UserInfo frozenUser;
+    if (!UserDao::getById(userId, &frozenUser) || frozenUser.balance != 10000) return 92;
+    if (!UserDao::setStatus(userId, UserNormal, &freezeError)) return 93;
     if(!q.exec("SELECT id,power FROM pile WHERE status=0 AND power>0 LIMIT 1")||!q.next()) return 3;
     const int pileId=q.value(0).toInt(); const double rated=q.value(1).toDouble();
     auto result=ChargingEngine::startCharging(userId,pileId,TargetNone,0,QString());

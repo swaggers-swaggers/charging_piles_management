@@ -183,6 +183,7 @@ QJsonObject ClientHandler::processUserLogin(const QJsonObject &req)
     reply.insert("phone", info.phone);
     reply.insert("nickname", info.nickname);
     reply.insert("balance", info.balance);
+    reply.insert("status", info.status);
     reply.insert("isNew", isNewUser);
     qDebug() << "[ClientHandler] 用户登录:" << info.phone
              << (isNewUser ? "(新注册)" : "") << "nickname=" << info.nickname;

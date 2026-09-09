@@ -189,7 +189,7 @@ private slots:
                     auto req=QJsonDocument::fromJson(socket->readLine()).object();
                     int type=req["type"].toInt();
                     QJsonObject reply{{"type",type},{"ok",true}};
-                    if(type==Protocol::ReqGetUserInfo) { reply["nickname"]="体验用户"; reply["balance"]=128.50; }
+                    if(type==Protocol::ReqGetUserInfo) { reply["nickname"]="体验用户"; reply["balance"]=128.50; reply["status"]=UserNormal; }
                     if(type==Protocol::ReqVehicleList) { reply["vehicles"]=QJsonArray{
                         QJsonObject{{"vehicleId",2},{"plateNumber","京A·E6288"},{"brandModel","Tesla Model 3"},
                             {"energyType","纯电"},{"batteryCapacity",60.0},{"isDefault",true}},
@@ -592,6 +592,42 @@ private slots:
         button(account,"200 元")->click();
         QCOMPARE(account->findChild<QDoubleSpinBox*>("rechargeSpin")->value(),200.0);
         QVERIFY(window->grab().save("/tmp/charging-account-redesign.png"));
+
+        QString freezePopupText;
+        QTimer freezePopupCloser;
+        connect(&freezePopupCloser, &QTimer::timeout, this, [&] {
+            for (QWidget *widget : QApplication::topLevelWidgets()) {
+                if (auto *box = qobject_cast<QMessageBox *>(widget)) {
+                    freezePopupText = box->text();
+                    box->accept();
+                }
+            }
+        });
+        freezePopupCloser.start(10);
+        emit TcpClient::instance().pushReceived(QJsonObject{
+            {"type", Protocol::PushOrderEvent}, {"event", 12},
+            {"status", UserFrozen},
+            {"message", "您的账号已被冻结，当前无法充值或开始充电。"}});
+        freezePopupCloser.stop();
+        auto *rechargeButton = account->findChild<QPushButton *>("successBtn");
+        auto *rechargeSpin = account->findChild<QDoubleSpinBox *>("rechargeSpin");
+        QVERIFY(!rechargeButton->isEnabled());
+        QVERIFY(!rechargeSpin->isEnabled());
+        QCOMPARE(rechargeButton->text(), QString("账号已冻结"));
+        QVERIFY(account->findChild<QLabel *>("accountFreezeNotice")->isVisible());
+        QVERIFY(freezePopupText.contains("冻结"));
+        QCOMPARE(ClientSession::instance().status, int(UserFrozen));
+
+        emit TcpClient::instance().pushReceived(QJsonObject{
+            {"type", Protocol::PushOrderEvent}, {"event", 12},
+            {"status", UserNormal},
+            {"message", "您的账号已解除冻结，充值与充电服务已恢复。"}});
+        QVERIFY(rechargeButton->isEnabled());
+        QVERIFY(rechargeSpin->isEnabled());
+        QCOMPARE(rechargeButton->text(), QString("确认充值"));
+        QVERIFY(!account->findChild<QLabel *>("accountFreezeNotice")->isVisible());
+        QCOMPARE(ClientSession::instance().status, int(UserNormal));
+
         nav->setCurrentRow(4); QTest::qWait(250);
         auto *page = window->findChild<MessagePage*>();
         QVERIFY(window->grab().save("/tmp/charging-messages-empty.png"));

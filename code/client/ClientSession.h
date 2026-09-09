@@ -1,6 +1,8 @@
 #ifndef CLIENT_SESSION_H
 #define CLIENT_SESSION_H
 
+#include "types.h"
+
 #include <QString>
 
 // 客户端当前登录的用户会话(单例)
@@ -16,6 +18,7 @@ struct ClientSession
     QString nickname;
     QString avatar;
     double balance = 0.0;
+    int status = UserNormal;
 
 private:
     ClientSession() = default;

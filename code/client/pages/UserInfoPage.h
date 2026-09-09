@@ -33,6 +33,7 @@ private:
     void openVehicleEditor(const VehicleInfo &vehicle = VehicleInfo());
     void deleteVehicle(int vehicleId, const QString &plateNumber);
     void setDefaultVehicle(int vehicleId);
+    void applyAccountStatus(int status);
 
     QBoxLayout *m_overview = nullptr;
     QBoxLayout *m_settings = nullptr;
@@ -40,12 +41,15 @@ private:
     QLabel *m_avatarLabel = nullptr;
     QLabel *m_phoneLabel = nullptr;
     QLabel *m_balanceLabel = nullptr;
+    QLabel *m_walletPill = nullptr;
+    QLabel *m_freezeNotice = nullptr;
     QLabel *m_vehicleCountLabel = nullptr;
     QLineEdit *m_nickEdit = nullptr;
     QPushButton *m_saveNickBtn = nullptr;
     QDoubleSpinBox *m_rechargeSpin = nullptr;
     QPushButton *m_rechargeBtn = nullptr;
     QVBoxLayout *m_vehicleCards = nullptr;
+    int m_accountStatus = UserNormal;
     bool m_silentRefresh = false;
 };
 
