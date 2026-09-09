@@ -4,13 +4,13 @@
 #include "protocol.h"
 #include "network/TcpClient.h"
 
+#include "AdminTableCard.h"
 #include "IconFactory.h"
 #include <QScrollArea>
 #include <QCheckBox>
 #include <QFrame>
 #include <QDateTime>
 #include <algorithm>
-#include <QBrush>
 #include <QColor>
 #include <QComboBox>
 #include <QDialog>
@@ -274,9 +274,6 @@ void NearbyStationsPage::showPileDetail(int stationId)
     layout->setContentsMargins(24, 22, 24, 22);
     layout->setSpacing(14);
 
-    QLabel *section = new QLabel("站内电桩列表", &dlg);
-    section->setObjectName("sectionTitle");
-
     QLabel *info = new QLabel(
         QString("地址: %1    电价: %2 元/度    电桩: %3 台 / 空闲 %4 台")
             .arg(s.address).arg(s.price, 0, 'f', 2).arg(s.totalPiles).arg(s.idlePiles),
@@ -284,11 +281,12 @@ void NearbyStationsPage::showPileDetail(int stationId)
     info->setObjectName("pageHint");
     info->setWordWrap(true);
     info->setTextFormat(Qt::PlainText);
-    layout->addWidget(section);
     layout->addWidget(info);
 
     QTableWidget *table = new QTableWidget(&dlg);
     table->setObjectName("pileTable");
+    table->setProperty("cardTitle", QStringLiteral("站内电桩"));
+    table->setProperty("cardHint", QStringLiteral("状态会随服务端刷新；空闲桩可直接进入充电流程"));
     table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     table->setSelectionBehavior(QAbstractItemView::SelectRows);
     table->setAlternatingRowColors(true);
@@ -307,15 +305,12 @@ void NearbyStationsPage::showPileDetail(int stationId)
         table->setItem(i, 1, new QTableWidgetItem(p.type == PileFast ? "快充" : "慢充"));
         table->setItem(i, 2, new QTableWidgetItem(QString::number(p.power, 'f', 1)));
         QString statusText;
-        QColor statusColor;
         switch (p.status) {
-        case PileIdle:  statusText = "空闲"; statusColor = QColor("#1F9D67"); break;
-        case PileInUse: statusText = "充电中"; statusColor = QColor("#B0863F"); break;
-        default:        statusText = "故障"; statusColor = QColor("#C5525A"); break;
+        case PileIdle:  statusText = QStringLiteral("空闲"); break;
+        case PileInUse: statusText = QStringLiteral("充电中"); break;
+        default:        statusText = QStringLiteral("故障"); break;
         }
-        auto *statusItem = new QTableWidgetItem(statusText);
-        statusItem->setForeground(QBrush(statusColor));
-        table->setItem(i, 3, statusItem);
+        table->setItem(i, 3, new QTableWidgetItem(statusText));
     }
     table->resizeColumnsToContents();
 
@@ -328,6 +323,7 @@ void NearbyStationsPage::showPileDetail(int stationId)
     charge->setEnabled(!piles.isEmpty());
     actions->addWidget(navigate); actions->addWidget(charge); actions->addStretch(); actions->addWidget(closeBtn);
     layout->addLayout(actions);
+    AdminTableCard::decorate(&dlg);
     connect(navigate, &QPushButton::clicked, &dlg, [&] {
         dlg.accept(); emit navigationRequested(s.id, m_lon, m_lat);
     });

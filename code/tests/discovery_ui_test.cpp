@@ -12,8 +12,11 @@
 #include <QComboBox>
 #include <QCheckBox>
 #include <QPushButton>
+#include <QParallelAnimationGroup>
+#include <QPropertyAnimation>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QShortcut>
 #include <QTimer>
 #include <QDialog>
 #include <QStackedWidget>
@@ -46,6 +49,7 @@ class DiscoveryTest : public QObject {
     bool failed = false;
     bool activeOrder = false;
     bool reservationCardActive = false;
+    bool includeNewOrder = false;
     int lastPileStation = -1;
     int stationRequestCount = 0;
     double lastLon = 0;
@@ -61,7 +65,7 @@ class DiscoveryTest : public QObject {
         return result;
     }
     QJsonArray orders() {
-        return QJsonArray{
+        QJsonArray result{
             QJsonObject{{"orderId",102},{"pileCode","HD-DC-08"},{"stationName","中关村绿色能源站"},
                 {"startTime","2026-09-08 18:06:00"},{"endTime","2026-09-08 18:48:00"},
                 {"energy",23.88},{"amount",28.65},{"priceSnapshot",1.20},{"simMinutes",42},{"status",OrderFinished}},
@@ -73,6 +77,12 @@ class DiscoveryTest : public QObject {
                 {"energy",5.40},{"amount",6.48},{"priceSnapshot",1.20},{"simMinutes",16},
                 {"refundAmount",2.00},{"status",OrderAbnormal}}
         };
+        if (includeNewOrder)
+            result.insert(0, QJsonObject{{"orderId",103},{"pileCode","HD-DC-02"},
+                {"stationName","中关村绿色能源站"},{"startTime","2026-09-09 09:10:00"},
+                {"endTime","2026-09-09 09:25:00"},{"energy",10.20},{"amount",12.24},
+                {"priceSnapshot",1.20},{"simMinutes",15},{"status",OrderFinished}});
+        return result;
     }
     QJsonArray reservations() {
         return QJsonArray{
@@ -209,6 +219,39 @@ private slots:
         auto *nav=window->findChild<QListWidget*>("navList");
         QCOMPARE(nav->currentRow(),0);
         QCOMPARE(nav->count(),6);
+        auto *sidebar=window->findChild<QWidget*>("sidebar");
+        auto *header=window->findChild<QWidget*>("headerBar");
+        QVERIFY(sidebar && header);
+        QVERIFY(sidebar->width()<=70);
+        QCOMPARE(header->height(),42);
+        QEvent enterSidebar(QEvent::Enter);
+        QApplication::sendEvent(sidebar,&enterSidebar);
+        QTest::qWait(240);
+        QVERIFY(sidebar->width()>=170);
+        QCOMPARE(nav->item(0)->text(),QString("首页"));
+        QVERIFY(window->grab().save("/tmp/charging-sidebar-expanded.png"));
+        QEvent leaveSidebar(QEvent::Leave);
+        QApplication::sendEvent(sidebar,&leaveSidebar);
+        QTest::qWait(240);
+        QVERIFY(sidebar->width()<=70);
+        QVERIFY(nav->item(0)->text().isEmpty());
+        auto *fullScreenShortcut=window->findChild<QShortcut*>("windowFullScreenShortcut");
+        QVERIFY(fullScreenShortcut);
+        window->showFullScreen();
+        QTRY_VERIFY(window->isFullScreen());
+        QTRY_VERIFY(!window->findChild<QWidget*>("customTitleBar")->isVisible());
+        QVERIFY(window->mask().isEmpty());
+        window->showNormal();
+        QTRY_VERIFY(!window->isFullScreen());
+        QTRY_VERIFY(window->findChild<QWidget*>("customTitleBar")->isVisible());
+        window->showMaximized();
+        QTRY_VERIFY(window->isMaximized());
+        QVERIFY(QMetaObject::invokeMethod(fullScreenShortcut,"activated",Qt::DirectConnection));
+        QTRY_VERIFY(window->isFullScreen());
+        QVERIFY(QMetaObject::invokeMethod(fullScreenShortcut,"activated",Qt::DirectConnection));
+        QTRY_VERIFY(window->isMaximized());
+        window->showNormal();
+        window->resize(1200,820);
         auto *home=window->findChild<HomePage*>();
         QVERIFY(home);
         QCOMPARE(home->findChildren<QPushButton*>("bentoCard").size(),6);
@@ -232,8 +275,9 @@ private slots:
     }
     void homepageAndFilters() {
         auto *nav=window->findChild<QListWidget*>("navList");
-        QCOMPARE(nav->count(),6); QCOMPARE(nav->item(0)->text(),QString("首页"));
-        QCOMPARE(nav->item(1)->text(),QString("附近充电站"));
+        QCOMPARE(nav->count(),6);
+        QCOMPARE(nav->item(0)->data(Qt::UserRole).toString(),QString("首页"));
+        QCOMPARE(nav->item(1)->data(Qt::UserRole).toString(),QString("附近充电站"));
         nav->setCurrentRow(0); QTest::qWait(20);
         auto *home=window->findChild<HomePage*>();
         auto *stationPreview=accessibleButton(home,"附近充电站");
@@ -290,6 +334,21 @@ private slots:
         auto *filter=page->findChild<QCheckBox*>(); filter->setChecked(true); QTest::qWait(10);
         QCOMPARE(page->findChildren<QFrame*>("stationCard").size(),1);
         filter->setChecked(false); QTest::qWait(10);
+        bool detailTableChecked=false;
+        QTimer::singleShot(60,this,[&detailTableChecked]{
+            auto *dialog=qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            auto *table=dialog->findChild<QTableWidget*>("pileTable");
+            QVERIFY(table);
+            QVERIFY(table->property("cardDecorated").toBool());
+            QVERIFY(table->property("cellCardConfigured").toBool());
+            QVERIFY(dialog->findChild<QFrame*>("adminDataCard"));
+            QCOMPARE(table->item(0,3)->text(),QString("空闲"));
+            detailTableChecked=true;
+            dialog->accept();
+        });
+        button(page,"查看详情")->click();
+        QVERIFY(detailTableChecked);
         QVERIFY(window->grab().save("/tmp/charging-home-desktop.png"));
         window->resize(800,600); QTest::qWait(20);
         QCOMPARE(window->height(),600);
@@ -302,6 +361,10 @@ private slots:
         QCOMPARE(combo->currentData().toInt(),12); QCOMPARE(lastPileStation,12);
         auto *page=window->findChild<ChargingPage*>();
         QVERIFY(button(page,"预约时段"));
+        QTRY_VERIFY(page->findChild<QLabel*>("statusBadge"));
+        QVERIFY(page->findChild<QLabel*>("statusBadge")->text().contains("充电中"));
+        QVERIFY(page->findChild<QLabel*>("statusBadge")
+                    ->findChild<QPropertyAnimation*>("chargingBadgeBreath"));
         button(page,"刷新")->click(); QCOMPARE(combo->currentData().toInt(),12);
         auto *stationSearch=page->findChild<QLineEdit*>("chargingStationSearch");
         QVERIFY(stationSearch);
@@ -432,6 +495,15 @@ private slots:
         QVERIFY(window->grab().save("/tmp/charging-reservation-cards.png"));
         reservationCardActive=false;
         tabs->setCurrentIndex(0);
+        includeNewOrder=true;
+        QVERIFY(QMetaObject::invokeMethod(page,"refreshPage",Qt::DirectConnection));
+        QTRY_COMPARE(page->findChildren<QFrame*>("orderJourneyCard").size(),4);
+        bool animatedNewOrder=false;
+        for(auto *card:page->findChildren<QFrame*>("orderJourneyCard"))
+            if(card->property("newRecord").toBool()
+               && card->findChild<QParallelAnimationGroup*>("newOrderSlideAnimation"))
+                animatedNewOrder=true;
+        QVERIFY(animatedNewOrder);
         window->resize(800,600); QTest::qWait(30);
         QVERIFY(window->grab().save("/tmp/charging-orders-cards-compact.png"));
         window->resize(1200,820);
@@ -510,9 +582,11 @@ private slots:
         QCOMPARE(stack->currentIndex(),1);
         auto *ring=page->findChild<ChargeRingWidget*>();
         QVERIFY(ring);
+        QCOMPARE(page->findChildren<QFrame*>("miniCard").size(),4);
         emit TcpClient::instance().pushReceived(QJsonObject{
             {"type",Protocol::PushOrderProgress},{"orderId",99},{"energy",2.01},
             {"amount",2.41},{"minutes",2},{"power",68.25},{"targetProgress",0.0}});
+        QTRY_VERIFY(page->findChildren<QPropertyAnimation*>("metricCellFlashAnimation").size()>=3);
         QTest::qWait(250);
         QVERIFY(window->grab().save("/tmp/charging-active-particles.png"));
 

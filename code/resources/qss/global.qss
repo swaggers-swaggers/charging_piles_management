@@ -211,7 +211,7 @@ QFrame#adminDataCard QTableWidget {
     background: #FFFFFF; alternate-background-color: #F7FAF8; border: none;
     selection-background-color: #E0F1E7; selection-color: #214B36; outline: 0;
 }
-QFrame#adminDataCard QTableWidget::item { border: none; border-bottom: 1px solid #EEF3EF; padding: 8px; }
+QFrame#adminDataCard QTableWidget::item { border: none; padding: 8px; }
 QFrame#adminDataCard QTableWidget::item:hover { background: #EEF7F1; }
 QFrame#adminDataCard QHeaderView::section {
     background: #F0F6F2; color: #64806E; border: none; padding: 10px 8px; font-size: 12px; font-weight: 600;

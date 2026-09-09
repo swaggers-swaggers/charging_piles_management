@@ -4,6 +4,7 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QProgressBar>
 #include <QClipboard>
 #include <QTcpSocket>
 #include <QNetworkProxy>
@@ -16,7 +17,6 @@
 #include <QHeaderView>
 #include <QSqlQuery>
 #include <QSqlError>
-#include <QSplitter>
 #include <QDebug>
 #include <QTimer>
 #include <QtTest>
@@ -217,19 +217,44 @@ int main(int argc,char **argv) {
     if (refreshablePages != 5) return 58;
     auto *nav=window.findChild<QListWidget*>("navList");
     if (!nav || nav->count() != 5
-        || nav->item(2)->text() != QStringLiteral("充电站与电桩管理")) return 59;
+        || nav->item(2)->data(Qt::UserRole).toString()
+               != QStringLiteral("充电站与电桩管理")) return 59;
+    auto *sidebar=window.findChild<QWidget*>("sidebar");
+    auto *header=window.findChild<QWidget*>("headerBar");
+    if (!sidebar || !header || sidebar->width()>70 || header->height()!=42) return 78;
     nav->setCurrentRow(2);
     QTest::qWait(50);
-    auto *stationTable = window.findChild<QTableWidget *>("stationTable");
     auto *pileTable = window.findChild<QTableWidget *>("pileTable");
+    auto *occupancyBar = window.findChild<QProgressBar *>("stationOccupancyBar");
     auto *searchEdit = window.findChild<QLineEdit *>("stationPileSearch");
     auto *statusFilter = window.findChild<QComboBox *>("pileStatusFilter");
     auto *faultButton = window.findChild<QPushButton *>("faultButton");
-    auto *stationPileSplitter = window.findChild<QSplitter *>("stationPileSplitter");
-    if (!stationTable || !pileTable || !searchEdit || !statusFilter || !faultButton)
+    if (!occupancyBar || !pileTable || !searchEdit || !statusFilter || !faultButton)
         return 60;
-    if (!stationPileSplitter || stationPileSplitter->orientation()!=Qt::Horizontal)
+    auto stationCards=[&window] {
+        QList<QPushButton *> result;
+        for (auto *button : window.findChildren<QPushButton *>("stationManageCard"))
+            if (button->isVisible()) result.append(button);
+        return result;
+    };
+    auto findStationCard=[&stationCards](int stationId) -> QPushButton * {
+        for (QPushButton *card : stationCards())
+            if (card->property("stationId").toInt()==stationId) return card;
+        return nullptr;
+    };
+    if (stationCards().size()<2 || window.findChild<QComboBox *>("stationManageCombo")
+        || window.findChild<QTableWidget *>("stationTable")
+        || window.findChild<QWidget *>("stationPileSplitter"))
         return 76;
+    if (stationCards().first()->height()<120
+        || window.findChild<QWidget *>("stationManageCardHost")->height()<130) {
+        qCritical()<<"station card geometry"
+                   <<stationCards().first()->geometry()
+                   <<stationCards().first()->minimumSize()<<stationCards().first()->maximumSize()
+                   <<window.findChild<QWidget *>("stationManageCardHost")->geometry()
+                   <<window.findChild<QWidget *>("stationCardsScroll")->geometry();
+        return 80;
+    }
     if (statusFilter->findData(PileIdle) < 0 || statusFilter->findData(PileInUse) < 0
         || statusFilter->findData(PileFault) < 0) return 61;
 
@@ -242,13 +267,6 @@ int main(int argc,char **argv) {
     q.finish();
     if (!q.exec(QString("UPDATE user SET balance=1000 WHERE id=%1").arg(userId))) return 63;
 
-    auto findDataRow=[](QTableWidget *table, int column, int value) {
-        for (int row=0; row<table->rowCount(); ++row) {
-            QTableWidgetItem *item=table->item(row,column);
-            if (item && item->data(Qt::UserRole).toInt()==value) return row;
-        }
-        return -1;
-    };
     auto findTextRow=[](QTableWidget *table, int column, const QString &value) {
         for (int row=0; row<table->rowCount(); ++row) {
             QTableWidgetItem *item=table->item(row,column);
@@ -256,49 +274,51 @@ int main(int argc,char **argv) {
         }
         return -1;
     };
-    int stationRow=findDataRow(stationTable,0,liveStationId);
-    if (stationRow<0) return 64;
-    stationTable->selectRow(stationRow);
+    QPushButton *liveStationCard=findStationCard(liveStationId);
+    if (!liveStationCard) return 64;
+    liveStationCard->click();
     QCoreApplication::processEvents();
-    const int oldInUse=stationTable->item(stationRow,6)->text().toInt();
+    int oldInUse=0;
+    for (const PileInfo &pile : PileDao::listByStation(liveStationId))
+        if (pile.status==PileInUse) ++oldInUse;
     auto liveCharge=ChargingEngine::startCharging(userId,livePileId,TargetNone,0,QString());
     if (!liveCharge.ok || PileDao::getById(livePileId).status!=PileInUse) return 65;
     QCoreApplication::processEvents();
-    stationRow=findDataRow(stationTable,0,liveStationId);
     const int livePileRow=findTextRow(pileTable,0,livePileCode);
-    if (stationRow<0 || stationTable->item(stationRow,6)->text().toInt()!=oldInUse+1
-        || stationTable->item(stationRow,8)->text()!=QStringLiteral("使用中")
-        || livePileRow<0 || pileTable->item(livePileRow,3)->text()!=QStringLiteral("使用中"))
+    liveStationCard=findStationCard(liveStationId);
+    if (!liveStationCard || !liveStationCard->isChecked()
+        || !occupancyBar->format().contains(QStringLiteral("充电中"))
+        || livePileRow<0 || pileTable->item(livePileRow,3)->text()!=QStringLiteral("充电中"))
         return 66;
     if (!ChargingEngine::instance().settleOrder(liveCharge.order.id,FinishByUser,
                                                  QStringLiteral("状态联动测试")).ok)
         return 67;
     QCoreApplication::processEvents();
-    stationRow=findDataRow(stationTable,0,liveStationId);
     const int idlePileRow=findTextRow(pileTable,0,livePileCode);
-    if (PileDao::getById(livePileId).status!=PileIdle || stationRow<0
-        || stationTable->item(stationRow,6)->text().toInt()!=oldInUse
-        || idlePileRow<0 || pileTable->item(idlePileRow,3)->text()!=QStringLiteral("闲置"))
+    int settledInUse=0;
+    for (const PileInfo &pile : PileDao::listByStation(liveStationId))
+        if (pile.status==PileInUse) ++settledInUse;
+    if (PileDao::getById(livePileId).status!=PileIdle || settledInUse!=oldInUse
+        || idlePileRow<0 || pileTable->item(idlePileRow,3)->text()!=QStringLiteral("空闲"))
         return 68;
 
     // 电桩编号搜索、状态筛选和故障/恢复按钮应共同作用于合并页面。
     searchEdit->setText(livePileCode);
     QMetaObject::invokeMethod(searchEdit,"returnPressed",Qt::DirectConnection);
     QCoreApplication::processEvents();
-    if (stationTable->rowCount()!=1 || pileTable->rowCount()!=1
+    if (stationCards().size()!=1 || pileTable->rowCount()!=1
         || pileTable->item(0,0)->text()!=livePileCode) return 69;
     searchEdit->clear();
     statusFilter->setCurrentIndex(statusFilter->findData(PileFault));
     QCoreApplication::processEvents();
     for (int row=0; row<pileTable->rowCount(); ++row)
         if (pileTable->item(row,3)->text()!=QStringLiteral("故障")) return 70;
-    for (int row=0; row<stationTable->rowCount(); ++row)
-        if (stationTable->item(row,7)->text().toInt()<=0) return 71;
+    if (stationCards().isEmpty()) return 71;
     statusFilter->setCurrentIndex(statusFilter->findData(-1));
     QCoreApplication::processEvents();
-    stationRow=findDataRow(stationTable,0,liveStationId);
-    if (stationRow<0) return 72;
-    stationTable->selectRow(stationRow);
+    liveStationCard=findStationCard(liveStationId);
+    if (!liveStationCard) return 72;
+    liveStationCard->click();
     QCoreApplication::processEvents();
     int pileRow=findTextRow(pileTable,0,livePileCode);
     if (pileRow<0) return 73;
@@ -331,6 +351,8 @@ int main(int argc,char **argv) {
     }
     for(auto *table:window.findChildren<QTableWidget*>()) {
         if(!table->horizontalHeader()->stretchLastSection()) return 10;
+        if(!table->property("cellCardConfigured").toBool()) return 77;
+        if(!table->property("rowCardConfigured").toBool()) return 79;
         if(table->isVisible() && table->horizontalHeader()->length()<table->viewport()->width()-2) {
             qCritical() << "visible table does not fill card" << table->objectName()
                         << table->horizontalHeader()->length() << table->viewport()->width();

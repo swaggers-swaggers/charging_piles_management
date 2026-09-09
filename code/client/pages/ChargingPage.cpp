@@ -3,6 +3,7 @@
 
 #include "ClientSession.h"
 #include "IconFactory.h"
+#include "StatusBadge.h"
 #include "protocol.h"
 #include "network/TcpClient.h"
 
@@ -17,6 +18,7 @@
 #include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QFrame>
+#include <QGraphicsColorizeEffect>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QJsonArray>
@@ -77,6 +79,45 @@ QString reachedTargetDesc(const OrderInfo &o)
     default:
         return QStringLiteral("已达到设定目标");
     }
+}
+
+void flashMetricCell(QLabel *valueLabel)
+{
+    if (!valueLabel || !valueLabel->parentWidget())
+        return;
+    QWidget *cell = valueLabel->parentWidget();
+    if (auto *oldAnimation = cell->findChild<QPropertyAnimation *>(
+            QStringLiteral("metricCellFlashAnimation"))) {
+        oldAnimation->stop();
+        oldAnimation->deleteLater();
+    }
+    cell->setGraphicsEffect(nullptr);
+    auto *effect = new QGraphicsColorizeEffect(cell);
+    effect->setColor(QColor("#B9DCFF"));
+    effect->setStrength(0.72);
+    cell->setGraphicsEffect(effect);
+    auto *animation = new QPropertyAnimation(effect, "strength", cell);
+    animation->setObjectName(QStringLiteral("metricCellFlashAnimation"));
+    animation->setDuration(680);
+    animation->setStartValue(0.72);
+    animation->setEndValue(0.0);
+    animation->setEasingCurve(QEasingCurve::OutCubic);
+    QObject::connect(animation, &QPropertyAnimation::finished, cell, [cell, animation] {
+        cell->setGraphicsEffect(nullptr);
+        animation->deleteLater();
+    });
+    animation->start();
+}
+
+void updateLiveMetric(QLabel *label, const QString &text)
+{
+    if (!label || label->text() == text)
+        return;
+    const bool hadValue = !label->text().isEmpty() && label->text() != QStringLiteral("-")
+                          && label->text() != QStringLiteral("--");
+    label->setText(text);
+    if (hadValue)
+        flashMetricCell(label);
 }
 } // namespace
 
@@ -665,9 +706,6 @@ ChargingPage::ChargingPage(QWidget *parent)
         "QFrame#pileCard{background:white;border:1px solid #E4E7ED;border-radius:12px;}"
         "QFrame#miniCard{background:white;border:1px solid #E4E7ED;border-radius:12px;}"
         "QLabel#cardCode{font-size:17px;font-weight:bold;color:#1F2A3C;}"
-        "QLabel#badgeIdle{background:#E7F7EF;color:#1F9D67;border-radius:8px;padding:2px 8px;}"
-        "QLabel#badgeBusy{background:#FBF1DF;color:#B0863F;border-radius:8px;padding:2px 8px;}"
-        "QLabel#badgeFault{background:#FBEAEB;color:#C5525A;border-radius:8px;padding:2px 8px;}"
         "QLabel#miniValue{font-size:20px;font-weight:bold;color:#1F2A3C;}"
         "QLabel#miniCap{color:#6B7280;font-size:12px;}"
         "QPushButton#primaryBtn{background:#237653;color:white;border:none;border-radius:8px;"
@@ -801,6 +839,7 @@ void ChargingPage::buildChargingView()
     cards->addWidget(makeMini(QStringLiteral("已充电量(度)"), &m_energyVal), 1);
     cards->addWidget(makeMini(QStringLiteral("当前费用(元)"), &m_amountVal), 1);
     cards->addWidget(makeMini(QStringLiteral("充电时长(分)"), &m_minutesVal), 1);
+    cards->addWidget(makeMini(QStringLiteral("实时功率(kW)"), &m_powerVal), 1);
 
     m_priceHint = new QLabel(m_chargingView);
     m_priceHint->setAlignment(Qt::AlignCenter);
@@ -1158,7 +1197,7 @@ void ChargingPage::rebuildPileCards()
         card->setMinimumWidth(210);
         card->setMaximumWidth(330);
         const QString border = p.status == PileIdle ? "#BFE6D2"
-                               : p.status == PileInUse ? "#F0DDB8" : "#EBC9CB";
+                               : p.status == PileInUse ? "#AFCDF5" : "#EBC9CB";
         card->setStyleSheet(QString("QFrame#pileCard{background:white;border:1.5px solid %1;"
                                     "border-radius:12px;}").arg(border));
 
@@ -1169,13 +1208,13 @@ void ChargingPage::rebuildPileCards()
         QHBoxLayout *top = new QHBoxLayout();
         QLabel *code = new QLabel(p.code, card);
         code->setObjectName("cardCode");
-        QLabel *badge = new QLabel(card);
+        StatusBadge *badge = nullptr;
         if (p.status == PileIdle) {
-            badge->setText(QStringLiteral("空闲")); badge->setObjectName("badgeIdle");
+            badge = new StatusBadge(StatusBadge::Idle, card);
         } else if (p.status == PileInUse) {
-            badge->setText(QStringLiteral("充电中")); badge->setObjectName("badgeBusy");
+            badge = new StatusBadge(StatusBadge::Charging, card);
         } else {
-            badge->setText(QStringLiteral("故障")); badge->setObjectName("badgeFault");
+            badge = new StatusBadge(StatusBadge::Fault, card);
         }
         top->addWidget(code);
         top->addStretch();
@@ -1326,6 +1365,7 @@ void ChargingPage::enterChargingView(const OrderInfo &order)
     m_energyVal->setText(QString::number(order.energy, 'f', 2));
     m_amountVal->setText(QString::number(order.amount, 'f', 2));
     m_minutesVal->setText(QString::number(order.simMinutes));
+    m_powerVal->setText(QStringLiteral("--"));
     m_ring->setCenterText(QString::number(order.energy, 'f', 1), QStringLiteral("度"));
     // 有明确目标时展示目标完成度；手动结束模式按时长持续增长并逐渐接近满环。
     double progress = 1.0 - qExp(-qMax(0, order.simMinutes) / 30.0);
@@ -1485,9 +1525,11 @@ void ChargingPage::onPushReceived(const QJsonObject &msg)
         m_currentOrder.simMinutes = msg.value("minutes").toInt();
         if (msg.contains("balance"))
             ClientSession::instance().balance = msg.value("balance").toDouble();
-        m_energyVal->setText(QString::number(m_currentOrder.energy, 'f', 2));
-        m_amountVal->setText(QString::number(m_currentOrder.amount, 'f', 2));
-        m_minutesVal->setText(QString::number(m_currentOrder.simMinutes));
+        updateLiveMetric(m_energyVal, QString::number(m_currentOrder.energy, 'f', 2));
+        updateLiveMetric(m_amountVal, QString::number(m_currentOrder.amount, 'f', 2));
+        updateLiveMetric(m_minutesVal, QString::number(m_currentOrder.simMinutes));
+        updateLiveMetric(m_powerVal,
+                         QString::number(msg.value("power").toDouble(0.0), 'f', 1));
         m_ring->setCenterText(QString::number(m_currentOrder.energy, 'f', 1),
                               QStringLiteral("度"));
         if (m_currentOrder.targetType == TargetNone) {

@@ -3,6 +3,7 @@
 
 #include "types.h"
 
+#include <QSet>
 #include <QWidget>
 
 class QLabel;
@@ -52,6 +53,8 @@ private:
     int m_selectedResId = -1;
     int m_selectedResStatus = -1;
     bool m_silentRefresh = false;
+    bool m_ordersLoaded = false;
+    QSet<int> m_knownOrderIds;
 };
 
 #endif // ORDERHISTORYPAGE_H

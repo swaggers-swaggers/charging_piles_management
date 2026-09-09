@@ -11,6 +11,7 @@
 #include "StationManagePage.h"
 #include "UserManagePage.h"
 #include "IconFactory.h"
+#include "HoverSidebar.h"
 
 #include <QDesktopServices>
 #include <QApplication>
@@ -63,14 +64,13 @@ void AdminMainWindow::initUi()
     QWidget *central = new QWidget(this);
     central->setObjectName("appCentral");
     QHBoxLayout *rootLayout = new QHBoxLayout(central);
-    rootLayout->setContentsMargins(0, 0, 0, 0);
-    rootLayout->setSpacing(0);
+    rootLayout->setContentsMargins(10, 10, 0, 10);
+    rootLayout->setSpacing(10);
     setCentralWidget(central);
 
     // ---------- 左侧导航 ----------
-    QWidget *sidebar = new QWidget(central);
-    sidebar->setObjectName("sidebar");
-    sidebar->setFixedWidth(200);
+    auto *sidebar = new HoverSidebar(210, central);
+    sidebar->setAccessibleName(QStringLiteral("悬停展开导航栏"));
     QVBoxLayout *sideLayout = new QVBoxLayout(sidebar);
     sideLayout->setContentsMargins(0, 20, 0, 12);
     sideLayout->setSpacing(10);
@@ -101,8 +101,9 @@ void AdminMainWindow::initUi()
     };
     for (int i = 0; i < navNames.size(); ++i) {
         auto *item = new QListWidgetItem(navNames[i]);
-        item->setIcon(IconFactory::icon(navIcons[i]));
+        item->setIcon(IconFactory::navigationIcon(navIcons[i]));
         item->setData(Qt::UserRole, navNames[i]);   // 纯文本标题(不含图标)
+        item->setData(HoverSidebar::FullTextRole, navNames[i]);
         m_navList->addItem(item);
     }
     m_navList->setIconSize(QSize(20, 20));
@@ -112,12 +113,17 @@ void AdminMainWindow::initUi()
 
     QPushButton *logoutBtn = new QPushButton("退出登录", sidebar);
     logoutBtn->setObjectName("logoutBtn");
+    logoutBtn->setIcon(IconFactory::navigationIcon(IconFactory::IconLogout));
+    logoutBtn->setIconSize(QSize(20, 20));
     logoutBtn->setCursor(Qt::PointingHandCursor);
 
     sideLayout->addWidget(logoBox);
     sideLayout->addSpacing(12);
     sideLayout->addWidget(m_navList, 1);
     sideLayout->addWidget(logoutBtn);
+    sidebar->setNavigationList(m_navList);
+    sidebar->addExpandedOnly(logo);
+    sidebar->setActionButton(logoutBtn, QStringLiteral("退出登录"));
 
     // ---------- 右侧: 页头 + 页面栈 ----------
     QWidget *rightArea = new QWidget(central);
@@ -127,9 +133,9 @@ void AdminMainWindow::initUi()
 
     QWidget *header = new QWidget(rightArea);
     header->setObjectName("headerBar");
-    header->setFixedHeight(56);
+    header->setFixedHeight(42);
     QHBoxLayout *headerLayout = new QHBoxLayout(header);
-    headerLayout->setContentsMargins(24, 0, 24, 0);
+    headerLayout->setContentsMargins(18, 0, 18, 0);
 
     m_headerTitle = new QLabel(navNames.first(), header);
     m_headerTitle->setObjectName("headerTitle");
@@ -223,7 +229,9 @@ void AdminMainWindow::showConnectionInfo(QTcpServer *server)
 {
     auto *panel = new QWidget(this);
     panel->setObjectName("lanConnectionPanel");
+    panel->setMaximumHeight(44);
     auto *row = new QHBoxLayout(panel);
+    row->setContentsMargins(16, 4, 16, 4);
     auto *label = new QLabel(panel);
     label->setObjectName("lanStatusLabel");
     auto *addresses = new QComboBox(panel);

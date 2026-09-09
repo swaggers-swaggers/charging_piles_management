@@ -27,6 +27,7 @@ public:
         IconCompass,       // 罗盘: 一键导航
         IconPlug,          // 插头+闪电: 附近充电站顶部艺术图标(替代外部 svg, 免依赖 QtSvg)
         IconHome,          // 首页: Bento 功能总览
+        IconLogout,        // 退出登录
     };
 
     static QIcon icon(IconType type, const QColor &color = QColor("#D8E4F0"), int px = 48)
@@ -44,6 +45,20 @@ public:
         draw(type, &painter, color);
         painter.end();
         return QIcon(pm);
+    }
+
+    static QIcon navigationIcon(IconType type, int px = 48)
+    {
+        QIcon result;
+        result.addPixmap(icon(type, QColor("#6F8279"), px).pixmap(px, px),
+                         QIcon::Normal, QIcon::Off);
+        result.addPixmap(icon(type, QColor("#23875B"), px).pixmap(px, px),
+                         QIcon::Active, QIcon::Off);
+        result.addPixmap(icon(type, QColor("#16814F"), px).pixmap(px, px),
+                         QIcon::Selected, QIcon::On);
+        result.addPixmap(icon(type, QColor("#16814F"), px).pixmap(px, px),
+                         QIcon::Selected, QIcon::Off);
+        return result;
     }
 
 private:
@@ -160,6 +175,13 @@ private:
             p->drawPath(roof);
             p->drawRoundedRect(QRectF(5.5, 10, 13, 10.5), 1.6, 1.6);
             p->drawRoundedRect(QRectF(10, 14, 4, 6.5), 1, 1);
+            break;
+        }
+        case IconLogout: {
+            p->drawRoundedRect(QRectF(4, 4, 9, 16), 1.8, 1.8);
+            p->drawLine(10, 12, 21, 12);
+            p->drawLine(17, 8, 21, 12);
+            p->drawLine(17, 16, 21, 12);
             break;
         }
         }

@@ -9,6 +9,6 @@ HEADERS += \
 
 HEADERS += $$PWD/AppTheme.h $$PWD/ChargingPowerModel.h
 
-HEADERS += $$PWD/UiMotion.h $$PWD/AdminTableCard.h $$PWD/DonutChart.h
+HEADERS += $$PWD/UiMotion.h $$PWD/AdminTableCard.h $$PWD/DonutChart.h $$PWD/StatusBadge.h $$PWD/HoverSidebar.h
 
 HEADERS += $$PWD/WindowChrome.h $$PWD/ChargingParticles.h

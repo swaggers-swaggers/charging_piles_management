@@ -1,6 +1,9 @@
 #ifndef ORDERMANAGEPAGE_H
 #define ORDERMANAGEPAGE_H
 
+#include <QHash>
+#include <QPair>
+#include <QSet>
 #include <QWidget>
 
 class QComboBox;
@@ -45,6 +48,9 @@ private:
     int m_selectedOrderStatus = -1;
     double m_selectedOrderAmount = 0;
     double m_selectedRefunded = 0;
+    bool m_ordersLoaded = false;
+    QSet<int> m_knownOrderIds;
+    QHash<int, QPair<double, double>> m_previousOrderMetrics;
 
     // 时段预约 Tab
     QComboBox *m_resFilter = nullptr;

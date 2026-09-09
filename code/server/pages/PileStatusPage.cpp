@@ -7,6 +7,7 @@
 #include <QRadialGradient>
 
 #include "PileDao.h"
+#include "AdminTableCard.h"
 #include "types.h"
 
 #include <QMap>
@@ -47,7 +48,7 @@ public:
         : QWidget(parent), m_byStation(byStation)
     {
         m_colors[0] = QColor("#1F9D67");   // 闲置
-        m_colors[1] = QColor("#B0863F");   // 在用
+        m_colors[1] = QColor("#2E7BE6");   // 充电中
         m_colors[2] = QColor("#C5525A");   // 故障
         m_counts[0] = m_counts[1] = m_counts[2] = 0;
         m_total = 0;
@@ -165,10 +166,10 @@ protected:
             p.drawText(area, Qt::AlignCenter, QStringLiteral("暂无设备"));
         }
 
-        // 图例: 在用 / 闲置 / 故障
+        // 图例: 充电中 / 空闲 / 故障
         QStringList names;
-        names << QStringLiteral("在用") << QStringLiteral("闲置") << QStringLiteral("故障");
-        const int legendIdx[3] = { 1, 0, 2 };   // 在用/闲置/故障 → 颜色与计数下标
+        names << QStringLiteral("充电中") << QStringLiteral("空闲") << QStringLiteral("故障");
+        const int legendIdx[3] = { 1, 0, 2 };
         for (int i = 0; i < 3; ++i) {
             const int ci = legendIdx[i];
             const int y = h - 90 + i * 24;
@@ -229,10 +230,10 @@ PileStatusPage::PileStatusPage(QWidget *parent)
         cards->addWidget(card, 1);
         *valueOut = value;
     };
-    makeCard("在用 (充电中)", QColor("#B0863F"), &m_inUseValue);
-    makeCard("闲置 (可用)",   QColor("#1F9D67"), &m_idleValue);
+    makeCard("充电中", QColor("#2E7BE6"), &m_inUseValue);
+    makeCard("空闲 (可用)", QColor("#1F9D67"), &m_idleValue);
     makeCard("故障 (需处理)", QColor("#C5525A"), &m_faultValue);
-    makeCard("在线率",        QColor("#B0863F"), &m_rateValue);
+    makeCard("在线率", QColor("#2E7BE6"), &m_rateValue);
 
     m_summaryLabel = new QLabel(this);
     m_summaryLabel->setObjectName("summaryLabel");
@@ -299,7 +300,7 @@ void PileStatusPage::refresh()
     m_faultValue->setText(QString("%1 台").arg(fault));
     m_rateValue->setText(QString("%1%").arg(rate, 0, 'f', 1));
 
-    m_summaryLabel->setText(QString("设备运行健康度:  总计 %1 台   |   在用 %2 台 (%3)   闲置 %4 台 (%5)   故障 %6 台 (%7)   在线率 %8%")
+    m_summaryLabel->setText(QString("设备运行健康度:  总计 %1 台   |   充电中 %2 台 (%3)   空闲 %4 台 (%5)   故障 %6 台 (%7)   在线率 %8%")
                                 .arg(total)
                                 .arg(inUse).arg(percentText(inUse, total))
                                 .arg(idle).arg(percentText(idle, total))
@@ -327,22 +328,30 @@ void PileStatusPage::refresh()
 
     struct Row { const char *name; int count; const char *desc; };
     const Row rows[] = {
-        { "在用", inUse,  "正在充电的桩" },
-        { "闲置", idle,   "空闲可用的桩" },
+        { "充电中", inUse, "正在充电的桩" },
+        { "空闲", idle, "空闲可用的桩" },
         { "故障", fault,  "需要检修/远程重启处理" },
     };
 
     m_table->setRowCount(4);
+    auto setCell = [this](int row, int column, const QString &text, bool animate) {
+        const QString previous = m_table->item(row, column)
+            ? m_table->item(row, column)->text() : QString();
+        auto *item = new QTableWidgetItem(text);
+        if (animate && !previous.isEmpty() && previous != text)
+            AdminTableCard::markUpdated(item);
+        m_table->setItem(row, column, item);
+    };
     for (int i = 0; i < 3; ++i) {
-        m_table->setItem(i, 0, new QTableWidgetItem(QString::fromUtf8(rows[i].name)));
-        m_table->setItem(i, 1, new QTableWidgetItem(QString::number(rows[i].count)));
-        m_table->setItem(i, 2, new QTableWidgetItem(percentText(rows[i].count, total)));
-        m_table->setItem(i, 3, new QTableWidgetItem(QString::fromUtf8(rows[i].desc)));
+        setCell(i, 0, QString::fromUtf8(rows[i].name), false);
+        setCell(i, 1, QString::number(rows[i].count), true);
+        setCell(i, 2, percentText(rows[i].count, total), true);
+        setCell(i, 3, QString::fromUtf8(rows[i].desc), false);
     }
-    m_table->setItem(3, 0, new QTableWidgetItem("合计"));
-    m_table->setItem(3, 1, new QTableWidgetItem(QString::number(total)));
-    m_table->setItem(3, 2, new QTableWidgetItem("100%"));
-    m_table->setItem(3, 3, new QTableWidgetItem("全部电桩"));
+    setCell(3, 0, QStringLiteral("合计"), false);
+    setCell(3, 1, QString::number(total), true);
+    setCell(3, 2, QStringLiteral("100%"), true);
+    setCell(3, 3, QStringLiteral("全部电桩"), false);
 
     m_table->resizeColumnsToContents();
 }

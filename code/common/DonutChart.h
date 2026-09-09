@@ -40,7 +40,7 @@ protected:
         p.drawText(QRectF(ring.left(),ring.center().y()-26,ring.width(),36),Qt::AlignCenter,QString::number(total));
         font.setPixelSize(12);font.setBold(false);p.setFont(font);p.setPen(QColor("#74887B"));
         p.drawText(QRectF(ring.left(),ring.center().y()+12,ring.width(),22),Qt::AlignCenter,total ? "电桩总数" : "暂无设备");
-        const QStringList names{"在用","闲置","故障"};
+        const QStringList names{"充电中","空闲","故障"};
         for(int i=0;i<3;++i) {
             const int y=height()-80+i*24;
             p.setPen(Qt::NoPen);p.setBrush(m_colors[i]);p.drawEllipse(QPointF(30,y+8),4,4);
@@ -51,7 +51,7 @@ protected:
     }
 private:
     int m_values[3];
-    QColor m_colors[3]{QColor("#CCA052"),QColor("#31A675"),QColor("#D36A73")};
+    QColor m_colors[3]{QColor("#2E7BE6"),QColor("#31A675"),QColor("#D36A73")};
     QVariantAnimation m_reveal;
     qreal m_progress=1;
 };

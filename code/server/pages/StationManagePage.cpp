@@ -5,21 +5,23 @@
 #include "PileDao.h"
 #include "ServerSession.h"
 #include "StationDao.h"
+#include "AdminTableCard.h"
 
-#include <QBrush>
-#include <QColor>
 #include <QComboBox>
 #include <QDialog>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
+#include <QFrame>
 #include <QHash>
 #include <QHeaderView>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QProgressBar>
+#include <QScrollArea>
 #include <QSpinBox>
-#include <QSplitter>
 #include <QTableWidget>
 #include <QVBoxLayout>
 
@@ -27,32 +29,13 @@ namespace {
 QString pileStatusText(int status)
 {
     switch (status) {
-    case PileIdle:  return QStringLiteral("闲置");
-    case PileInUse: return QStringLiteral("使用中");
+    case PileIdle:  return QStringLiteral("空闲");
+    case PileInUse: return QStringLiteral("充电中");
     case PileFault: return QStringLiteral("故障");
     }
     return QStringLiteral("未知");
 }
 
-QColor pileStatusColor(int status)
-{
-    switch (status) {
-    case PileInUse: return QColor("#B0863F");
-    case PileFault: return QColor("#C5525A");
-    default:        return QColor("#1F9D67");
-    }
-}
-
-QString stationStatusText(int total, int inUse, int fault)
-{
-    if (inUse > 0)
-        return QStringLiteral("使用中");
-    if (total > 0 && fault == total)
-        return QStringLiteral("故障");
-    if (fault > 0)
-        return QStringLiteral("部分故障");
-    return QStringLiteral("闲置");
-}
 } // namespace
 
 StationManagePage::StationManagePage(QWidget *parent)
@@ -75,8 +58,8 @@ StationManagePage::StationManagePage(QWidget *parent)
     m_statusFilter = new QComboBox(this);
     m_statusFilter->setObjectName("pileStatusFilter");
     m_statusFilter->addItem(QStringLiteral("全部状态"), -1);
-    m_statusFilter->addItem(QStringLiteral("闲置"), PileIdle);
-    m_statusFilter->addItem(QStringLiteral("使用中"), PileInUse);
+    m_statusFilter->addItem(QStringLiteral("空闲"), PileIdle);
+    m_statusFilter->addItem(QStringLiteral("充电中"), PileInUse);
     m_statusFilter->addItem(QStringLiteral("故障"), PileFault);
     auto *searchBtn = new QPushButton(QStringLiteral("搜索"), this);
     searchBtn->setObjectName("searchButton");
@@ -100,31 +83,42 @@ StationManagePage::StationManagePage(QWidget *parent)
     actionRow->addWidget(m_faultBtn);
     actionRow->addStretch();
 
-    m_stationTable = new QTableWidget(this);
-    m_stationTable->setObjectName("stationTable");
-    m_stationTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    m_stationTable->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_stationTable->setSelectionMode(QAbstractItemView::SingleSelection);
-    m_stationTable->setAlternatingRowColors(true);
-    m_stationTable->verticalHeader()->setVisible(false);
-    m_stationTable->setColumnCount(10);
-    m_stationTable->horizontalHeader()->setStretchLastSection(true);
-    m_stationTable->horizontalHeader()->setMinimumSectionSize(70);
-    m_stationTable->setHorizontalHeaderLabels(
-        { QStringLiteral("ID"), QStringLiteral("站名"), QStringLiteral("详细地址"),
-          QStringLiteral("电价"), QStringLiteral("总桩数"), QStringLiteral("闲置"),
-          QStringLiteral("使用中"), QStringLiteral("故障"), QStringLiteral("站点状态"),
-          QStringLiteral("在线率") });
+    auto *stationSectionTitle = new QLabel(QStringLiteral("选择充电站"), this);
+    stationSectionTitle->setObjectName("sectionTitle");
+    m_stationCardsScroll = new QScrollArea(this);
+    m_stationCardsScroll->setObjectName("stationCardsScroll");
+    m_stationCardsScroll->setWidgetResizable(false);
+    m_stationCardsScroll->setFrameShape(QFrame::NoFrame);
+    m_stationCardsScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_stationCardsScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    m_stationCardsScroll->setFixedHeight(146);
+    m_stationCardsHost = new QWidget(m_stationCardsScroll);
+    m_stationCardsHost->setObjectName("stationManageCardHost");
+    m_stationCardsHost->setFixedHeight(132);
+    m_stationCardsLayout = new QHBoxLayout(m_stationCardsHost);
+    m_stationCardsLayout->setContentsMargins(2, 2, 8, 8);
+    m_stationCardsLayout->setSpacing(12);
+    m_stationCardsLayout->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+    m_stationCardsScroll->setWidget(m_stationCardsHost);
 
-    auto *detailPanel = new QWidget(this);
-    detailPanel->setObjectName("detailPanel");
-    auto *detailLayout = new QVBoxLayout(detailPanel);
-    detailLayout->setContentsMargins(14, 12, 14, 12);
-    detailLayout->setSpacing(8);
-    m_detailTitle = new QLabel(QStringLiteral("电桩明细（选择上方充电站）"), detailPanel);
+    auto *detailHeader = new QHBoxLayout;
+    m_detailTitle = new QLabel(QStringLiteral("点击上方充电站卡片查看电桩"), this);
     m_detailTitle->setObjectName("sectionTitle");
-    m_pileTable = new QTableWidget(detailPanel);
+    auto *occupancyCaption = new QLabel(QStringLiteral("本站占用率"), this);
+    occupancyCaption->setObjectName("stationOccupancyCaption");
+    m_occupancyBar = new QProgressBar(this);
+    m_occupancyBar->setObjectName("stationOccupancyBar");
+    m_occupancyBar->setRange(0, 100);
+    m_occupancyBar->setValue(0);
+    m_occupancyBar->setFormat(QStringLiteral("%p%"));
+    m_occupancyBar->setMinimumWidth(150);
+    detailHeader->addWidget(m_detailTitle, 1);
+    detailHeader->addWidget(occupancyCaption);
+    detailHeader->addWidget(m_occupancyBar);
+    m_pileTable = new QTableWidget(this);
     m_pileTable->setObjectName("pileTable");
+    m_pileTable->setProperty("cardTitle", QStringLiteral("本站电桩"));
+    m_pileTable->setProperty("cardHint", QStringLiteral("选择电桩后可执行远程重启或故障处理"));
     m_pileTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_pileTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_pileTable->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -136,22 +130,13 @@ StationManagePage::StationManagePage(QWidget *parent)
     m_pileTable->setHorizontalHeaderLabels(
         { QStringLiteral("电桩编号"), QStringLiteral("类型"), QStringLiteral("功率(kW)"),
           QStringLiteral("状态"), QStringLiteral("累计次数"), QStringLiteral("累计时长(小时)") });
-    detailLayout->addWidget(m_detailTitle);
-    detailLayout->addWidget(m_pileTable, 1);
-
-    auto *splitter = new QSplitter(Qt::Horizontal, this);
-    splitter->setObjectName("stationPileSplitter");
-    splitter->addWidget(m_stationTable);
-    splitter->addWidget(detailPanel);
-    splitter->setChildrenCollapsible(false);
-    splitter->setSizes({660, 440});
-    splitter->setStretchFactor(0, 3);
-    splitter->setStretchFactor(1, 2);
-
     layout->addWidget(title);
     layout->addLayout(filterRow);
     layout->addLayout(actionRow);
-    layout->addWidget(splitter, 1);
+    layout->addWidget(stationSectionTitle);
+    layout->addWidget(m_stationCardsScroll);
+    layout->addLayout(detailHeader);
+    layout->addWidget(m_pileTable, 1);
 
     connect(searchBtn, &QPushButton::clicked, this, &StationManagePage::refresh);
     connect(refreshBtn, &QPushButton::clicked, this, &StationManagePage::refresh);
@@ -164,8 +149,6 @@ StationManagePage::StationManagePage(QWidget *parent)
     connect(addBtn, &QPushButton::clicked, this, &StationManagePage::onAddStation);
     connect(m_restartBtn, &QPushButton::clicked, this, &StationManagePage::onRestartPile);
     connect(m_faultBtn, &QPushButton::clicked, this, &StationManagePage::onTogglePileFault);
-    connect(m_stationTable, &QTableWidget::itemSelectionChanged,
-            this, &StationManagePage::onStationSelected);
     connect(m_pileTable, &QTableWidget::itemSelectionChanged,
             this, &StationManagePage::onPileSelected);
     refresh();
@@ -195,19 +178,17 @@ void StationManagePage::refresh()
     const QList<PileInfo> allPiles = PileDao::listAll();
 
     QHash<int, QList<PileInfo>> pilesByStation;
-    QHash<int, int> idleByStation;
-    QHash<int, int> inUseByStation;
-    QHash<int, int> faultByStation;
     for (const PileInfo &pile : allPiles) {
         pilesByStation[pile.stationId].append(pile);
-        if (pile.status == PileIdle) ++idleByStation[pile.stationId];
-        else if (pile.status == PileInUse) ++inUseByStation[pile.stationId];
-        else if (pile.status == PileFault) ++faultByStation[pile.stationId];
+    }
+
+    while (QLayoutItem *item = m_stationCardsLayout->takeAt(0)) {
+        delete item->widget();
+        delete item;
     }
 
     const QList<StationInfo> stations = StationDao::list();
-    m_stationTable->blockSignals(true);
-    m_stationTable->setRowCount(0);
+    QList<QPushButton *> visibleCards;
     for (const StationInfo &station : stations) {
         const bool stationMatches = query.isEmpty()
             || station.name.contains(query, Qt::CaseInsensitive)
@@ -221,82 +202,122 @@ void StationManagePage::refresh()
         }
         if ((!stationMatches && !hasMatchingPile) || (status >= 0 && !hasMatchingPile))
             continue;
+        const QList<PileInfo> stationPiles = pilesByStation.value(station.id);
+        int idle = 0, charging = 0, fault = 0;
+        for (const PileInfo &pile : stationPiles) {
+            if (pile.status == PileIdle) ++idle;
+            else if (pile.status == PileInUse) ++charging;
+            else ++fault;
+        }
 
-        const int row = m_stationTable->rowCount();
-        m_stationTable->insertRow(row);
-        auto *idItem = new QTableWidgetItem(QString::number(station.id));
-        idItem->setData(Qt::UserRole, station.id);
-        m_stationTable->setItem(row, 0, idItem);
-        m_stationTable->setItem(row, 1, new QTableWidgetItem(station.name));
-        m_stationTable->setItem(row, 2, new QTableWidgetItem(station.address));
-        m_stationTable->setItem(row, 3, new QTableWidgetItem(QString::number(station.price, 'f', 2)));
-        const int idle = idleByStation.value(station.id);
-        const int inUse = inUseByStation.value(station.id);
-        const int fault = faultByStation.value(station.id);
-        const int total = pilesByStation.value(station.id).size();
-        m_stationTable->setItem(row, 4, new QTableWidgetItem(QString::number(total)));
-        m_stationTable->setItem(row, 5, new QTableWidgetItem(QString::number(idle)));
-        m_stationTable->setItem(row, 6, new QTableWidgetItem(QString::number(inUse)));
-        m_stationTable->setItem(row, 7, new QTableWidgetItem(QString::number(fault)));
-        auto *statusItem = new QTableWidgetItem(stationStatusText(total, inUse, fault));
-        statusItem->setForeground(QBrush(inUse > 0 ? QColor("#B0863F")
-                                        : fault > 0 ? QColor("#C5525A") : QColor("#1F9D67")));
-        m_stationTable->setItem(row, 8, statusItem);
-        const double rate = total > 0 ? (total - fault) * 100.0 / total : 100.0;
-        m_stationTable->setItem(row, 9,
-                                new QTableWidgetItem(QString::number(rate, 'f', 1) + "%"));
+        auto *card = new QPushButton(m_stationCardsHost);
+        card->setObjectName("stationManageCard");
+        card->setAccessibleName(station.name);
+        card->setCursor(Qt::PointingHandCursor);
+        card->setCheckable(true);
+        card->setProperty("stationId", station.id);
+        card->setProperty("stationName", station.name);
+        card->setProperty("stationMatches", stationMatches);
+        card->setProperty("microScale", 1.025);
+        card->setToolTip(QStringLiteral("点击查看 %1 的电桩详情").arg(station.name));
+        auto *body = new QVBoxLayout(card);
+        body->setContentsMargins(15, 12, 15, 11);
+        body->setSpacing(5);
+        auto *name = new QLabel(station.name, card);
+        name->setObjectName("stationCardName");
+        name->setTextFormat(Qt::PlainText);
+        auto *address = new QLabel(station.address, card);
+        address->setObjectName("stationCardAddress");
+        address->setTextFormat(Qt::PlainText);
+        address->setToolTip(station.address);
+        auto *summary = new QLabel(QStringLiteral("空闲 %1  ·  充电中 %2  ·  故障 %3")
+                                       .arg(idle).arg(charging).arg(fault), card);
+        summary->setObjectName("stationCardStats");
+        auto *bar = new QProgressBar(card);
+        bar->setObjectName("stationCardOccupancy");
+        bar->setRange(0, 100);
+        bar->setValue(stationPiles.isEmpty() ? 0
+                                             : qRound(charging * 100.0 / stationPiles.size()));
+        bar->setFormat(QStringLiteral("占用 %p%  ·  共 %1 台").arg(stationPiles.size()));
+        for (QWidget *child : QList<QWidget *>{name, address, summary, bar})
+            child->setAttribute(Qt::WA_TransparentForMouseEvents);
+        body->addWidget(name);
+        body->addWidget(address);
+        body->addWidget(summary);
+        body->addWidget(bar);
+        // QPushButton 在安装子布局时会重新计算 sizeHint，固定尺寸必须放在布局
+        // 完成之后，否则部分平台会把卡片压回单行按钮高度。
+        card->setFixedSize(248, 122);
+        m_stationCardsLayout->addWidget(card);
+        visibleCards.append(card);
+        connect(card, &QPushButton::clicked, this,
+                [this, stationId = station.id] { selectStationCard(stationId); });
     }
-    m_stationTable->resizeColumnsToContents();
-    m_stationTable->blockSignals(false);
+    m_stationCardsHost->resize(qMax(m_stationCardsScroll->viewport()->width(),
+                                    visibleCards.size() * 260), 132);
 
-    int rowToSelect = -1;
-    for (int row = 0; row < m_stationTable->rowCount(); ++row) {
-        if (m_stationTable->item(row, 0)->data(Qt::UserRole).toInt() == selectedStationId) {
-            rowToSelect = row;
+    QPushButton *cardToSelect = nullptr;
+    for (QPushButton *card : visibleCards)
+        if (card->property("stationId").toInt() == selectedStationId) {
+            cardToSelect = card;
             break;
         }
-    }
-    if (rowToSelect < 0 && m_stationTable->rowCount() > 0)
-        rowToSelect = 0;
+    if (!cardToSelect && !visibleCards.isEmpty())
+        cardToSelect = visibleCards.first();
     m_selectedPileId = selectedPileId;
-    if (rowToSelect >= 0)
-        m_stationTable->selectRow(rowToSelect);
+    if (cardToSelect)
+        selectStationCard(cardToSelect->property("stationId").toInt());
     else {
         m_selectedStationId = -1;
         m_selectedPileId = -1;
         m_pileTable->setRowCount(0);
+        m_occupancyBar->setValue(0);
+        m_occupancyBar->setFormat(QStringLiteral("0%"));
         m_detailTitle->setText(QStringLiteral("未找到符合条件的充电站或电桩"));
         onPileSelected();
     }
 }
 
-void StationManagePage::onStationSelected()
+void StationManagePage::selectStationCard(int stationId)
 {
-    const QList<QTableWidgetItem *> selected = m_stationTable->selectedItems();
-    if (selected.isEmpty()) {
+    QPushButton *selectedCard = nullptr;
+    for (QPushButton *card : m_stationCardsHost->findChildren<QPushButton *>(
+             QStringLiteral("stationManageCard"), Qt::FindDirectChildrenOnly)) {
+        const bool selected = card->property("stationId").toInt() == stationId;
+        card->setChecked(selected);
+        if (selected) selectedCard = card;
+    }
+    if (!selectedCard) {
         m_selectedStationId = -1;
         m_pileTable->setRowCount(0);
         onPileSelected();
         return;
     }
-    const int row = selected.first()->row();
-    m_selectedStationId = m_stationTable->item(row, 0)->data(Qt::UserRole).toInt();
-    loadPileDetail(m_selectedStationId, m_stationTable->item(row, 1)->text());
+    m_selectedStationId = stationId;
+    loadPileDetail(m_selectedStationId,
+                   selectedCard->property("stationName").toString(),
+                   selectedCard->property("stationMatches").toBool());
 }
 
-void StationManagePage::loadPileDetail(int stationId, const QString &stationName)
+void StationManagePage::loadPileDetail(int stationId, const QString &stationName,
+                                       bool stationMatches)
 {
     const int selectedPileId = m_selectedPileId;
-    const QString query = m_searchEdit->text().trimmed();
-    bool stationMatches = query.isEmpty() || stationName.contains(query, Qt::CaseInsensitive);
-    for (int row = 0; row < m_stationTable->rowCount() && !stationMatches; ++row) {
-        if (m_stationTable->item(row, 0)->data(Qt::UserRole).toInt() == stationId)
-            stationMatches = m_stationTable->item(row, 2)->text().contains(query, Qt::CaseInsensitive);
-    }
-
     const QList<PileInfo> piles = PileDao::listByStation(stationId);
+    int idle = 0, charging = 0, fault = 0;
+    for (const PileInfo &pile : piles) {
+        if (pile.status == PileIdle) ++idle;
+        else if (pile.status == PileInUse) ++charging;
+        else ++fault;
+    }
+    const int occupancy = piles.isEmpty() ? 0 : qRound(charging * 100.0 / piles.size());
+    m_occupancyBar->setValue(occupancy);
+    m_occupancyBar->setFormat(QStringLiteral("%1% · %2/%3 充电中")
+                                  .arg(occupancy).arg(charging).arg(piles.size()));
+
     m_pileTable->blockSignals(true);
     m_pileTable->setRowCount(0);
+    QHash<QString, QString> currentValues;
     for (const PileInfo &pile : piles) {
         if (!pileMatchesFilter(pile, stationMatches))
             continue;
@@ -309,18 +330,36 @@ void StationManagePage::loadPileDetail(int stationId, const QString &stationName
         m_pileTable->setItem(row, 1,
                              new QTableWidgetItem(pile.type == PileFast ? QStringLiteral("快充")
                                                                         : QStringLiteral("慢充")));
-        m_pileTable->setItem(row, 2, new QTableWidgetItem(QString::number(pile.power, 'f', 1)));
+        auto *powerItem = new QTableWidgetItem(QString::number(pile.power, 'f', 1));
+        const QString powerKey = QStringLiteral("%1/power").arg(pile.id);
+        currentValues.insert(powerKey, powerItem->text());
+        if (m_previousPileValues.contains(powerKey)
+            && m_previousPileValues.value(powerKey) != powerItem->text())
+            AdminTableCard::markUpdated(powerItem);
+        m_pileTable->setItem(row, 2, powerItem);
         auto *statusItem = new QTableWidgetItem(pileStatusText(pile.status));
-        statusItem->setForeground(QBrush(pileStatusColor(pile.status)));
+        const QString statusKey = QStringLiteral("%1/status").arg(pile.id);
+        currentValues.insert(statusKey, statusItem->text());
+        if (m_previousPileValues.contains(statusKey)
+            && m_previousPileValues.value(statusKey) != statusItem->text())
+            AdminTableCard::markUpdated(statusItem);
         m_pileTable->setItem(row, 3, statusItem);
         m_pileTable->setItem(row, 4, new QTableWidgetItem(QString::number(pile.totalCount)));
-        m_pileTable->setItem(row, 5,
-                             new QTableWidgetItem(QString::number(pile.totalDuration / 60.0, 'f', 1)));
+        auto *durationItem = new QTableWidgetItem(
+            QString::number(pile.totalDuration / 60.0, 'f', 1));
+        const QString durationKey = QStringLiteral("%1/duration").arg(pile.id);
+        currentValues.insert(durationKey, durationItem->text());
+        if (m_previousPileValues.contains(durationKey)
+            && m_previousPileValues.value(durationKey) != durationItem->text())
+            AdminTableCard::markUpdated(durationItem);
+        m_pileTable->setItem(row, 5, durationItem);
     }
+    m_previousPileValues = currentValues;
     m_pileTable->resizeColumnsToContents();
     m_pileTable->blockSignals(false);
-    m_detailTitle->setText(QStringLiteral("%1 · %2 个符合条件的电桩")
-                               .arg(stationName).arg(m_pileTable->rowCount()));
+    m_detailTitle->setText(QStringLiteral("%1 · 空闲 %2 · 充电中 %3 · 故障 %4 · 当前显示 %5 台")
+                               .arg(stationName).arg(idle).arg(charging).arg(fault)
+                               .arg(m_pileTable->rowCount()));
 
     int rowToSelect = -1;
     for (int row = 0; row < m_pileTable->rowCount(); ++row) {

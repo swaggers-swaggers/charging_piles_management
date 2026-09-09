@@ -1,18 +1,33 @@
 /* 客户端和管理端共用浅色主题。 */
 QWidget#appCentral, QStackedWidget#contentStack { background: #F3F7F6; }
-QWidget#sidebar { background: #123D35; border: none; }
-QWidget#logoBox { background: transparent; border: none; margin: 12px 6px; }
-QLabel#logoLabel { color: #EDFFF7; font-size: 19px; }
-QListWidget#navList { color: #B7D2C8; padding: 4px; }
-QListWidget#navList::item { border: 1px solid transparent; border-radius: 9px; padding: 13px 10px; margin: 4px 8px; }
-QListWidget#navList::item:selected { background: #256352; color: #DAFFAE; border: none; }
-QListWidget#navList::item:hover { background: #2B6A59; color: white; border: 1px solid #4D8A76; margin: 4px 8px; }
-QLabel#sideNote { color: #B4D2C4; font-size: 12px; padding: 18px 22px; }
-QPushButton#logoutBtn { color: #B7D2C8; margin: 0px 10px; }
-QPushButton#logoutBtn:hover { color: white; background: #256352; }
+QWidget#sidebar {
+    background: #FFFFFF; border: 1px solid #DCE9E1; border-radius: 22px;
+}
+QWidget#sidebar[sidebarExpanded="true"] {
+    border-color: #BEDAC9;
+}
+QWidget#logoBox { background: transparent; border: none; margin: 8px 6px; }
+QLabel#logoLabel { color: #1E5E43; font-size: 18px; }
+QListWidget#navList { color: #5D7167; padding: 4px; background: transparent; }
+QListWidget#navList::item {
+    border: 1px solid transparent; border-radius: 12px;
+    padding: 12px 10px; margin: 4px 7px;
+}
+QListWidget#navList::item:selected {
+    background: #E2F3E8; color: #16814F; border: 1px solid #C8E5D3;
+}
+QListWidget#navList::item:hover {
+    background: #EAF7EF; color: #16814F; border: 1px solid #B8DDC7;
+}
+QLabel#sideNote { color: #71877B; font-size: 12px; padding: 14px 18px; }
+QPushButton#logoutBtn {
+    color: #5D7167; background: transparent; border: 1px solid transparent;
+    border-radius: 12px; margin: 0px 7px; padding: 10px;
+}
+QPushButton#logoutBtn:hover { color: #16814F; background: #EAF7EF; border-color: #B8DDC7; }
 QWidget#headerBar { background: #FFFFFF; border-bottom: 1px solid #E3ECE7; }
-QLabel#headerTitle { color: #173E33; }
-QLabel#headerUser { background: #F0F7F3; color: #416254; border: none; }
+QLabel#headerTitle { color: #173E33; font-size: 15px; }
+QLabel#headerUser { background: #F0F7F3; color: #416254; border: none; padding: 4px 11px; }
 QLabel#pageTitle { color: #173E33; }
 QLabel#pageHint { color: #667C73; }
 QFrame#discoveryHero { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #164D40,stop:1 #28715B); border-radius: 18px; }
@@ -54,6 +69,37 @@ QCheckBox::indicator:checked { background: #237653; border-color: #237653; }
 QTableWidget, QTableView { selection-background-color: #E6F3EA; selection-color: #245E3E; gridline-color: #EDF3EF; }
 QTableWidget::item:hover { background: #F0F8F2; }
 QHeaderView::section { background: #EDF4EF; color: #4B6858; }
+QScrollArea#stationCardsScroll, QWidget#stationManageCardHost {
+    background: transparent; border: none;
+}
+QPushButton#stationManageCard {
+    background: #FFFFFF; border: 1px solid #D8E6DE; border-radius: 15px;
+    padding: 0px; text-align: left;
+    min-width: 246px; max-width: 246px; min-height: 120px; max-height: 120px;
+}
+QPushButton#stationManageCard:hover {
+    background: #FBFEFC; border: 1px solid #7FB696;
+}
+QPushButton#stationManageCard:checked {
+    background: #F0F8F3; border: 2px solid #2D8B60;
+}
+QPushButton#stationManageCard QLabel { background: transparent; border: none; }
+QLabel#stationCardName { color: #173F31; font-size: 15px; font-weight: 750; }
+QLabel#stationCardAddress { color: #75877D; font-size: 10px; }
+QLabel#stationCardStats { color: #3E6B55; font-size: 11px; font-weight: 600; }
+QProgressBar#stationCardOccupancy {
+    color: #356A50; background: #E8F0EB; border: none; border-radius: 6px;
+    min-height: 13px; max-height: 13px; text-align: center; font-size: 9px;
+}
+QProgressBar#stationCardOccupancy::chunk { background: #A7D7BA; border-radius: 6px; }
+QLabel#stationOccupancyCaption { color: #6D8176; font-size: 12px; }
+QProgressBar#stationOccupancyBar {
+    color: #245978; background: #EDF3F7; border: 1px solid #D8E5EC;
+    border-radius: 9px; min-height: 18px; text-align: center; font-size: 10px; font-weight: 700;
+}
+QProgressBar#stationOccupancyBar::chunk {
+    background: #AFCFF3; border-radius: 8px;
+}
 QScrollBar:vertical { background: #ECF2EE; width: 7px; border: none; margin: 0px; }
 QScrollBar::handle:vertical { background: #B5CDBE; min-height: 32px; border-radius: 3px; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
@@ -245,6 +291,7 @@ QFrame#orderJourneyCard {
 QFrame#orderJourneyCard[orderState="active"] { border-left-color: #D4A94E; }
 QFrame#orderJourneyCard[orderState="done"] { border-left-color: #237653; }
 QFrame#orderJourneyCard[orderState="error"] { border-left-color: #BD5961; }
+QFrame#orderJourneyCard[newRecord="true"] { border-color: #8DB9E8; border-left-color: #4B91DB; }
 QFrame#orderJourneyCard:hover { background: #FCFEFC; border-color: #8DB49D; }
 QLabel#orderMarker {
     color: #194D39; background: #E4F1E8; border: 1px solid #D0E4D7;

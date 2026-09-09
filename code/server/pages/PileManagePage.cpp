@@ -17,8 +17,8 @@ namespace {
 QString pileStatusText(int status)
 {
     switch (status) {
-    case PileIdle:  return "闲置";
-    case PileInUse: return "在用";
+    case PileIdle:  return "空闲";
+    case PileInUse: return "充电中";
     case PileFault: return "故障";
     }
     return "未知";
@@ -27,7 +27,7 @@ QString pileStatusText(int status)
 QColor pileStatusColor(int status)
 {
     switch (status) {
-    case PileInUse: return QColor("#B0863F");
+    case PileInUse: return QColor("#2E7BE6");
     case PileFault: return QColor("#C5525A");
     default:        return QColor("#1F9D67");
     }
@@ -148,8 +148,8 @@ void PileManagePage::onRestartClicked()
     }
 
     LogDao::record(ServerSession::instance().adminName, "远程重启",
-                   QString("电桩 %1 重启成功, 状态恢复闲置").arg(m_selectedCode));
+                   QString("电桩 %1 重启成功, 状态恢复空闲").arg(m_selectedCode));
     QMessageBox::information(this, "提示",
-                             QString("重启指令已执行, 电桩 %1 状态恢复闲置").arg(m_selectedCode));
+                             QString("重启指令已执行, 电桩 %1 状态恢复空闲").arg(m_selectedCode));
     refresh();
 }

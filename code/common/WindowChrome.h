@@ -11,6 +11,8 @@
 #include <QRegion>
 #include <QWindow>
 #include <QSizeGrip>
+#include <QShortcut>
+#include <QTimer>
 
 namespace UiMotion {
 // Paint the shadow directly: no graphics effect on a WebEngine ancestor.
@@ -32,7 +34,11 @@ protected:
     void paintEvent(QPaintEvent *) override {
         QPainter p(this); p.setRenderHint(QPainter::Antialiasing); p.setPen(Qt::NoPen);
         p.setBrush(QColor("#F3F7F6"));
-        p.drawRoundedRect(QRectF(rect()).adjusted(.5,.5,-.5,-.5),14,14);
+        QWidget *host = parentWidget();
+        if (host && (host->isMaximized() || host->isFullScreen()))
+            p.drawRect(rect());
+        else
+            p.drawRoundedRect(QRectF(rect()).adjusted(.5,.5,-.5,-.5),14,14);
     }
 private:
     void updateWindowMask() {
@@ -50,13 +56,13 @@ private:
 class TitleBar : public QWidget {
 public:
     explicit TitleBar(QWidget *w) : QWidget(w), host(w) {
-        setObjectName("customTitleBar"); setFixedHeight(42);
+        setObjectName("customTitleBar"); setFixedHeight(34);
         auto *row=new QHBoxLayout(this); row->setContentsMargins(14,0,6,0);
         auto *title=new QLabel(w->windowTitle(),this); title->setAttribute(Qt::WA_TransparentForMouseEvents);
         row->addWidget(title,1);
         connect(w,&QWidget::windowTitleChanged,title,&QLabel::setText);
         auto add=[&](const QString &text,const QString &name) {
-            auto *b=new QPushButton(text,this); b->setObjectName(name); b->setFixedSize(32,28);
+            auto *b=new QPushButton(text,this); b->setObjectName(name); b->setFixedSize(28,24);
             b->setFocusPolicy(Qt::NoFocus); b->setAutoDefault(false);
             b->setStyleSheet("QPushButton{padding:0;min-height:0;border:none;background:transparent;} QPushButton:hover{background:#DDEFE3;}");
             row->addWidget(b); return b;
@@ -64,16 +70,28 @@ public:
         auto *min=add(QStringLiteral("−"),"windowMinimize"); min->setToolTip("最小化");
         connect(min,&QPushButton::clicked,w,&QWidget::showMinimized);
         if (qobject_cast<QMainWindow*>(w)) {
-            auto *max=add(QStringLiteral("□"),"windowMaximize"); max->setToolTip("最大化 / 还原");
-            connect(max,&QPushButton::clicked,this,[this]{toggle();});
+            m_maxButton=add(QStringLiteral("□"),"windowMaximize"); m_maxButton->setToolTip("最大化 / 还原");
+            connect(m_maxButton,&QPushButton::clicked,this,[this]{toggle();});
         }
         auto *close=add(QStringLiteral("×"),"windowClose"); close->setToolTip("关闭");
         connect(close,&QPushButton::clicked,w,&QWidget::close);
+        host->installEventFilter(this);
+        updateWindowState();
     }
 protected:
+    bool eventFilter(QObject *object, QEvent *event) override {
+        if (object==host && (event->type()==QEvent::WindowStateChange
+                            || event->type()==QEvent::Show))
+            QTimer::singleShot(0,this,[this]{updateWindowState();});
+        return QWidget::eventFilter(object,event);
+    }
     void mousePressEvent(QMouseEvent *e) override {
         if(e->button()==Qt::LeftButton) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            offset=e->globalPosition().toPoint()-host->frameGeometry().topLeft();
+#else
             offset=e->globalPos()-host->frameGeometry().topLeft();
+#endif
 #if QT_VERSION >= QT_VERSION_CHECK(5,15,0)
             if(host->windowHandle() && host->windowHandle()->startSystemMove()) return;
 #endif
@@ -81,15 +99,33 @@ protected:
         }
     }
     void mouseMoveEvent(QMouseEvent *e) override {
-        if(dragging && (e->buttons() & Qt::LeftButton) && !host->isMaximized()) host->move(e->globalPos()-offset);
+        if(dragging && (e->buttons() & Qt::LeftButton) && !host->isMaximized() && !host->isFullScreen()) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            host->move(e->globalPosition().toPoint()-offset);
+#else
+            host->move(e->globalPos()-offset);
+#endif
+        }
     }
     void mouseReleaseEvent(QMouseEvent *) override {dragging=false;}
     void mouseDoubleClickEvent(QMouseEvent *e) override {
         if(e->button()==Qt::LeftButton && qobject_cast<QMainWindow*>(host)) toggle();
     }
 private:
-    void toggle(){host->isMaximized()?host->showNormal():host->showMaximized();}
-    QWidget *host; QPoint offset; bool dragging=false;
+    void toggle(){
+        if(host->isFullScreen()) {
+            host->property("windowWasMaximizedBeforeFullScreen").toBool()
+                ? host->showMaximized() : host->showNormal();
+        } else {
+            host->isMaximized()?host->showNormal():host->showMaximized();
+        }
+    }
+    void updateWindowState() {
+        const bool fullScreen=host->isFullScreen();
+        setVisible(!fullScreen);
+        if(m_maxButton) m_maxButton->setText(host->isMaximized()?QStringLiteral("❐"):QStringLiteral("□"));
+    }
+    QWidget *host; QPushButton *m_maxButton=nullptr; QPoint offset; bool dragging=false;
 };
 inline void installChrome(QWidget *w) {
     // WebEngine 窗口使用系统不透明边框，避免透明顶层与 GPU 合成产生黑边。
@@ -111,6 +147,25 @@ inline void installChrome(QWidget *w) {
         layout->addWidget(title); layout->addWidget(body,1);
         layout->addWidget(new QSizeGrip(w),0,Qt::AlignRight);
     }
+    auto *fullScreenShortcut=new QShortcut(QKeySequence(Qt::Key_F11),w);
+    fullScreenShortcut->setObjectName("windowFullScreenShortcut");
+    QObject::connect(fullScreenShortcut,&QShortcut::activated,w,[w]{
+        if(w->isFullScreen()) {
+            w->property("windowWasMaximizedBeforeFullScreen").toBool()
+                ? w->showMaximized() : w->showNormal();
+        } else {
+            w->setProperty("windowWasMaximizedBeforeFullScreen",w->isMaximized());
+            w->showFullScreen();
+        }
+    });
+    auto *escapeShortcut=new QShortcut(QKeySequence(Qt::Key_Escape),w);
+    escapeShortcut->setObjectName("windowFullScreenEscapeShortcut");
+    QObject::connect(escapeShortcut,&QShortcut::activated,w,[w]{
+        if(w->isFullScreen()) {
+            w->property("windowWasMaximizedBeforeFullScreen").toBool()
+                ? w->showMaximized() : w->showNormal();
+        }
+    });
 }
 }
 #endif

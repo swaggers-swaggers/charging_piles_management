@@ -94,6 +94,7 @@ private:
     QLabel *m_energyVal;
     QLabel *m_amountVal;
     QLabel *m_minutesVal;
+    QLabel *m_powerVal;
     QLabel *m_priceHint;
     ChargeChartWidget *m_chart;
     QPushButton *m_chartModeBtn;

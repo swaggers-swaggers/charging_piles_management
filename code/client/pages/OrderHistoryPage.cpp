@@ -8,10 +8,13 @@
 #include <QDialog>
 #include <QFrame>
 #include <QGridLayout>
+#include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
 #include <QJsonArray>
 #include <QLabel>
 #include <QMessageBox>
+#include <QParallelAnimationGroup>
+#include <QPropertyAnimation>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QTabWidget>
@@ -112,6 +115,37 @@ QLabel *detailField(const QString &caption, const QString &value, QWidget *paren
     label->setTextFormat(Qt::PlainText);
     label->setWordWrap(true);
     return label;
+}
+
+void animateNewOrderCard(QWidget *card)
+{
+    if (!card)
+        return;
+    card->setProperty("newRecord", true);
+    const int targetHeight = qMax(150, card->sizeHint().height());
+    auto *effect = new QGraphicsOpacityEffect(card);
+    effect->setOpacity(0.0);
+    card->setGraphicsEffect(effect);
+    card->setMaximumHeight(0);
+
+    auto *group = new QParallelAnimationGroup(card);
+    group->setObjectName(QStringLiteral("newOrderSlideAnimation"));
+    auto *height = new QPropertyAnimation(card, "maximumHeight", group);
+    height->setDuration(440);
+    height->setStartValue(0);
+    height->setEndValue(targetHeight);
+    height->setEasingCurve(QEasingCurve::OutCubic);
+    auto *opacity = new QPropertyAnimation(effect, "opacity", group);
+    opacity->setDuration(360);
+    opacity->setStartValue(0.0);
+    opacity->setEndValue(1.0);
+    opacity->setEasingCurve(QEasingCurve::OutCubic);
+    QObject::connect(group, &QParallelAnimationGroup::finished, card, [card, group] {
+        card->setMaximumHeight(QWIDGETSIZE_MAX);
+        card->setGraphicsEffect(nullptr);
+        group->deleteLater();
+    });
+    group->start();
 }
 } // namespace
 
@@ -369,12 +403,19 @@ void OrderHistoryPage::refreshOrders()
     clearCards(m_orderCards);
     double totalEnergy = 0.0;
     double totalAmount = 0.0;
+    QSet<int> refreshedIds;
     for (const QJsonValue &value : orders) {
         const OrderInfo order = OrderInfo::fromJson(value.toObject());
+        refreshedIds.insert(order.id);
         totalEnergy += order.energy;
         totalAmount += order.amount;
-        m_orderCards->addWidget(createOrderCard(order));
+        QWidget *card = createOrderCard(order);
+        m_orderCards->addWidget(card);
+        if (m_ordersLoaded && m_page == 0 && !m_knownOrderIds.contains(order.id))
+            animateNewOrderCard(card);
     }
+    m_knownOrderIds.unite(refreshedIds);
+    m_ordersLoaded = true;
     if (orders.isEmpty()) {
         auto *empty = new QLabel(QStringLiteral("还没有充电旅程\n\n完成第一次充电后，这里会生成一张专属票据"), this);
         empty->setObjectName("orderEmpty");

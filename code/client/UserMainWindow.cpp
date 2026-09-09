@@ -13,6 +13,7 @@
 #include "TcpClient.h"
 #include "protocol.h"
 #include "IconFactory.h"
+#include "HoverSidebar.h"
 
 #include <QFile>
 #include <QApplication>
@@ -58,14 +59,13 @@ void UserMainWindow::initUi()
     QWidget *central = new QWidget(this);
     central->setObjectName("appCentral");
     QHBoxLayout *rootLayout = new QHBoxLayout(central);
-    rootLayout->setContentsMargins(0, 0, 0, 0);
-    rootLayout->setSpacing(0);
+    rootLayout->setContentsMargins(10, 10, 0, 10);
+    rootLayout->setSpacing(10);
     setCentralWidget(central);
 
     // ---------- 左侧导航 ----------
-    QWidget *sidebar = new QWidget(central);
-    sidebar->setObjectName("sidebar");
-    sidebar->setFixedWidth(176);
+    auto *sidebar = new HoverSidebar(176, central);
+    sidebar->setAccessibleName(QStringLiteral("悬停展开导航栏"));
     QVBoxLayout *sideLayout = new QVBoxLayout(sidebar);
     sideLayout->setContentsMargins(0, 20, 0, 12);
     sideLayout->setSpacing(10);
@@ -96,8 +96,9 @@ void UserMainWindow::initUi()
     };
     for (int i = 0; i < navNames.size(); ++i) {
         auto *item = new QListWidgetItem(navNames[i]);
-        item->setIcon(IconFactory::icon(navIcons[i]));
+        item->setIcon(IconFactory::navigationIcon(navIcons[i]));
         item->setData(Qt::UserRole, navNames[i]);   // 纯文本标题(不含图标)
+        item->setData(HoverSidebar::FullTextRole, navNames[i]);
         m_navList->addItem(item);
     }
     m_navList->setIconSize(QSize(20, 20));
@@ -108,6 +109,8 @@ void UserMainWindow::initUi()
 
     QPushButton *logoutBtn = new QPushButton("退出登录", sidebar);
     logoutBtn->setObjectName("logoutBtn");
+    logoutBtn->setIcon(IconFactory::navigationIcon(IconFactory::IconLogout));
+    logoutBtn->setIconSize(QSize(20, 20));
     logoutBtn->setCursor(Qt::PointingHandCursor);
 
     sideLayout->addWidget(logoBox);
@@ -117,6 +120,10 @@ void UserMainWindow::initUi()
     sideNote->setObjectName("sideNote");
     sideLayout->addWidget(sideNote);
     sideLayout->addWidget(logoutBtn);
+    sidebar->setNavigationList(m_navList);
+    sidebar->addExpandedOnly(logo);
+    sidebar->addExpandedOnly(sideNote);
+    sidebar->setActionButton(logoutBtn, QStringLiteral("退出登录"));
 
     // ---------- 右侧: 页头 + 页面栈 ----------
     QWidget *rightArea = new QWidget(central);
@@ -126,9 +133,9 @@ void UserMainWindow::initUi()
 
     QWidget *header = new QWidget(rightArea);
     header->setObjectName("headerBar");
-    header->setFixedHeight(56);
+    header->setFixedHeight(42);
     QHBoxLayout *headerLayout = new QHBoxLayout(header);
-    headerLayout->setContentsMargins(24, 0, 24, 0);
+    headerLayout->setContentsMargins(18, 0, 18, 0);
 
     m_headerTitle = new QLabel(navNames.first(), header);
     m_headerTitle->setObjectName("headerTitle");
@@ -197,12 +204,10 @@ void UserMainWindow::initUi()
     balanceTimer->start(1000);
 
     // 消息中心未读角标: 导航项文本后追加未读数
-    auto updateMsgBadge = [this](int unread) {
+    auto updateMsgBadge = [this, sidebar](int unread) {
         if (m_navList->count() <= 4) return;
-        auto *item = m_navList->item(4);
-        if (!item) return;
-        item->setText(unread > 0 ? QString("消息中心 (%1)").arg(unread)
-                                  : QString("消息中心"));
+        sidebar->updateItemText(4, unread > 0 ? QString("消息中心 (%1)").arg(unread)
+                                               : QString("消息中心"));
     };
     updateMsgBadge(MessageCenter::instance().unreadCount());
     connect(&MessageCenter::instance(), &MessageCenter::unreadCountChanged,

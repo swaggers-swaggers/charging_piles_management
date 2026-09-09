@@ -5,10 +5,9 @@
 #include "ServerSession.h"
 #include "dao/OrderDao.h"
 #include "dao/ReservationDao.h"
+#include "AdminTableCard.h"
 #include "types.h"
 
-#include <QBrush>
-#include <QColor>
 #include <QComboBox>
 #include <QFormLayout>
 #include <QFrame>
@@ -32,16 +31,6 @@ QString orderStatusText(int s)
     case OrderCancelled: return QStringLiteral("已取消");
     case OrderAbnormal:  return QStringLiteral("异常中断");
     default:             return QStringLiteral("未知");
-    }
-}
-
-QColor orderStatusColor(int s)
-{
-    switch (s) {
-    case OrderCharging: return QColor("#B0863F");
-    case OrderFinished: return QColor("#1F9D67");
-    case OrderAbnormal: return QColor("#C5525A");
-    default:            return QColor("#94A3B8");
     }
 }
 
@@ -125,7 +114,7 @@ OrderManagePage::OrderManagePage(QWidget *parent)
     orderLayout->addLayout(topRow);
 
     m_orderTable = new QTableWidget(orderTab);
-    m_orderTable->setObjectName("userTable");
+    m_orderTable->setObjectName("orderTable");
     m_orderTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_orderTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_orderTable->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -166,7 +155,7 @@ OrderManagePage::OrderManagePage(QWidget *parent)
     resLayout->addLayout(resTop);
 
     m_resTable = new QTableWidget(resTab);
-    m_resTable->setObjectName("userTable");
+    m_resTable->setObjectName("reservationTable");
     m_resTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_resTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_resTable->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -221,9 +210,15 @@ void OrderManagePage::refreshOrders()
     const int selectedId = m_selectedOrderId;
     const int filter = m_statusFilter->currentData().toInt();
     const QList<OrderInfo> orders = OrderDao::listAll(filter);
+    QHash<int, QPair<double, double>> currentMetrics;
+    QSet<int> refreshedIds;
     m_orderTable->setRowCount(orders.size());
     for (int i = 0; i < orders.size(); ++i) {
         const OrderInfo &o = orders[i];
+        refreshedIds.insert(o.id);
+        currentMetrics.insert(o.id, qMakePair(o.energy, o.amount));
+        const bool isNew = m_ordersLoaded && !m_knownOrderIds.contains(o.id);
+        const qint64 insertedAt = isNew ? AdminTableCard::nowMs() : 0;
         auto *idItem = new QTableWidgetItem(QString::number(o.id));
         idItem->setData(Qt::UserRole, o.id);
         idItem->setData(Qt::UserRole + 1, o.status);
@@ -235,16 +230,31 @@ void OrderManagePage::refreshOrders()
         m_orderTable->setItem(i, 3, new QTableWidgetItem(o.stationName));
         m_orderTable->setItem(i, 4, new QTableWidgetItem(o.startTime));
         m_orderTable->setItem(i, 5, new QTableWidgetItem(o.endTime));
-        m_orderTable->setItem(i, 6, new QTableWidgetItem(QString::number(o.energy, 'f', 2)));
-        m_orderTable->setItem(i, 7, new QTableWidgetItem(QString::number(o.amount, 'f', 2)));
+        auto *energyItem = new QTableWidgetItem(QString::number(o.energy, 'f', 2));
+        auto *amountItem = new QTableWidgetItem(QString::number(o.amount, 'f', 2));
+        if (m_previousOrderMetrics.contains(o.id)) {
+            const auto previous = m_previousOrderMetrics.value(o.id);
+            if (!qFuzzyCompare(previous.first + 1.0, o.energy + 1.0))
+                AdminTableCard::markUpdated(energyItem);
+            if (!qFuzzyCompare(previous.second + 1.0, o.amount + 1.0))
+                AdminTableCard::markUpdated(amountItem);
+        }
+        m_orderTable->setItem(i, 6, energyItem);
+        m_orderTable->setItem(i, 7, amountItem);
         auto *stItem = new QTableWidgetItem(orderStatusText(o.status));
-        stItem->setForeground(QBrush(orderStatusColor(o.status)));
         m_orderTable->setItem(i, 8, stItem);
         m_orderTable->setItem(i, 9, new QTableWidgetItem(
             o.status == OrderCharging ? QString() : finishText(o.finishType)));
         m_orderTable->setItem(i, 10, new QTableWidgetItem(
             o.refundAmount > 0 ? QString::number(o.refundAmount, 'f', 2) : QString()));
+        if (isNew) {
+            for (int column = 0; column < m_orderTable->columnCount(); ++column)
+                AdminTableCard::markInserted(m_orderTable->item(i, column), insertedAt);
+        }
     }
+    m_previousOrderMetrics = currentMetrics;
+    m_knownOrderIds.unite(refreshedIds);
+    m_ordersLoaded = true;
     m_orderTable->resizeColumnsToContents();
     for (int row = 0; row < m_orderTable->rowCount(); ++row) {
         if (m_orderTable->item(row, 0)->data(Qt::UserRole).toInt() == selectedId) {
@@ -372,10 +382,6 @@ void OrderManagePage::refreshReservations()
                                    .arg(r.reserveDate, r.reserveStart, r.reserveEnd);
         m_resTable->setItem(i, 7, new QTableWidgetItem(middle));
         auto *stItem = new QTableWidgetItem(resStatusText(r.status));
-        if (r.status == ReservationActive || r.status == ReservationAssigned)
-            stItem->setForeground(QBrush(QColor("#B0863F")));
-        else if (r.status == ReservationFulfilled)
-            stItem->setForeground(QBrush(QColor("#1F9D67")));
         m_resTable->setItem(i, 8, stItem);
     }
     m_resTable->resizeColumnsToContents();
