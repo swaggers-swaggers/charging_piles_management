@@ -34,6 +34,16 @@ QPushButton:hover, QPushButton#secondaryBtn:hover { background: #ECF6EF; border-
 QPushButton:pressed { background: #DCEFE1; }
 QPushButton#primaryBtn, QPushButton#searchButton, QPushButton#successBtn { background: #237653; color: white; border: 1px solid #237653; }
 QPushButton#primaryBtn:hover, QPushButton#searchButton:hover, QPushButton#successBtn:hover { background: #195E42; border-color: #195E42; }
+QLineEdit#chargingStationSearch {
+    min-height: 24px; padding: 8px 13px; border-radius: 10px;
+    background: #FFFFFF; border: 1px solid #CFE0D6;
+}
+QLineEdit#chargingStationSearch:focus { border: 2px solid #63A27E; padding: 7px 12px; }
+QPushButton#chargingStationSearchButton {
+    min-height: 24px; padding: 8px 20px; border-radius: 10px;
+    color: #FFFFFF; background: #237653; border: 1px solid #195E42; font-weight: 700;
+}
+QPushButton#chargingStationSearchButton:hover { background: #195E42; }
 QPushButton#primaryBtn:disabled, QPushButton:disabled { background: #EDF1ED; color: #94A298; border: 1px solid #E1E8E2; }
 QPushButton:focus { border: 2px solid #70B18C; }
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit { border: 1px solid #D3E0D8; selection-background-color: #237653; }
@@ -167,18 +177,46 @@ QPushButton#bentoCard[bentoTone="amber"]:hover { background: #FFFCF6; border-col
 QPushButton#bentoCard[bentoTone="amber"] QLabel#bentoIcon { background: #F6ECD9; border-color: #E8D8B8; }
 QLabel#homeFootnote { color: #8B9AA6; font-size: 11px; letter-spacing: 1px; padding-top: 2px; }
 
-/* 账户与通知：统一卡片层级和舒适的输入区。 */
-QFrame#accountProfile, QFrame#accountSection { background: white; border: 1px solid #DFEAE4; border-radius: 16px; }
-QLabel#accountAvatar { background: #EAF5ED; border: none; border-radius: 18px; }
+/* 账户与通知：个人资料、钱包与卡片式车库。 */
+QFrame#accountProfile, QFrame#accountSection, QFrame#vehicleGarage {
+    background: white; border: 1px solid #DFEAE4; border-radius: 16px;
+}
+QLabel#accountTopBadge {
+    color: #366D55; background: #E8F3EC; border: 1px solid #D3E7DB;
+    border-radius: 11px; padding: 6px 12px; font-size: 11px;
+}
+QLabel#accountAvatar { background: #EAF5ED; border: 1px solid #D1E6D8; border-radius: 20px; }
+QLabel#accountStatus { color: #2E7654; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
 QLabel#accountName { color: #193F33; font-size: 22px; font-weight: 700; }
-QFrame#accountWallet { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #174D3E,stop:1 #2C7357); border: none; border-radius: 16px; }
+QFrame#accountWallet { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #153F35,stop:.58 #206148,stop:1 #39795C); border: none; border-radius: 16px; }
 QLabel#walletCaption { color: #CDE5D6; background: transparent; font-size: 12px; }
 QLabel#walletAmount { color: #FFFFFF; background: transparent; font-size: 40px; font-weight: 700; }
+QLabel#walletPill { color: #E9F8EF; background: rgba(255,255,255,35); border: 1px solid rgba(255,255,255,45); border-radius: 9px; padding: 4px 8px; font-size: 10px; }
 QWidget#accountPage QPushButton { min-height: 22px; }
 QWidget#accountPage QLineEdit, QWidget#accountPage QDoubleSpinBox { min-height: 22px; padding: 7px 12px; }
 QWidget#accountPage QDoubleSpinBox QLineEdit { min-height: 0px; padding: 0px; border: none; background: transparent; }
 QPushButton#amountPreset { background: #F7FAF8; border: 1px solid #DCE7DF; }
 QPushButton#amountPreset:checked { background: #E5F3E9; color: #17613F; border: 1px solid #5B9E77; font-weight: 700; }
+QPushButton#addVehicleBtn { color: white; background: #1F704E; border: 1px solid #175D40; border-radius: 10px; padding: 8px 15px; font-weight: 700; }
+QPushButton#addVehicleBtn:hover { background: #2D805C; }
+QFrame#vehicleCard { background: #F7FAF8; border: 1px solid #E1EBE5; border-radius: 13px; }
+QFrame#vehicleCard[defaultVehicle="true"] { background: #F2F8F4; border: 1px solid #BFDCCB; }
+QLabel#vehicleIcon { color: #EBFFF2; background: #245E49; border: none; border-radius: 17px; min-width: 52px; max-width: 52px; min-height: 52px; max-height: 52px; font-size: 13px; font-weight: 800; letter-spacing: 1px; }
+QLabel#vehiclePlate { color: #173D30; font-size: 17px; font-weight: 750; }
+QLabel#vehicleDefaultBadge { color: #397054; background: #DDEFE3; border: 1px solid #CBE4D4; border-radius: 8px; padding: 3px 7px; font-size: 10px; }
+QLabel#vehicleModel { color: #476458; font-size: 13px; font-weight: 600; }
+QLabel#vehicleMeta { color: #84958C; font-size: 11px; }
+QLabel#vehicleEmpty { color: #819087; background: #F8FBF9; border: 1px dashed #CADCD1; border-radius: 13px; padding: 24px; min-height: 88px; line-height: 1.6; }
+QPushButton#vehicleTextButton, QPushButton#vehicleDeleteButton { background: transparent; border: none; padding: 6px 8px; min-height: 18px; }
+QPushButton#vehicleTextButton { color: #397158; }
+QPushButton#vehicleTextButton:hover { color: #164B34; background: #E5F1E9; }
+QPushButton#vehicleDeleteButton { color: #A65A5E; }
+QPushButton#vehicleDeleteButton:hover { color: #8E3D43; background: #F8E9EA; }
+QLabel#vehicleDialogTitle { color: #193F33; font-size: 20px; font-weight: 750; }
+QLabel#vehicleDialogHint { color: #84928B; font-size: 11px; padding-bottom: 5px; }
+QLabel#vehicleFieldLabel { color: #4C6257; font-size: 11px; font-weight: 650; }
+QDialog#vehicleEditorDialog QLineEdit, QDialog#vehicleEditorDialog QComboBox,
+QDialog#vehicleEditorDialog QDoubleSpinBox { min-height: 24px; }
 QLabel#messageSummary { background: #E5F1E9; color: #245E42; border-radius: 12px; padding: 20px; font-size: 18px; font-weight: 600; }
 QListWidget#messageList { background: transparent; border: none; padding: 0px; outline: none; }
 QListWidget#messageList::item { padding: 0px; margin: 0px; border: none; }

@@ -38,6 +38,7 @@ private:
     void migrateV2Schema();          // v2: charge_order 扩展列平滑升级
     void migrateNoPreauthorization();// 旧在充订单的冻结额转换为已支付金额
     void migrateAdminSchema();       // 旧库 admin 表: password→password_hash, 补 salt 列
+    void migrateVehicleSchema();     // 旧车辆字段 plate_no/brand/model → 新车辆档案字段
     void deduplicateUsers();          // 修复哈希算法变更导致的重复用户(按 phone_masked 合并)
     void seedDefaultData();
     void seedDefaultFeeRules();      // v2: 生成默认峰谷平分时费率

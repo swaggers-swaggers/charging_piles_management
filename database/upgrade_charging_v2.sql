@@ -59,6 +59,21 @@ CREATE TABLE IF NOT EXISTS recharge_log (
     FOREIGN KEY(user_id) REFERENCES user(id)
 );
 
+-- 用户私人车库（客户端“我的账户”车辆管理）
+CREATE TABLE IF NOT EXISTS user_vehicle (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id          INTEGER NOT NULL,
+    plate_number     TEXT NOT NULL,
+    brand_model      TEXT DEFAULT '',
+    energy_type      TEXT DEFAULT '纯电',
+    battery_capacity REAL DEFAULT 0,
+    is_default       INTEGER DEFAULT 0,
+    create_time      TEXT DEFAULT (datetime('now','localtime')),
+    UNIQUE(user_id, plate_number),
+    FOREIGN KEY(user_id) REFERENCES user(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_vehicle_user ON user_vehicle(user_id, is_default);
+
 -- ---------------------------------------------------------------------
 -- 4. charge_order 扩展列（重复执行会报 duplicate column，可忽略）
 -- ---------------------------------------------------------------------

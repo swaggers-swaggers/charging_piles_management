@@ -1,6 +1,7 @@
 #ifndef USERINFOPAGE_H
 #define USERINFOPAGE_H
 
+#include "types.h"
 #include <QWidget>
 
 class QLabel;
@@ -8,40 +9,44 @@ class QBoxLayout;
 class QLineEdit;
 class QDoubleSpinBox;
 class QPushButton;
+class QVBoxLayout;
 
-// 用户信息维护页: 头像(默认灰色, 可换) / 昵称修改 / 余额充值, 全部经 Socket 由服务端处理
 class UserInfoPage : public QWidget
 {
     Q_OBJECT
-
 public:
     explicit UserInfoPage(QWidget *parent = nullptr);
-
 public slots:
     void refreshPage();
-
 protected:
     void resizeEvent(QResizeEvent *event) override;
     void showEvent(QShowEvent *event) override;
-
 private slots:
     void onRefresh();
     void onChangeAvatar();
     void onSaveNickname();
     void onRecharge();
-
+    void onAddVehicle();
 private:
-    QBoxLayout *m_overview;
-    QBoxLayout *m_settings;
-    QLabel *m_nameLabel;
-    QLabel *m_avatarLabel;
-    QLabel *m_phoneLabel;
-    QLabel *m_balanceLabel;
-    QLineEdit *m_nickEdit;
-    QPushButton *m_saveNickBtn;
-    QDoubleSpinBox *m_rechargeSpin;
-    QPushButton *m_rechargeBtn;
+    void refreshVehicles(bool showError = true);
+    void rebuildVehicleCards(const QList<VehicleInfo> &vehicles);
+    void openVehicleEditor(const VehicleInfo &vehicle = VehicleInfo());
+    void deleteVehicle(int vehicleId, const QString &plateNumber);
+    void setDefaultVehicle(int vehicleId);
+
+    QBoxLayout *m_overview = nullptr;
+    QBoxLayout *m_settings = nullptr;
+    QLabel *m_nameLabel = nullptr;
+    QLabel *m_avatarLabel = nullptr;
+    QLabel *m_phoneLabel = nullptr;
+    QLabel *m_balanceLabel = nullptr;
+    QLabel *m_vehicleCountLabel = nullptr;
+    QLineEdit *m_nickEdit = nullptr;
+    QPushButton *m_saveNickBtn = nullptr;
+    QDoubleSpinBox *m_rechargeSpin = nullptr;
+    QPushButton *m_rechargeBtn = nullptr;
+    QVBoxLayout *m_vehicleCards = nullptr;
     bool m_silentRefresh = false;
 };
 
-#endif // USERINFOPAGE_H
+#endif

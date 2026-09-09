@@ -89,6 +89,46 @@ struct UserInfo
     }
 };
 
+// 用户车辆。车辆只归属于当前登录用户，服务端不会接受客户端指定 userId。
+struct VehicleInfo
+{
+    int id = 0;
+    int userId = 0;
+    QString plateNumber;
+    QString brandModel;
+    QString energyType;
+    double batteryCapacity = 0.0;
+    bool isDefault = false;
+    QString createTime;
+
+    static VehicleInfo fromJson(const QJsonObject &o)
+    {
+        VehicleInfo v;
+        v.id = o.value("vehicleId").toInt();
+        v.userId = o.value("userId").toInt();
+        v.plateNumber = o.value("plateNumber").toString();
+        v.brandModel = o.value("brandModel").toString();
+        v.energyType = o.value("energyType").toString();
+        v.batteryCapacity = o.value("batteryCapacity").toDouble();
+        v.isDefault = o.value("isDefault").toBool();
+        v.createTime = o.value("createTime").toString();
+        return v;
+    }
+    QJsonObject toJson() const
+    {
+        QJsonObject o;
+        o.insert("vehicleId", id);
+        o.insert("userId", userId);
+        o.insert("plateNumber", plateNumber);
+        o.insert("brandModel", brandModel);
+        o.insert("energyType", energyType);
+        o.insert("batteryCapacity", batteryCapacity);
+        o.insert("isDefault", isDefault);
+        o.insert("createTime", createTime);
+        return o;
+    }
+};
+
 // 充电站信息(totalPiles/idlePiles/distance/predictIdle 为列表查询的附加统计)
 struct StationInfo
 {

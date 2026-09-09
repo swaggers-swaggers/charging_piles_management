@@ -52,6 +52,10 @@ private:
     QJsonObject processOrderHistory(const QJsonObject &req);    // 订单历史
     QJsonObject processOrderDetail(const QJsonObject &req);     // 订单详情
     QJsonObject processStationFee(const QJsonObject &req);      // 站点分时费率
+    QJsonObject processVehicleList(const QJsonObject &req);
+    QJsonObject processSaveVehicle(const QJsonObject &req);
+    QJsonObject processDeleteVehicle(const QJsonObject &req);
+    QJsonObject processSetDefaultVehicle(const QJsonObject &req);
 
     qintptr m_descriptor;
     QTcpSocket *m_socket = nullptr;

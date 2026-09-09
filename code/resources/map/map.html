@@ -45,9 +45,16 @@
     let mapReady = false;
     let pendingData = null;
     let markerObjects = [];
+    let loadWarningTimer = null;
 
-    function showStatus() {
-        document.getElementById('status').style.display = 'block';
+    function showStatus(message) {
+        const status = document.getElementById('status');
+        if (message) status.textContent = message;
+        status.style.display = 'block';
+    }
+
+    function hideStatus() {
+        document.getElementById('status').style.display = 'none';
     }
 
     function makeTextRow(text, className) {
@@ -165,11 +172,16 @@
         map.addControl(new maplibregl.NavigationControl({showCompass: false}), 'top-right');
         map.on('load', () => {
             mapReady = true;
+            if (loadWarningTimer) clearTimeout(loadWarningTimer);
+            hideStatus();
             if (pendingData) renderData(pendingData);
         });
-        setTimeout(() => { if (!mapReady) showStatus(); }, 10000);
+        loadWarningTimer = setTimeout(() => {
+            if (!mapReady)
+                showStatus('在线底图加载较慢，正在继续尝试；站点查询和“开始导航”仍可使用。');
+        }, 15000);
     } catch (error) {
-        showStatus();
+        showStatus('在线底图暂时无法加载；站点查询和“开始导航”仍可使用。');
     }
 </script>
 </body>

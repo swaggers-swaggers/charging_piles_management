@@ -21,6 +21,7 @@
 #include <QHBoxLayout>
 #include <QJsonArray>
 #include <QLabel>
+#include <QLineEdit>
 #include <QLayoutItem>
 #include <QMessageBox>
 #include <QPainter>
@@ -31,7 +32,9 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSet>
+#include <QSignalBlocker>
 #include <QStackedWidget>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QtMath>
 
@@ -42,6 +45,14 @@ PileInfo findPile(const QList<PileInfo> &piles, int id)
         if (p.id == id)
             return p;
     return PileInfo();
+}
+
+StationInfo findStation(const QList<StationInfo> &stations, int id)
+{
+    for (const StationInfo &station : stations)
+        if (station.id == id)
+            return station;
+    return StationInfo();
 }
 
 QString targetDesc(const OrderInfo &o)
@@ -674,6 +685,17 @@ void ChargingPage::buildSelectView()
         QStringLiteral("选择充电站与电桩: 空闲桩可立即充电或预约, 在用桩可排队等待"), m_selectView);
     hint->setObjectName("pageHint");
 
+    QHBoxLayout *searchRow = new QHBoxLayout();
+    m_stationSearch = new QLineEdit(m_selectView);
+    m_stationSearch->setObjectName("chargingStationSearch");
+    m_stationSearch->setClearButtonEnabled(true);
+    m_stationSearch->setPlaceholderText(QStringLiteral("搜索充电站名称或地址"));
+    m_stationSearch->setAccessibleName(QStringLiteral("搜索充电站"));
+    QPushButton *searchBtn = new QPushButton(QStringLiteral("搜索"), m_selectView);
+    searchBtn->setObjectName("chargingStationSearchButton");
+    searchRow->addWidget(m_stationSearch, 1);
+    searchRow->addWidget(searchBtn);
+
     QHBoxLayout *stationRow = new QHBoxLayout();
     stationRow->addWidget(new QLabel(QStringLiteral("充电站:"), m_selectView));
     m_stationCombo = new QComboBox(m_selectView);
@@ -701,10 +723,22 @@ void ChargingPage::buildSelectView()
 
     lay->addWidget(title);
     lay->addWidget(hint);
+    lay->addLayout(searchRow);
     lay->addLayout(stationRow);
     lay->addWidget(m_cardScroll, 1);
 
     connect(refreshBtn, &QPushButton::clicked, this, &ChargingPage::refreshStations);
+    auto *searchDelay = new QTimer(this);
+    searchDelay->setSingleShot(true);
+    searchDelay->setInterval(250);
+    connect(m_stationSearch, &QLineEdit::textChanged, this,
+            [searchDelay] { searchDelay->start(); });
+    connect(searchDelay, &QTimer::timeout, this, [this] { applyStationFilter(); });
+    connect(searchBtn, &QPushButton::clicked, this, [this, searchDelay] {
+        searchDelay->stop();
+        applyStationFilter();
+    });
+    connect(m_stationSearch, &QLineEdit::returnPressed, searchBtn, &QPushButton::click);
     connect(m_stationCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [this](int) { onStationPicked(); });
 }
@@ -1010,6 +1044,10 @@ void ChargingPage::buildWaitingView()
 void ChargingPage::selectStation(int stationId)
 {
     m_requestedStationId = stationId;
+    if (m_stationSearch) {
+        const QSignalBlocker blocker(m_stationSearch);
+        m_stationSearch->clear();
+    }
     if (isVisible() && !m_hasOrder && m_waitingId < 0)
         refreshStations();
 }
@@ -1031,31 +1069,60 @@ void ChargingPage::refreshStations()
     for (const QJsonValue &v : arr)
         m_stations.append(StationInfo::fromJson(v.toObject()));
 
-    m_stationCombo->blockSignals(true);
-    m_stationCombo->clear();
-    for (const StationInfo &s : m_stations)
-        m_stationCombo->addItem(QString("%1 (空闲 %2/%3)")
-                                    .arg(s.name).arg(s.idlePiles).arg(s.totalPiles), s.id);
-    const int index = m_stationCombo->findData(selectedId);
-    if (index >= 0) m_stationCombo->setCurrentIndex(index);
-    else if (m_requestedStationId >= 0) {
-        m_stationCombo->setCurrentIndex(-1);
+    const bool requestedStationMissing = m_requestedStationId >= 0
+        && findStation(m_stations, selectedId).id <= 0;
+    m_requestedStationId = -1;
+    applyStationFilter(selectedId);
+    if (requestedStationMissing) {
         QMessageBox::information(this, "站点已更新", "所选站点已不可用，请返回首页刷新或选择其他站点。");
     }
-    m_requestedStationId = -1;
+}
+
+void ChargingPage::applyStationFilter(int preferredStationId)
+{
+    if (!m_stationCombo || !m_stationSearch)
+        return;
+    if (preferredStationId < 0)
+        preferredStationId = m_stationCombo->currentData().toInt();
+    const QString keyword = m_stationSearch->text().trimmed();
+
+    m_stationCombo->blockSignals(true);
+    m_stationCombo->clear();
+    for (const StationInfo &station : m_stations) {
+        if (!keyword.isEmpty()
+            && !station.name.contains(keyword, Qt::CaseInsensitive)
+            && !station.address.contains(keyword, Qt::CaseInsensitive))
+            continue;
+        m_stationCombo->addItem(QString("%1 (空闲 %2/%3)")
+                                    .arg(station.name).arg(station.idlePiles).arg(station.totalPiles),
+                                station.id);
+    }
+    const int preferredIndex = m_stationCombo->findData(preferredStationId);
+    if (preferredIndex >= 0)
+        m_stationCombo->setCurrentIndex(preferredIndex);
+    else if (m_stationCombo->count() > 0)
+        m_stationCombo->setCurrentIndex(0);
+    else
+        m_stationCombo->setCurrentIndex(-1);
     m_stationCombo->blockSignals(false);
+
+    if (m_stationCombo->count() == 0) {
+        m_stationInfo->setText(QStringLiteral("没有找到匹配的充电站"));
+        m_piles.clear();
+        rebuildPileCards();
+        return;
+    }
     onStationPicked();
 }
 
 void ChargingPage::onStationPicked()
 {
     m_piles.clear();
-    const int idx = m_stationCombo->currentIndex();
-    if (idx < 0 || idx >= m_stations.size()) {
+    const StationInfo s = findStation(m_stations, m_stationCombo->currentData().toInt());
+    if (s.id <= 0) {
         rebuildPileCards();
         return;
     }
-    const StationInfo &s = m_stations[idx];
     m_stationInfo->setText(QStringLiteral("基准电价 %1 元/度").arg(s.price, 0, 'f', 2));
 
     const QJsonObject reply = TcpClient::instance().request(
@@ -1160,8 +1227,8 @@ void ChargingPage::rebuildPileCards()
 
 void ChargingPage::openChargeSetup(int pileId)
 {
-    const int idx = m_stationCombo->currentIndex();
-    const double basePrice = (idx >= 0) ? m_stations[idx].price : 1.2;
+    const StationInfo station = findStation(m_stations, m_stationCombo->currentData().toInt());
+    const double basePrice = station.id > 0 ? station.price : 1.2;
     ChargeSetupDialog dlg(findPile(m_piles, pileId), basePrice, this);
     if (dlg.exec() != QDialog::Accepted)
         return;

@@ -170,6 +170,11 @@ private slots:
                     int type=req["type"].toInt();
                     QJsonObject reply{{"type",type},{"ok",true}};
                     if(type==Protocol::ReqGetUserInfo) { reply["nickname"]="体验用户"; reply["balance"]=128.50; }
+                    if(type==Protocol::ReqVehicleList) { reply["vehicles"]=QJsonArray{
+                        QJsonObject{{"vehicleId",2},{"plateNumber","京A·E6288"},{"brandModel","Tesla Model 3"},
+                            {"energyType","纯电"},{"batteryCapacity",60.0},{"isDefault",true}},
+                        QJsonObject{{"vehicleId",1},{"plateNumber","京AD·30917"},{"brandModel","蔚来 ET5 Touring"},
+                            {"energyType","纯电"},{"batteryCapacity",75.0},{"isDefault",false}}}; }
                     if(type==6) { ++stationRequestCount; reply["stations"]=stations(); lastLon=req["lon"].toDouble(); lastLat=req["lat"].toDouble();
                         if(failed) { reply["ok"]=false; reply["error"]="test unavailable"; } }
                     if(type==7) { lastPileStation=req["stationId"].toInt();
@@ -298,6 +303,15 @@ private slots:
         auto *page=window->findChild<ChargingPage*>();
         QVERIFY(button(page,"排队等待")); QVERIFY(button(page,"预约时段"));
         button(page,"刷新")->click(); QCOMPARE(combo->currentData().toInt(),12);
+        auto *stationSearch=page->findChild<QLineEdit*>("chargingStationSearch");
+        QVERIFY(stationSearch);
+        stationSearch->setText("学院路"); QTest::qWait(300);
+        QCOMPARE(combo->count(),1); QCOMPARE(combo->currentData().toInt(),13);
+        stationSearch->setText("不存在的站点"); QTest::qWait(300);
+        QCOMPARE(combo->count(),0);
+        QVERIFY(page->findChild<QLabel*>("emptyState"));
+        stationSearch->clear(); QTest::qWait(300);
+        QCOMPARE(combo->count(),3);
         QVERIFY(window->grab().save("/tmp/charging-pile-selection.png"));
     }
     void chargeSetupHasNoFreeze() {
@@ -427,6 +441,8 @@ private slots:
         nav->setCurrentRow(5); QTest::qWait(250);
         auto *account = window->findChild<UserInfoPage*>();
         QCOMPARE(account->findChild<QLabel*>("walletAmount")->text(),QString("128.50"));
+        QTRY_COMPARE(account->findChildren<QFrame*>("vehicleCard").size(),2);
+        QCOMPARE(account->findChildren<QLabel*>("vehicleDefaultBadge").size(),1);
         button(account,"200 元")->click();
         QCOMPARE(account->findChild<QDoubleSpinBox*>("rechargeSpin")->value(),200.0);
         QVERIFY(window->grab().save("/tmp/charging-account-redesign.png"));

@@ -9,6 +9,7 @@
 class QComboBox;
 class QGridLayout;
 class QLabel;
+class QLineEdit;
 class QPushButton;
 class QScrollArea;
 class QStackedWidget;
@@ -63,6 +64,7 @@ private:
     void buildWaitingView();
 
     void rebuildPileCards();
+    void applyStationFilter(int preferredStationId = -1);
     void openChargeSetup(int pileId);
     void openAppointDialog(int pileId);
     void joinQueue(int pileId);
@@ -77,6 +79,7 @@ private:
 
     // ---- 选桩视图 ----
     QComboBox *m_stationCombo;
+    QLineEdit *m_stationSearch;
     QLabel *m_stationInfo;
     QScrollArea *m_cardScroll;
     QWidget *m_cardHost;

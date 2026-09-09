@@ -92,6 +92,7 @@ bool DatabaseManager::init(QString *errMsg)
     migrateV2Schema();
     migrateNoPreauthorization();
     migrateAdminSchema();
+    migrateVehicleSchema();
 
     seedDefaultData();
     seedDefaultFeeRules();
@@ -300,6 +301,18 @@ bool DatabaseManager::createTables(QString *errMsg)
         " create_time TEXT DEFAULT (datetime('now','localtime')),"
         " FOREIGN KEY(user_id) REFERENCES user(id))",
 
+        "CREATE TABLE IF NOT EXISTS user_vehicle ("
+        " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " user_id INTEGER NOT NULL,"
+        " plate_number TEXT NOT NULL,"
+        " brand_model TEXT DEFAULT '',"
+        " energy_type TEXT DEFAULT '纯电',"
+        " battery_capacity REAL DEFAULT 0,"
+        " is_default INTEGER DEFAULT 0,"
+        " create_time TEXT DEFAULT (datetime('now','localtime')),"
+        " UNIQUE(user_id, plate_number),"
+        " FOREIGN KEY(user_id) REFERENCES user(id) ON DELETE CASCADE)",
+
         "CREATE TABLE IF NOT EXISTS op_log ("
         " id INTEGER PRIMARY KEY AUTOINCREMENT,"
         " op_time TEXT DEFAULT (datetime('now','localtime')),"
@@ -315,6 +328,7 @@ bool DatabaseManager::createTables(QString *errMsg)
         "CREATE INDEX IF NOT EXISTS idx_reservation_user ON charge_reservation(user_id, status)",
         "CREATE INDEX IF NOT EXISTS idx_price_rule_station ON price_rule(station_id)",
         "CREATE INDEX IF NOT EXISTS idx_recharge_log_user ON recharge_log(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_vehicle_user ON user_vehicle(user_id, is_default)",
     };
 
     for (const QString &sql : statements) {
@@ -430,6 +444,50 @@ void DatabaseManager::migrateAdminSchema()
         // 旧记录全部使用固定应用级盐, 与 hashAdminPassword 旧逻辑一致
         q.exec("UPDATE admin SET salt = 'neusoft-admin-password-2026' WHERE salt = ''");
     }
+}
+
+void DatabaseManager::migrateVehicleSchema()
+{
+    QSet<QString> columns;
+    QSqlQuery info(m_db);
+    if (!info.exec("PRAGMA table_info(user_vehicle)"))
+        return;
+    while (info.next()) columns.insert(info.value(1).toString().toLower());
+    if (columns.isEmpty())
+        return;
+
+    auto addColumn = [this, &columns](const QString &name, const QString &definition) {
+        if (columns.contains(name)) return true;
+        QSqlQuery add(m_db);
+        if (!add.exec(QString("ALTER TABLE user_vehicle ADD COLUMN %1 %2").arg(name, definition))) {
+            qWarning() << "[DatabaseManager] 车辆表升级失败:" << name << add.lastError().text();
+            return false;
+        }
+        columns.insert(name);
+        return true;
+    };
+
+    if (!addColumn("plate_number", "TEXT DEFAULT ''")
+        || !addColumn("brand_model", "TEXT DEFAULT ''")
+        || !addColumn("energy_type", "TEXT DEFAULT '纯电'"))
+        return;
+
+    // 已经存在的旧车辆资料原位迁移，不删除旧列，兼容仍在运行的旧客户端。
+    if (columns.contains("plate_no")) {
+        QSqlQuery copy(m_db);
+        copy.exec("UPDATE user_vehicle SET plate_number=plate_no "
+                  "WHERE COALESCE(plate_number,'')='' AND COALESCE(plate_no,'')<>''");
+    }
+    if (columns.contains("brand") || columns.contains("model")) {
+        const QString brand = columns.contains("brand") ? "COALESCE(brand,'')" : "''";
+        const QString model = columns.contains("model") ? "COALESCE(model,'')" : "''";
+        QSqlQuery copy(m_db);
+        copy.exec(QString("UPDATE user_vehicle SET brand_model=TRIM(%1 || ' ' || %2) "
+                          "WHERE COALESCE(brand_model,'')='' ").arg(brand, model));
+    }
+    QSqlQuery normalize(m_db);
+    normalize.exec("UPDATE user_vehicle SET energy_type='纯电' "
+                   "WHERE COALESCE(energy_type,'')=''");
 }
 
 void DatabaseManager::deduplicateUsers()

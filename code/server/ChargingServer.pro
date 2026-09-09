@@ -37,6 +37,7 @@ SOURCES += \
     DataExporter.cpp \
     HttpServer.cpp \
     dao/UserDao.cpp \
+    dao/VehicleDao.cpp \
     dao/StationDao.cpp \
     dao/PileDao.cpp \
     dao/OrderDao.cpp \
@@ -62,6 +63,7 @@ HEADERS += \
     DataExporter.h \
     HttpServer.h \
     dao/UserDao.h \
+    dao/VehicleDao.h \
     dao/StationDao.h \
     dao/PileDao.h \
     dao/OrderDao.h \

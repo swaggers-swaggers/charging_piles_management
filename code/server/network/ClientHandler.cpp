@@ -9,6 +9,8 @@
 #include "dao/ReservationDao.h"
 #include "dao/StationDao.h"
 #include "dao/UserDao.h"
+#include "dao/VehicleDao.h"
+#include "dao/LogDao.h"
 #include "protocol.h"
 #include "types.h"
 #include "GeoUtil.h"
@@ -143,6 +145,10 @@ void ClientHandler::handleRequest(const QJsonObject &request)
     case Protocol::ReqOrderHistory:     reply = processOrderHistory(request);     break;
     case Protocol::ReqOrderDetail:      reply = processOrderDetail(request);      break;
     case Protocol::ReqStationFee:       reply = processStationFee(request);       break;
+    case Protocol::ReqVehicleList:      reply = processVehicleList(request);      break;
+    case Protocol::ReqSaveVehicle:      reply = processSaveVehicle(request);      break;
+    case Protocol::ReqDeleteVehicle:    reply = processDeleteVehicle(request);    break;
+    case Protocol::ReqSetDefaultVehicle:reply = processSetDefaultVehicle(request);break;
     default:
         sendError(type, "暂不支持的消息类型");
         return;
@@ -260,6 +266,73 @@ QJsonObject ClientHandler::processRecharge(const QJsonObject &req)
     QJsonObject reply = Protocol::makeReply(Protocol::ReqRecharge, true);
     reply.insert("balance", newBalance);
     return reply;
+}
+
+// ---------- 我的车辆 ----------
+
+QJsonObject ClientHandler::processVehicleList(const QJsonObject &req)
+{
+    Q_UNUSED(req)
+    QString errMsg;
+    const QList<VehicleInfo> vehicles = VehicleDao::listByUser(m_userId, &errMsg, m_dbConnName);
+    if (!errMsg.isEmpty())
+        return Protocol::makeReply(Protocol::ReqVehicleList, false, errMsg);
+    QJsonArray arr;
+    for (const VehicleInfo &v : vehicles) arr.append(v.toJson());
+    QJsonObject reply = Protocol::makeReply(Protocol::ReqVehicleList, true);
+    reply.insert("vehicles", arr);
+    return reply;
+}
+
+QJsonObject ClientHandler::processSaveVehicle(const QJsonObject &req)
+{
+    VehicleInfo v;
+    v.id = req.value("vehicleId").toInt();
+    v.plateNumber = req.value("plateNumber").toString().trimmed().toUpper();
+    v.brandModel = req.value("brandModel").toString().trimmed();
+    v.energyType = req.value("energyType").toString().trimmed();
+    v.batteryCapacity = req.value("batteryCapacity").toDouble();
+    if (v.plateNumber.size() < 2 || v.plateNumber.size() > 10
+        || v.plateNumber.contains(QRegularExpression("\\s")))
+        return Protocol::makeReply(Protocol::ReqSaveVehicle, false, "请输入正确的车牌号");
+    if (v.brandModel.isEmpty() || v.brandModel.size() > 40)
+        return Protocol::makeReply(Protocol::ReqSaveVehicle, false, "品牌车型需为 1～40 个字符");
+    if (v.energyType != "纯电" && v.energyType != "插电混动" && v.energyType != "增程")
+        return Protocol::makeReply(Protocol::ReqSaveVehicle, false, "请选择车辆能源类型");
+    if (v.batteryCapacity < 1 || v.batteryCapacity > 300)
+        return Protocol::makeReply(Protocol::ReqSaveVehicle, false, "电池容量需为 1～300 kWh");
+
+    const bool isNew = v.id <= 0;
+    QString errMsg;
+    if (!VehicleDao::save(m_userId, &v, &errMsg, m_dbConnName))
+        return Protocol::makeReply(Protocol::ReqSaveVehicle, false, errMsg);
+    LogDao::record(QString("user:%1").arg(m_userId), isNew ? "添加车辆" : "编辑车辆",
+                   QString("%1 · %2").arg(v.plateNumber, v.brandModel), nullptr, m_dbConnName);
+    QJsonObject reply = Protocol::makeReply(Protocol::ReqSaveVehicle, true);
+    reply.insert("vehicle", v.toJson());
+    return reply;
+}
+
+QJsonObject ClientHandler::processDeleteVehicle(const QJsonObject &req)
+{
+    const int vehicleId = req.value("vehicleId").toInt();
+    QString errMsg;
+    if (!VehicleDao::remove(m_userId, vehicleId, &errMsg, m_dbConnName))
+        return Protocol::makeReply(Protocol::ReqDeleteVehicle, false, errMsg);
+    LogDao::record(QString("user:%1").arg(m_userId), "删除车辆",
+                   QString("车辆ID %1").arg(vehicleId), nullptr, m_dbConnName);
+    return Protocol::makeReply(Protocol::ReqDeleteVehicle, true);
+}
+
+QJsonObject ClientHandler::processSetDefaultVehicle(const QJsonObject &req)
+{
+    const int vehicleId = req.value("vehicleId").toInt();
+    QString errMsg;
+    if (!VehicleDao::setDefault(m_userId, vehicleId, &errMsg, m_dbConnName))
+        return Protocol::makeReply(Protocol::ReqSetDefaultVehicle, false, errMsg);
+    LogDao::record(QString("user:%1").arg(m_userId), "设置默认车辆",
+                   QString("车辆ID %1").arg(vehicleId), nullptr, m_dbConnName);
+    return Protocol::makeReply(Protocol::ReqSetDefaultVehicle, true);
 }
 
 // ---------- 充电站查询 ----------

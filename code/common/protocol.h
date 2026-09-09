@@ -44,6 +44,11 @@ enum MessageType {
                                //   → {reservationId}; 失败: ErrSlotConflict / ErrSlotPast
     ReqMyReservations   = 17,  // {userId} → {reservations:[...ReservationInfo]}
     ReqAppointSlots     = 18,  // {pileId, date} → {slots:["08:00",...], booked:[{start,end}]}
+    ReqVehicleList      = 19,  // {} → {vehicles:[...VehicleInfo]}
+    ReqSaveVehicle      = 20,  // {vehicleId?, plateNumber, brandModel, energyType, batteryCapacity}
+                               //   vehicleId=0 新增，非0修改本人车辆 → {vehicle}
+    ReqDeleteVehicle    = 21,  // {vehicleId} → {ok}
+    ReqSetDefaultVehicle= 22,  // {vehicleId} → {ok}
 
     // 服务端推送
     PushOrderProgress   = 101, // {orderId, energy, amount, minutes, targetType?, targetValue?, targetProgress?}
