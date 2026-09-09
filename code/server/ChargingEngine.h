@@ -65,6 +65,8 @@ public:
 
     // 桩释放后把桩分配给最早排队者(置已分配待确认 + 推送"轮到你了")
     void assignQueueHead(int pileId, const QString &connName = QString());
+    // 推送充电结束事件(故障=3, 其余=2), 供所有结算路径复用
+    void notifyOrderEnded(const OrderInfo &order, int finishType, const QString &reason);
 
 signals:
     // 充电开始、结束或故障结算后通知管理端立即刷新设备状态。
@@ -79,7 +81,6 @@ private:
     void recoverOnStart();
     void sweepActiveOrders();
     void sweepReservations();
-    void notifyOrderEnded(const OrderInfo &order, int finishType, const QString &reason);
 
     QTimer *m_timer = nullptr;
     bool m_started = false;

@@ -1093,10 +1093,16 @@ void ChargingPage::selectStation(int stationId)
 
 void ChargingPage::refreshStations()
 {
+    // 结算推送可能嵌套在其他请求的等待过程中，忙碌时直接交给下一次自动刷新。
+    if (TcpClient::instance().isBusy())
+        return;
+
     const int selectedId = m_requestedStationId >= 0 ? m_requestedStationId : m_stationCombo->currentData().toInt();
     const QJsonObject reply = TcpClient::instance().request(
         Protocol::ReqStationList, QJsonObject{{"lon", 123.45}, {"lat", 41.70}});
     if (!reply.value("ok").toBool()) {
+        if (reply.value("error").toString().contains(QStringLiteral("上一次请求尚未完成")))
+            return;
         if (m_silentRefresh)
             m_stationInfo->setText(QStringLiteral("自动刷新失败，将稍后重试"));
         else
@@ -1559,12 +1565,16 @@ void ChargingPage::onPushReceived(const QJsonObject &msg)
             order.finishType = msg.value("finishType").toInt(order.finishType);
         if (order.cancelReason.isEmpty())
             order.cancelReason = msg.value("message").toString();
-        const QJsonObject info = TcpClient::instance().request(
-            Protocol::ReqGetUserInfo, QJsonObject{});
+        // 手动停止时本推送先于停止响应到达, 此刻 TcpClient 仍在等待响应,
+        // 不能发起新请求(否则触发"上一次请求尚未完成"), 余额直接用本地会话值。
         double balance = ClientSession::instance().balance;
-        if (info.value("ok").toBool()) {
-            balance = info.value("balance").toDouble(balance);
-            ClientSession::instance().balance = balance;
+        if (!TcpClient::instance().isBusy()) {
+            const QJsonObject info = TcpClient::instance().request(
+                Protocol::ReqGetUserInfo, QJsonObject{});
+            if (info.value("ok").toBool()) {
+                balance = info.value("balance").toDouble(balance);
+                ClientSession::instance().balance = balance;
+            }
         }
         showSettlement(order, balance);
     } else if (event == 3) {
@@ -1576,7 +1586,8 @@ void ChargingPage::onPushReceived(const QJsonObject &msg)
                                             "消费 %2 元, 如有疑问可联系管理员退款")
                                  .arg(order.id).arg(order.amount, 0, 'f', 2));
         enterSelectView();
-        refreshStations();
+        if (!TcpClient::instance().isBusy())
+            refreshStations();
     } else if (event == 6) {
         QMessageBox::information(this, QStringLiteral("预约提醒"),
                                  QStringLiteral("您预约的电桩 %1 将在 10 分钟后开放, 请准备到场")
@@ -1605,6 +1616,12 @@ void ChargingPage::onPushReceived(const QJsonObject &msg)
 
 void ChargingPage::showSettlement(const OrderInfo &order, double balance)
 {
+    // 手动结束时，请求响应与服务端推送都可能携带同一结算结果。
+    if (order.id > 0 && m_lastSettledOrderId == order.id)
+        return;
+    if (order.id > 0)
+        m_lastSettledOrderId = order.id;
+
     ClientSession::instance().balance = balance;
     m_hasOrder = false;
 
@@ -1633,5 +1650,5 @@ void ChargingPage::showSettlement(const OrderInfo &order, double balance)
             .arg(order.amount, 0, 'f', 2).arg(balance, 0, 'f', 2));
 
     enterSelectView();
-    refreshStations();
+    // 站点状态由页面已有的自动刷新更新，避免在结算回调中嵌套发起请求。
 }

@@ -223,7 +223,7 @@ void UserInfoPage::rebuildVehicleCards(const QList<VehicleInfo> &vehicles)
     clearLayout(m_vehicleCards);
     m_vehicleCountLabel->setText(vehicles.isEmpty() ? "还没有车辆，添加后可统一管理" : QString("%1 辆爱车 · 默认车辆会优先用于充电服务").arg(vehicles.size()));
     if (vehicles.isEmpty()) {
-        auto *empty = label("🚙\n你的私人车库还是空的\n添加车辆后，车型与电池信息会在这里集中呈现", "vehicleEmpty", this);
+        auto *empty = label("你的私人车库还是空的\n添加车辆后，车型与电池信息会在这里集中呈现", "vehicleEmpty", this);
         empty->setAlignment(Qt::AlignCenter); m_vehicleCards->addWidget(empty); return;
     }
     for (const VehicleInfo &vehicle : vehicles) {

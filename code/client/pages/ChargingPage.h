@@ -123,6 +123,7 @@ private:
     OrderInfo m_currentOrder;
     bool m_hasOrder = false;
     bool m_silentRefresh = false;
+    int m_lastSettledOrderId = -1;
 
     // 当前等待中的预约
     int m_waitingId = -1;

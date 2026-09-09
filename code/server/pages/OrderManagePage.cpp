@@ -3,6 +3,7 @@
 #include "ChargingEngine.h"
 #include "LogDao.h"
 #include "ServerSession.h"
+#include "protocol.h"
 #include "dao/OrderDao.h"
 #include "dao/ReservationDao.h"
 #include "AdminTableCard.h"
@@ -422,6 +423,16 @@ void OrderManagePage::onCancelReservation()
         QMessageBox::warning(this, QStringLiteral("操作失败"),
                              err.isEmpty() ? QStringLiteral("记录不存在或已结束") : err);
         return;
+    }
+    // 管理端取消预约 → 向用户推送取消消息
+    const ReservationInfo r = ReservationDao::getById(m_selectedResId, nullptr);
+    if (r.id != 0 && r.userId > 0) {
+        QJsonObject ev;
+        ev.insert("type", Protocol::PushOrderEvent);
+        ev.insert("event", 11);   // 11=预约已取消
+        ev.insert("reservationId", m_selectedResId);
+        ev.insert("message", QStringLiteral("管理员已取消您的预约"));
+        ChargingEngine::instance().pushToUser(r.userId, ev);
     }
     LogDao::record(ServerSession::instance().adminName, QStringLiteral("取消预约"),
                    QStringLiteral("记录 #%1").arg(m_selectedResId));

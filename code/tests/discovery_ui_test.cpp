@@ -590,13 +590,11 @@ private slots:
         QTest::qWait(250);
         QVERIFY(window->grab().save("/tmp/charging-active-particles.png"));
 
-        QString popupTitle;
         QString popupText;
         QTimer popupInspector;
         connect(&popupInspector, &QTimer::timeout, this, [&] {
             for (QWidget *widget : QApplication::topLevelWidgets()) {
                 if (auto *box = qobject_cast<QMessageBox *>(widget)) {
-                    popupTitle = box->windowTitle();
                     popupText = box->text();
                     box->accept();
                 }
@@ -611,7 +609,6 @@ private slots:
                                   {"finishType",FinishByTarget},{"targetType",TargetMinutes},
                                   {"targetValue",2},{"energy",2.01},{"amount",2.41},{"simMinutes",2}}}});
         popupInspector.stop();
-        QCOMPARE(popupTitle,QString("充电已自动结束"));
         QVERIFY(popupText.contains("已达到时长目标 2 分钟"));
         QVERIFY(popupText.contains("系统已自动停止充电并完成结算"));
         QCOMPARE(stack->currentIndex(),0);

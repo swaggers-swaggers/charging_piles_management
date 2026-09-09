@@ -451,6 +451,10 @@ QJsonObject ClientHandler::processStopCharge(const QJsonObject &req)
     qDebug() << "[ClientHandler] 订单" << orderId << "结算: 电量" << sr.order.energy
              << "度, 金额" << sr.order.amount << "元";
 
+    // 用户手动停止 → 推送充电结束消息
+    ChargingEngine::instance().notifyOrderEnded(sr.order, FinishByUser,
+                                                QStringLiteral("您已手动停止充电"));
+
     QJsonObject reply = Protocol::makeReply(Protocol::ReqStopCharge, true);
     reply.insert("order", sr.order.toJson());
     reply.insert("balance", sr.balanceAfter);
@@ -469,6 +473,15 @@ QJsonObject ClientHandler::processReservePile(const QJsonObject &req)
         if (!ReservationDao::cancelByUser(rid, userId, &err, m_dbConnName))
             return Protocol::makeReply(Protocol::ReqReservePile, false,
                                        err.isEmpty() ? "取消失败, 记录不存在或已结束" : err);
+
+        // 用户取消预约 → 推送取消消息
+        QJsonObject ev;
+        ev.insert("type", Protocol::PushOrderEvent);
+        ev.insert("event", 11);   // 11=预约已取消
+        ev.insert("reservationId", rid);
+        ev.insert("message", QStringLiteral("您的预约已取消"));
+        ChargingEngine::instance().pushToUser(userId, ev);
+
         return Protocol::makeReply(Protocol::ReqReservePile, true);
     }
     return Protocol::makeReply(Protocol::ReqReservePile, false,
@@ -509,6 +522,17 @@ QJsonObject ClientHandler::processAppointPile(const QJsonObject &req)
 
     QJsonObject reply = Protocol::makeReply(Protocol::ReqAppointPile, true);
     reply.insert("reservationId", rid);
+
+    // 预约成功推送消息(消息系统)
+    QJsonObject ev;
+    ev.insert("type", Protocol::PushOrderEvent);
+    ev.insert("event", 10);   // 10=预约成功
+    ev.insert("reservationId", rid);
+    ev.insert("pileId", pileId);
+    ev.insert("message", QStringLiteral("预约成功：%1 %2-%3，桩位 %4")
+                             .arg(date).arg(start).arg(end).arg(pile.code));
+    ChargingEngine::instance().pushToUser(userId, ev);
+
     return reply;
 }
 

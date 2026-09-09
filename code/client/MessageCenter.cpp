@@ -86,6 +86,16 @@ void MessageCenter::onPushReceived(const QJsonObject &msg)
         m.title = QStringLiteral("预约提醒");
         m.content = msg.value("message").toString(QStringLiteral("您预约的电桩即将开放，请准备到场"));
         break;
+    case 10:
+        m.type = 4;
+        m.title = QStringLiteral("预约成功");
+        m.content = msg.value("message").toString(QStringLiteral("您的时段预约已创建成功"));
+        break;
+    case 11:
+        m.type = 4;
+        m.title = QStringLiteral("预约已取消");
+        m.content = msg.value("message").toString(QStringLiteral("您的预约已被取消"));
+        break;
     case 7:
         m.type = 4;
         m.title = QStringLiteral("预约通知");
