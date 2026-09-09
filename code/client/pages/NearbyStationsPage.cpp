@@ -5,7 +5,6 @@
 #include "network/TcpClient.h"
 
 #include "AdminTableCard.h"
-#include "IconFactory.h"
 #include <QScrollArea>
 #include <QCheckBox>
 #include <QFrame>
@@ -18,13 +17,166 @@
 #include <QJsonArray>
 #include <QLabel>
 #include <QLineEdit>
+#include <QLinearGradient>
 #include <QMessageBox>
+#include <QPainter>
+#include <QPainterPath>
 #include <QPushButton>
+#include <QRadialGradient>
 #include <QTableWidget>
 #include <QTimer>
+#include <QVariantAnimation>
 #include <QVBoxLayout>
+#include <QtMath>
 
 namespace {
+class DiscoveryTerrainHero : public QFrame
+{
+public:
+    explicit DiscoveryTerrainHero(QWidget *parent = nullptr)
+        : QFrame(parent)
+    {
+        setObjectName(QStringLiteral("discoveryTerrainHero"));
+        setAccessibleName(QStringLiteral("等高线能量地形"));
+        setProperty("terrainStyle", QStringLiteral("topographic-relief"));
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setMinimumHeight(148);
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+
+        m_pulse.setDuration(2800);
+        m_pulse.setStartValue(0.0);
+        m_pulse.setEndValue(1.0);
+        m_pulse.setLoopCount(-1);
+        m_pulse.setEasingCurve(QEasingCurve::InOutSine);
+        connect(&m_pulse, &QVariantAnimation::valueChanged, this,
+                [this](const QVariant &value) {
+            m_phase = value.toReal();
+            update();
+        });
+        m_pulse.start();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing, true);
+
+        const QRectF bounds = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
+        QPainterPath clip;
+        clip.addRoundedRect(bounds, 18, 18);
+        painter.setClipPath(clip);
+
+        QLinearGradient base(bounds.topLeft(), bounds.bottomRight());
+        base.setColorAt(0.0, QColor("#0B3E37"));
+        base.setColorAt(0.52, QColor("#0F5547"));
+        base.setColorAt(1.0, QColor("#123F38"));
+        painter.fillPath(clip, base);
+
+        QRadialGradient horizon(QPointF(width() * 0.72, height() * 0.06), width() * 0.48);
+        horizon.setColorAt(0.0, QColor(167, 232, 196, 76));
+        horizon.setColorAt(0.45, QColor(91, 169, 132, 28));
+        horizon.setColorAt(1.0, QColor(15, 76, 64, 0));
+        painter.fillRect(rect(), horizon);
+
+        const auto terrainY = [this](qreal x, int layer) {
+            const qreal t = width() > 0 ? x / width() : 0.0;
+            const qreal wave = qSin(t * 6.28318530718 + layer * 0.62) * (8.0 + layer)
+                + qSin(t * 12.56637061436 + layer * 0.91) * 3.8;
+            const qreal ridge = qExp(-qPow((t - 0.19) / 0.13, 2.0)) * (22.0 - layer * 1.8)
+                - qExp(-qPow((t - 0.70) / 0.20, 2.0)) * (13.0 - layer);
+            return height() * (0.34 + layer * 0.092) + wave + ridge;
+        };
+
+        // 深浅相叠的山脊形成纸雕般的层次，每层轮廓保持非对称。
+        for (int layer = 0; layer < 6; ++layer) {
+            QPainterPath band;
+            band.moveTo(-8, terrainY(-8, layer));
+            for (int x = 0; x <= width() + 8; x += 9)
+                band.lineTo(x, terrainY(x, layer));
+            band.lineTo(width() + 8, height() + 8);
+            band.lineTo(-8, height() + 8);
+            band.closeSubpath();
+            painter.fillPath(band, QColor(5 + layer * 3, 47 + layer * 5,
+                                          41 + layer * 5, 172));
+
+            QPainterPath edge;
+            edge.moveTo(-8, terrainY(-8, layer));
+            for (int x = 0; x <= width() + 8; x += 9)
+                edge.lineTo(x, terrainY(x, layer));
+            painter.setPen(QPen(QColor(126, 207, 170, 34 + layer * 5), 0.85));
+            painter.drawPath(edge);
+        }
+
+        // 更细的等高线漂浮在地形之上。
+        for (int line = 0; line < 10; ++line) {
+            QPainterPath contour;
+            const qreal baseY = height() * (0.16 + line * 0.061);
+            for (int x = -8; x <= width() + 8; x += 8) {
+                const qreal t = width() > 0 ? qreal(x) / width() : 0.0;
+                const qreal y = baseY
+                    + qSin(t * 7.2 + line * 0.48) * (7.0 + line * 0.45)
+                    + qSin(t * 15.0 + line * 0.77) * 2.4;
+                if (x == -8) contour.moveTo(x, y); else contour.lineTo(x, y);
+            }
+            painter.setPen(QPen(QColor(157, 224, 193, 25 + line * 3), 0.75));
+            painter.drawPath(contour);
+        }
+
+        const QPointF node(width() * 0.68, height() * 0.52);
+        QPainterPath energy;
+        energy.moveTo(width() * 0.34, height() * 0.92);
+        energy.cubicTo(width() * 0.48, height() * 0.90,
+                       width() * 0.55, height() * 0.46, node.x(), node.y());
+        energy.cubicTo(width() * 0.79, height() * 0.63,
+                       width() * 0.86, height() * 0.34,
+                       width() * 1.02, height() * 0.43);
+        painter.setPen(QPen(QColor(99, 244, 181, 34), 12,
+                            Qt::SolidLine, Qt::RoundCap));
+        painter.drawPath(energy);
+        painter.setPen(QPen(QColor(129, 251, 198, 104), 4.2,
+                            Qt::SolidLine, Qt::RoundCap));
+        painter.drawPath(energy);
+        painter.setPen(QPen(QColor("#C6FFE5"), 1.5,
+                            Qt::SolidLine, Qt::RoundCap));
+        painter.drawPath(energy);
+
+        const qreal glowRadius = 18.0 + 6.0 * qSin(m_phase * 3.14159265359);
+        QRadialGradient glow(node, glowRadius);
+        glow.setColorAt(0.0, QColor(214, 255, 234, 210));
+        glow.setColorAt(0.3, QColor(86, 242, 171, 145));
+        glow.setColorAt(1.0, QColor(86, 242, 171, 0));
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(glow);
+        painter.drawEllipse(node, glowRadius, glowRadius);
+        painter.setBrush(QColor("#D8FFEA"));
+        painter.drawEllipse(node, 5.5, 5.5);
+        painter.setBrush(QColor("#4FE3A0"));
+        painter.drawEllipse(node, 2.8, 2.8);
+
+        painter.setClipping(false);
+        painter.setPen(QPen(QColor(197, 239, 219, 58), 1));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawRoundedRect(bounds, 18, 18);
+    }
+
+    void showEvent(QShowEvent *event) override
+    {
+        QFrame::showEvent(event);
+        m_pulse.start();
+    }
+
+    void hideEvent(QHideEvent *event) override
+    {
+        QFrame::hideEvent(event);
+        m_pulse.stop();
+    }
+
+private:
+    QVariantAnimation m_pulse;
+    qreal m_phase = 0.0;
+};
+
 // 模拟GPS: 区域 → 固定经纬度(北京市主要城区)
 struct RegionCoord {
     const char *name;
@@ -50,24 +202,7 @@ NearbyStationsPage::NearbyStationsPage(QWidget *parent)
     layout->setContentsMargins(24, 20, 24, 24);
     layout->setSpacing(16);
 
-    QFrame *hero = new QFrame(this);
-    hero->setObjectName("discoveryHero");
-    QHBoxLayout *heroRow = new QHBoxLayout(hero);
-    heroRow->setContentsMargins(24, 20, 24, 20);
-    QVBoxLayout *intro = new QVBoxLayout;
-    auto *eyebrow = new QLabel("NEUSOFT  /  CHARGE YOUR JOURNEY", hero);
-    eyebrow->setObjectName("heroEyebrow");
-    auto *title = new QLabel("下一程，满电出发", hero);
-    title->setObjectName("heroTitle");
-    auto *subtitle = new QLabel("发现身边好站 · 选桩即充 · 从容出发", hero);
-    subtitle->setObjectName("heroSubtitle");
-    intro->addWidget(eyebrow); intro->addWidget(title); intro->addWidget(subtitle);
-    heroRow->addLayout(intro, 1);
-    auto *art = new QLabel(hero);
-    art->setObjectName("heroArt");
-    // 直接用代码绘制插头图标, 不依赖外部 svg 文件与 QtSvg 模块
-    art->setPixmap(IconFactory::icon(IconFactory::IconPlug, QColor("#8BF0CE"), 90).pixmap(90, 90));
-    heroRow->addWidget(art);
+    auto *hero = new DiscoveryTerrainHero(this);
     layout->addWidget(hero);
 
     m_summary = new QLabel("正在发现附近充电站…", this);
@@ -127,7 +262,7 @@ void NearbyStationsPage::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
     // 小屏优先留出站点与操作空间。
-    findChild<QFrame *>("discoveryHero")->setVisible(height() >= 560);
+    findChild<QFrame *>("discoveryTerrainHero")->setVisible(height() >= 560);
 }
 
 void NearbyStationsPage::showEvent(QShowEvent *event)

@@ -363,6 +363,13 @@ private slots:
         const auto cards=window->findChildren<QFrame*>("stationCard");
         QVERIFY(!button(cards.last(),"预约时段")->isEnabled());
         auto *page=window->findChild<NearbyStationsPage*>();
+        auto *terrainHero=page->findChild<QFrame*>("discoveryTerrainHero");
+        QVERIFY(terrainHero);
+        QCOMPARE(terrainHero->property("terrainStyle").toString(),QString("topographic-relief"));
+        QVERIFY(!page->findChild<QLabel*>("heroTitle"));
+        QVERIFY(!page->findChild<QLabel*>("heroSubtitle"));
+        QTest::qWait(500); // 等页面淡入结束后再保存视觉回归图。
+        QVERIFY(window->grab().save("/tmp/charging-discovery-terrain.png"));
         QVERIFY(!page->findChild<QLineEdit*>("addrEdit"));
         QCOMPARE(page->findChildren<QLineEdit*>().size(),1);
         auto *search=page->findChildren<QLineEdit*>().constFirst();
