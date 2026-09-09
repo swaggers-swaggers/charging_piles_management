@@ -4,14 +4,14 @@
 #include <QMainWindow>
 
 class QTcpServer;
-class QLabel;
 class QListWidget;
 class QStackedWidget;
 class QTimer;
+class SalesPage;
 
 // 服务端管理后台主窗口
 // 左侧导航 + 右侧页面栈, 五个功能页面:
-//   销售业绩 / 电桩状态 / 充电站与电桩管理 / 订单管理 / 用户管理
+//   首页 / 电桩状态 / 充电站与电桩管理 / 订单管理 / 用户管理
 class AdminMainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -38,8 +38,7 @@ private:
     QString m_webUrl;
     QListWidget *m_navList;
     QStackedWidget *m_stack;
-    QLabel *m_headerTitle;
-    QLabel *m_headerUser;
+    SalesPage *m_homePage = nullptr;
     QTimer *m_autoRefreshTimer = nullptr;
 };
 

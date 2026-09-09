@@ -57,11 +57,12 @@ class DiscoveryTest : public QObject {
     int replyDelay = 0;
     QJsonArray stations() {
         QJsonArray result;
-        const QStringList names{"中关村绿色能源站", "五道口城市快充站", "学院路社区充电站"};
-        for (int i=0; i<3; ++i)
+        const QStringList names{"中关村绿色能源站", "五道口城市快充站", "学院路社区充电站",
+                                "清河智慧快充站", "上地绿色能源站", "西二旗超级充电站"};
+        for (int i=0; i<6; ++i)
             result.append(QJsonObject{{"id", 11+i}, {"name", names[i]}, {"address", "北京市海淀区 · 停车场地面入口"},
                 {"longitude",116.31+i*.01},{"latitude",39.96},{"price",1.2-i*.1},{"distance",1.3+i},
-                {"totalPiles",i==2?0:6},{"idlePiles",i==0?3:0},{"predictIdle",.5}});
+                {"totalPiles",(i==2 || i==5)?0:6},{"idlePiles",i==0?3:0},{"predictIdle",.5}});
         return result;
     }
     QJsonArray orders() {
@@ -75,7 +76,16 @@ class DiscoveryTest : public QObject {
             QJsonObject{{"orderId",99},{"pileCode","XYL-06"},{"stationName","学院路社区充电站"},
                 {"startTime","2026-09-07 09:20:00"},{"endTime","2026-09-07 09:36:00"},
                 {"energy",5.40},{"amount",6.48},{"priceSnapshot",1.20},{"simMinutes",16},
-                {"refundAmount",2.00},{"status",OrderAbnormal}}
+                {"refundAmount",2.00},{"status",OrderAbnormal}},
+            QJsonObject{{"orderId",98},{"pileCode","QH-DC-12"},{"stationName","清河智慧快充站"},
+                {"startTime","2026-09-06 15:12:00"},{"endTime","2026-09-06 15:46:00"},
+                {"energy",18.20},{"amount",20.02},{"simMinutes",34},{"status",OrderFinished}},
+            QJsonObject{{"orderId",97},{"pileCode","SD-DC-05"},{"stationName","上地绿色能源站"},
+                {"startTime","2026-09-05 08:30:00"},{"endTime","2026-09-05 09:05:00"},
+                {"energy",21.70},{"amount",23.87},{"simMinutes",35},{"status",OrderFinished}},
+            QJsonObject{{"orderId",96},{"pileCode","XEQ-DC-18"},{"stationName","西二旗超级充电站"},
+                {"startTime","2026-09-04 19:18:00"},{"endTime","2026-09-04 19:47:00"},
+                {"energy",16.60},{"amount",18.26},{"simMinutes",29},{"status",OrderFinished}}
         };
         if (includeNewOrder)
             result.insert(0, QJsonObject{{"orderId",103},{"pileCode","HD-DC-02"},
@@ -213,9 +223,10 @@ private slots:
         QVERIFY(qApp->property("bundledChineseFontLoaded").toBool());
         QCOMPARE(qApp->property("bundledChineseFontFamily").toString(),QString("FandolFang"));
         QVERIFY(QFile(QStringLiteral(":/fonts/FandolFang-Regular.otf")).exists());
-        QVERIFY(qApp->styleSheet().contains(QStringLiteral("#838e7c")));
-        QVERIFY(qApp->styleSheet().contains(QStringLiteral("#dbd4b8")));
-        QVERIFY(qApp->styleSheet().contains(QStringLiteral("#33662b")));
+        QVERIFY(qApp->styleSheet().contains(QStringLiteral("#8EA487")));
+        QVERIFY(qApp->styleSheet().contains(QStringLiteral("stop:0.17 #FFFFFF")));
+        QVERIFY(qApp->styleSheet().contains(QStringLiteral("#5E8A58")));
+        QVERIFY(qApp->styleSheet().contains(QStringLiteral("Times New Roman")));
         ClientSession::instance().userId=1;
         ClientSession::instance().nickname="体验用户";
         ClientSession::instance().phone="138****8000";
@@ -227,9 +238,9 @@ private slots:
         QCOMPARE(nav->count(),6);
         auto *sidebar=window->findChild<QWidget*>("sidebar");
         auto *header=window->findChild<QWidget*>("headerBar");
-        QVERIFY(sidebar && header);
+        QVERIFY(sidebar);
+        QVERIFY(!header);
         QVERIFY(sidebar->width()<=70);
-        QCOMPARE(header->height(),42);
         QEvent enterSidebar(QEvent::Enter);
         QApplication::sendEvent(sidebar,&enterSidebar);
         QTest::qWait(240);
@@ -263,10 +274,13 @@ private slots:
         QCOMPARE(home->findChildren<QPushButton*>("bentoCard").size(),6);
         QVERIFY(home->findChild<QFrame*>("homeMapCard"));
         QVERIFY(home->findChild<MapCanvas*>("homeMapCanvas"));
+        auto *carousel = home->findChild<QWidget*>("homeCarousel");
+        QVERIFY(carousel);
+        QCOMPARE(carousel->property("loadedImageCount").toInt(), 2);
         QVERIFY(accessibleButton(home,"附近充电站"));
         accessibleButton(home,"附近充电站")->click();
         QCOMPARE(nav->currentRow(),1);
-        QTRY_COMPARE(window->findChildren<QFrame*>("stationCard").size(),3);
+        QTRY_COMPARE(window->findChildren<QFrame*>("stationCard").size(),6);
         auto *pageTimer = window->findChild<QTimer *>("pageAutoRefreshTimer");
         QVERIFY(pageTimer);
         QVERIFY(pageTimer->isActive());
@@ -286,18 +300,44 @@ private slots:
         QCOMPARE(nav->item(1)->data(Qt::UserRole).toString(),QString("附近充电站"));
         nav->setCurrentRow(0); QTest::qWait(20);
         auto *home=window->findChild<HomePage*>();
+        auto *accountPreview=accessibleButton(home,"我的账户");
+        auto *messagePreview=accessibleButton(home,"消息通知");
+        QVERIFY(accountPreview && messagePreview);
+        accountPreview->click();
+        QCOMPARE(nav->currentRow(),5);
+        nav->setCurrentRow(0);
+        messagePreview->click();
+        QCOMPARE(nav->currentRow(),4);
+        nav->setCurrentRow(0);
         auto *stationPreview=accessibleButton(home,"附近充电站");
         QTRY_VERIFY(stationPreview->findChildren<QLabel*>("homeDetailLine").first()->text().contains("中关村"));
+        QCOMPARE(stationPreview->findChildren<QLabel*>("homeDetailLine").size(),6);
+        QVERIFY(stationPreview->findChildren<QLabel*>("homeDetailLine").at(5)->text().contains("西二旗"));
+        const auto stationRows=stationPreview->findChildren<QFrame*>("homeInfoRow");
+        QCOMPARE(stationRows.size(),6);
+        QCOMPARE(stationRows.at(0)->property("rowTone").toString(),QString("mint"));
+        QCOMPARE(stationRows.at(1)->property("rowTone").toString(),QString("sky"));
+        QCOMPARE(stationPreview->findChildren<QLabel*>("homeInfoRowIcon").size(),6);
         auto *orderPreview=accessibleButton(home,"预约与订单");
         QTRY_VERIFY(orderPreview->findChildren<QLabel*>("homeDetailLine").first()->text().contains("kWh"));
+        QCOMPARE(orderPreview->findChildren<QLabel*>("homeDetailLine").size(),6);
+        QVERIFY(orderPreview->findChildren<QLabel*>("homeDetailLine").at(5)->text().contains("kWh"));
+        QCOMPARE(orderPreview->findChildren<QFrame*>("homeInfoRow").size(),6);
+        QCOMPARE(orderPreview->findChildren<QLabel*>("homeInfoRowIcon").size(),6);
         auto *hero=accessibleButton(home,"今日补能概览");
         QVERIFY(hero);
-        QVERIFY(hero->geometry().width() > stationPreview->geometry().width());
         auto *mapCard=home->findChild<QFrame*>("homeMapCard");
         auto *powerCard=accessibleButton(home,"实时充电功率");
+        auto *accountCard=accessibleButton(home,"我的账户");
+        auto *messageCard=accessibleButton(home,"消息通知");
         QVERIFY(mapCard && powerCard);
-        QVERIFY(mapCard->geometry().width()>powerCard->geometry().width());
-        QTRY_VERIFY(home->findChild<QLabel*>("homeMapBadge")->text().contains("3 站"));
+        QVERIFY(mapCard->geometry().width()>hero->geometry().width());
+        QVERIFY(stationPreview->geometry().height()>powerCard->geometry().height());
+        QVERIFY(orderPreview->geometry().height()>accountCard->geometry().height());
+        const int accountBottom=accountCard->geometry().bottom();
+        QVERIFY(qAbs(accountBottom-orderPreview->geometry().bottom())<=2);
+        QVERIFY(qAbs(accountBottom-messageCard->geometry().bottom())<=2);
+        QTRY_VERIFY(home->findChild<QLabel*>("homeMapBadge")->text().contains("6 站"));
         emit TcpClient::instance().pushReceived(QJsonObject{
             {"type",Protocol::PushOrderProgress},{"orderId",99},{"energy",12.4},
             {"amount",14.88},{"minutes",18},{"power",86.5}});
@@ -314,7 +354,8 @@ private slots:
         }
         window->resize(800,600); QTest::qWait(40);
         QVERIFY(mapCard->geometry().width()>500);
-        QVERIFY(powerCard->geometry().width()>500);
+        QVERIFY(powerCard->geometry().width()<mapCard->geometry().width());
+        QVERIFY(stationPreview->geometry().height()>powerCard->geometry().height());
         QVERIFY(window->grab().save("/tmp/charging-bento-home-compact.png"));
         window->resize(1200,820); QTest::qWait(20);
         accessibleButton(home,"附近充电站")->click();
@@ -397,7 +438,7 @@ private slots:
         QCOMPARE(combo->count(),0);
         QVERIFY(page->findChild<QLabel*>("emptyState"));
         stationSearch->clear(); QTest::qWait(300);
-        QCOMPARE(combo->count(),3);
+        QCOMPARE(combo->count(),6);
         QVERIFY(window->grab().save("/tmp/charging-pile-selection.png"));
     }
     void chargeSetupHasNoFreeze() {
@@ -477,7 +518,7 @@ private slots:
         QCOMPARE(page->findChildren<QFrame*>("stationCard").size(),0);
         QVERIFY(page->findChild<QLabel*>("discoverySummary")->text().contains("失败"));
         failed=false; button(page,"刷新站点")->click(); QTest::qWait(10);
-        QCOMPARE(page->findChildren<QFrame*>("stationCard").size(),3);
+        QCOMPARE(page->findChildren<QFrame*>("stationCard").size(),6);
     }
     void lightPagesAndTables() {
         auto *nav = window->findChild<QListWidget *>("navList");
@@ -499,8 +540,8 @@ private slots:
         auto *page=window->findChild<OrderHistoryPage*>();
         QVERIFY(page);
         QVERIFY(page->findChildren<QTableWidget*>().isEmpty());
-        QCOMPARE(page->findChildren<QFrame*>("orderJourneyCard").size(),3);
-        QVERIFY(page->findChild<QLabel*>("orderSummary")->text().contains("3 笔旅程"));
+        QCOMPARE(page->findChildren<QFrame*>("orderJourneyCard").size(),6);
+        QVERIFY(page->findChild<QLabel*>("orderSummary")->text().contains("6 笔旅程"));
         QVERIFY(button(page,"查看票据  ↗"));
         QVERIFY(window->grab().save("/tmp/charging-orders-cards.png"));
         QTimer::singleShot(80,this,[]{
@@ -520,7 +561,7 @@ private slots:
         tabs->setCurrentIndex(0);
         includeNewOrder=true;
         QVERIFY(QMetaObject::invokeMethod(page,"refreshPage",Qt::DirectConnection));
-        QTRY_COMPARE(page->findChildren<QFrame*>("orderJourneyCard").size(),4);
+        QTRY_COMPARE(page->findChildren<QFrame*>("orderJourneyCard").size(),7);
         bool animatedNewOrder=false;
         for(auto *card:page->findChildren<QFrame*>("orderJourneyCard"))
             if(card->property("newRecord").toBool()
@@ -603,9 +644,10 @@ private slots:
         auto *page=window->findChild<ChargingPage*>();
         auto *stack=page->findChild<QStackedWidget*>();
         QCOMPARE(stack->currentIndex(),1);
-        auto *ring=page->findChild<ChargeRingWidget*>();
-        QVERIFY(ring);
-        QCOMPARE(page->findChildren<QFrame*>("miniCard").size(),4);
+        auto *energyStage=page->findChild<EnergyFlowWidget*>();
+        QVERIFY(energyStage);
+        QVERIFY(energyStage->animationRunning());
+        QCOMPARE(page->findChildren<QFrame*>("chargeMetricCard").size(),4);
         emit TcpClient::instance().pushReceived(QJsonObject{
             {"type",Protocol::PushOrderProgress},{"orderId",99},{"energy",2.01},
             {"amount",2.41},{"minutes",2},{"power",68.25},{"targetProgress",0.0}});

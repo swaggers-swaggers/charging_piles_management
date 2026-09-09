@@ -204,6 +204,7 @@ PileStatusPage::PileStatusPage(QWidget *parent)
     title->setObjectName("pageTitle");
 
     QHBoxLayout *topRow = new QHBoxLayout();
+    topRow->addWidget(title);
     topRow->addStretch();
     QPushButton *refreshBtn = new QPushButton("刷新", this);
     refreshBtn->setObjectName("refreshButton");
@@ -264,7 +265,6 @@ PileStatusPage::PileStatusPage(QWidget *parent)
     chartsRow->addWidget(chartArea, 1);
     chartsRow->addWidget(m_table, 1);
 
-    layout->addWidget(title);
     layout->addLayout(topRow);
     layout->addLayout(cards);
     layout->addLayout(chartsRow, 1);

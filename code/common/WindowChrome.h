@@ -35,9 +35,11 @@ protected:
     void paintEvent(QPaintEvent *) override {
         QPainter p(this); p.setRenderHint(QPainter::Antialiasing); p.setPen(Qt::NoPen);
         QLinearGradient background(rect().topLeft(),rect().bottomRight());
-        background.setColorAt(0.0,QColor("#838e7c"));
-        background.setColorAt(0.5,QColor("#dbd4b8"));
-        background.setColorAt(1.0,QColor("#33662b"));
+        background.setColorAt(0.00,QColor("#8EA487"));
+        background.setColorAt(0.17,QColor("#FFFFFF"));
+        background.setColorAt(0.43,QColor("#DDD5B9"));
+        background.setColorAt(0.68,QColor("#FFFFFF"));
+        background.setColorAt(1.00,QColor("#5E8A58"));
         p.setBrush(background);
         QWidget *host = parentWidget();
         if (host && (host->isMaximized() || host->isFullScreen()))

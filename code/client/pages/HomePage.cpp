@@ -9,12 +9,15 @@
 #include "types.h"
 
 #include <QColor>
+#include <QCoreApplication>
+#include <QDir>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QHideEvent>
 #include <QJsonArray>
 #include <QLabel>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPixmap>
@@ -112,6 +115,106 @@ private:
 };
 
 namespace {
+class HomeCarousel : public QWidget
+{
+public:
+    explicit HomeCarousel(QWidget *parent = nullptr) : QWidget(parent)
+    {
+        setObjectName(QStringLiteral("homeCarousel"));
+        setAccessibleName(QStringLiteral("首页装饰图片轮播"));
+        setCursor(Qt::PointingHandCursor);
+        setMinimumHeight(240);
+        const QStringList candidates = {
+            QStringLiteral(":/home/client"),
+            QDir::current().absoluteFilePath(QStringLiteral("code/resources/home/client")),
+            QDir::current().absoluteFilePath(QStringLiteral("resources/home/client")),
+            QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("../resources/home/client")),
+            QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(QStringLiteral("../../code/resources/home/client"))
+        };
+        for (const QString &path : candidates) {
+            QDir dir(path);
+            if (!dir.exists()) continue;
+            const QFileInfoList files = dir.entryInfoList(
+                {QStringLiteral("*.jpg"), QStringLiteral("*.jpeg"), QStringLiteral("*.png"),
+                 QStringLiteral("*.webp")}, QDir::Files, QDir::Name);
+            for (const QFileInfo &file : files) {
+                QPixmap pixmap(file.absoluteFilePath());
+                if (!pixmap.isNull()) m_images.append(pixmap);
+            }
+            if (!m_images.isEmpty()) break;
+        }
+        setProperty("loadedImageCount", m_images.size());
+        m_timer.setInterval(3600);
+        connect(&m_timer, &QTimer::timeout, this, [this] {
+            m_index = (m_index + 1) % qMax(3, int(m_images.size()));
+            update();
+        });
+        m_timer.start();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this); p.setRenderHint(QPainter::Antialiasing, true);
+        QPainterPath clip; clip.addRoundedRect(QRectF(rect()).adjusted(.5, .5, -.5, -.5), 20, 20);
+        p.setClipPath(clip);
+        if (!m_images.isEmpty()) {
+            const QPixmap &source = m_images[m_index % m_images.size()];
+            const QPixmap scaled = source.scaled(size(), Qt::KeepAspectRatioByExpanding,
+                                                 Qt::SmoothTransformation);
+            p.drawPixmap(QPoint((width() - scaled.width()) / 2, (height() - scaled.height()) / 2), scaled);
+            QLinearGradient shade(0, 0, 0, height());
+            shade.setColorAt(0, QColor(20, 48, 40, 12));
+            shade.setColorAt(1, QColor(20, 48, 40, 150));
+            p.fillRect(rect(), shade);
+        } else {
+            const QVector<QPair<QColor, QColor>> tones = {
+                {QColor("#DCEEE4"), QColor("#AFCDBD")},
+                {QColor("#EDF0DC"), QColor("#CBD6A7")},
+                {QColor("#DDEBF0"), QColor("#AFC9D4")}
+            };
+            const auto tone = tones[m_index % tones.size()];
+            QLinearGradient background(QPointF(0, height()), QPointF(width(), 0));
+            background.setColorAt(0, tone.first); background.setColorAt(.37, QColor("#FFFFFF"));
+            background.setColorAt(1, tone.second); p.fillPath(clip, background);
+            p.setPen(Qt::NoPen); p.setBrush(QColor(255, 255, 255, 90));
+            p.drawEllipse(QPointF(width() * .82, height() * .25), width() * .20, width() * .20);
+            p.setBrush(QColor(58, 118, 88, 34));
+            p.drawEllipse(QPointF(width() * .14, height() * .84), width() * .27, width() * .27);
+        }
+        p.setClipping(false);
+        p.setPen(QColor(m_images.isEmpty() ? "#274F41" : "#FFFFFF"));
+        QFont titleFont = font(); titleFont.setPointSize(17); titleFont.setBold(true); p.setFont(titleFont);
+        p.drawText(QRect(22, 22, width() - 44, 28), Qt::AlignLeft | Qt::AlignVCenter,
+                   m_images.isEmpty() ? QStringLiteral("装饰图片轮播占位") : QStringLiteral("绿色出行 · 满电启程"));
+        QFont hintFont = font(); hintFont.setPointSize(10); p.setFont(hintFont);
+        p.drawText(QRect(22, 52, width() - 44, 44), Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap,
+                   m_images.isEmpty()
+                       ? QStringLiteral("图片就位后会在这里自动滚动展示 · 点击可切换下一张")
+                       : QStringLiteral("点击图片切换下一张"));
+        const int count = qMax(3, int(m_images.size()));
+        for (int i = 0; i < count; ++i) {
+            p.setBrush(i == m_index % count ? QColor("#2C7758") : QColor(255, 255, 255, 165));
+            p.setPen(Qt::NoPen); p.drawEllipse(QPointF(24 + i * 16, height() - 22), 4, 4);
+        }
+        p.setPen(QPen(QColor(255, 255, 255, 165), 1)); p.setBrush(Qt::NoBrush);
+        p.drawRoundedRect(QRectF(rect()).adjusted(1, 1, -1, -1), 20, 20);
+    }
+    void mouseReleaseEvent(QMouseEvent *event) override
+    {
+        if (event->button() == Qt::LeftButton) {
+            m_index = (m_index + 1) % qMax(3, int(m_images.size())); update();
+        }
+        QWidget::mouseReleaseEvent(event);
+    }
+    void showEvent(QShowEvent *event) override { QWidget::showEvent(event); m_timer.start(); }
+    void hideEvent(QHideEvent *event) override { QWidget::hideEvent(event); m_timer.stop(); }
+private:
+    QVector<QPixmap> m_images;
+    QTimer m_timer;
+    int m_index = 0;
+};
+
 class FloatingPng : public QWidget
 {
 public:
@@ -185,6 +288,29 @@ QLabel *detailLabel(const QString &text, QWidget *parent, const char *name = "ho
     label->setTextFormat(Qt::PlainText);
     passMouseToCard(label);
     return label;
+}
+
+QFrame *homeInfoRow(QWidget *parent, int row, IconFactory::IconType iconType,
+                    QLabel **valueLabel)
+{
+    auto *frame = new QFrame(parent);
+    frame->setObjectName("homeInfoRow");
+    frame->setProperty("rowTone", row % 2 == 0 ? "mint" : "sky");
+    passMouseToCard(frame);
+    auto *layout = new QHBoxLayout(frame);
+    layout->setContentsMargins(9, 7, 10, 7);
+    layout->setSpacing(8);
+    auto *icon = new QLabel(frame);
+    icon->setObjectName("homeInfoRowIcon");
+    icon->setAlignment(Qt::AlignCenter);
+    icon->setFixedSize(28, 28);
+    icon->setPixmap(IconFactory::icon(iconType,
+        row % 2 == 0 ? QColor("#3B8063") : QColor("#477B9A"), 16).pixmap(16, 16));
+    passMouseToCard(icon);
+    *valueLabel = detailLabel({}, frame);
+    layout->addWidget(icon, 0, Qt::AlignVCenter);
+    layout->addWidget(*valueLabel, 1);
+    return frame;
 }
 
 QFrame *statBlock(const QString &caption, QLabel **value, QWidget *parent)
@@ -338,8 +464,10 @@ HomePage::HomePage(QWidget *parent)
     heroBody->addWidget(m_endpoint);
     addAction(hero, "查看附近充电站  →");
 
+    auto *carousel = new HomeCarousel(this);
+
     auto *account = createBaseCard("我的账户", "个人资料与可用余额",
-                                   IconFactory::IconUser, "amber", "regular", 7);
+                                   IconFactory::IconUser, "amber", "regular", 5);
     auto *accountBody = cardBody(account);
     m_accountBalance = detailLabel("¥ --", account, "homeBalance");
     m_accountName = detailLabel("--", account, "homeFeatureTitle");
@@ -354,30 +482,31 @@ HomePage::HomePage(QWidget *parent)
                                     IconFactory::IconLocation, "paper", "detail", 1,
                                     &m_stationSummary);
     auto *stationBody = cardBody(stations);
-    for (int i = 0; i < 3; ++i) {
-        auto *line = detailLabel(i == 0 ? "正在查找站点…" : "", stations);
-        line->setProperty("detailRow", true);
+    for (int i = 0; i < 6; ++i) {
+        QLabel *line = nullptr;
+        stationBody->addWidget(homeInfoRow(stations, i, IconFactory::IconLocation, &line));
+        line->setText(i == 0 ? "正在查找站点…" : "");
         m_stationLines.append(line);
-        stationBody->addWidget(line);
     }
     stationBody->addStretch();
     addAction(stations, "查看全部站点  →");
 
-    auto *orders = createBaseCard("预约与订单", "最近两笔充电旅程",
+    auto *orders = createBaseCard("预约与订单", "最近六笔充电旅程",
                                   IconFactory::IconChartLine, "paper", "detail", 3,
                                   &m_orderSummary);
     auto *orderBody = cardBody(orders);
-    for (int i = 0; i < 2; ++i) {
-        auto *line = detailLabel(i == 0 ? "正在整理订单…" : "", orders);
-        line->setProperty("detailRow", true);
+    for (int i = 0; i < 6; ++i) {
+        QLabel *line = nullptr;
+        orderBody->addWidget(homeInfoRow(orders, i,
+            i % 2 == 0 ? IconFactory::IconBolt : IconFactory::IconChartLine, &line));
+        line->setText(i == 0 ? "正在整理订单…" : "");
         m_orderLines.append(line);
-        orderBody->addWidget(line);
     }
     orderBody->addStretch();
     addAction(orders, "查看订单与预约  →");
 
     auto *messages = createBaseCard("消息通知", "充电动态与服务提醒",
-                                    IconFactory::IconBattery, "paper", "detail", 6,
+                                    IconFactory::IconBattery, "paper", "detail", 4,
                                     &m_messageSummary);
     auto *messageBody = cardBody(messages);
     for (int i = 0; i < 2; ++i) {
@@ -388,10 +517,11 @@ HomePage::HomePage(QWidget *parent)
     }
     messageBody->addStretch();
     addAction(messages, "查看全部消息  →");
-    m_cards = {m_mapCard, power, hero, account, stations, orders, messages};
+    m_cards = {m_mapCard, power, carousel, hero, account, stations, orders, messages};
     relayoutCards(width());
 
-    pageLayout->addLayout(m_grid, 1);
+    // 网格按内容高度自然收口，避免最后一排卡片与页脚之间出现大块空白。
+    pageLayout->addLayout(m_grid);
     auto *footnote = new QLabel("查找充电站  ·  选择电桩  ·  导航或开始充电", this);
     footnote->setObjectName("homeFootnote");
     footnote->setAlignment(Qt::AlignCenter);
@@ -553,7 +683,7 @@ void HomePage::loadNetworkDetails()
         for (int i = 0; i < m_stationLines.size(); ++i) {
             if (i < stations.size()) {
                 const StationInfo station = StationInfo::fromJson(stations[i].toObject());
-                m_stationLines[i]->setText(QString("%1\n%2 km · 空闲 %3/%4 · ¥%5/度")
+                m_stationLines[i]->setText(QString("%1\n距离 %2 km   ·   空闲 %3/%4   ·   ¥%5/度")
                     .arg(station.name)
                     .arg(station.distance >= 0 ? QString::number(station.distance, 'f', 1) : "--")
                     .arg(station.idlePiles).arg(station.totalPiles)
@@ -599,14 +729,14 @@ void HomePage::loadNetworkDetails()
 
     const QJsonObject orderReply = TcpClient::instance().request(
         Protocol::ReqOrderHistory,
-        QJsonObject{{"userId", ClientSession::instance().userId}, {"page", 0}, {"pageSize", 2}}, 1600);
+        QJsonObject{{"userId", ClientSession::instance().userId}, {"page", 0}, {"pageSize", 6}}, 1600);
     if (orderReply.value("ok").toBool()) {
         const QJsonArray orders = orderReply.value("orders").toArray();
         m_orderSummary->setText(QString("共 %1 笔").arg(orderReply.value("total").toInt(orders.size())));
         for (int i = 0; i < m_orderLines.size(); ++i) {
             if (i < orders.size()) {
                 const OrderInfo order = OrderInfo::fromJson(orders[i].toObject());
-                m_orderLines[i]->setText(QString("%1 · %2\n%3 kWh · ¥%4 · %5")
+                m_orderLines[i]->setText(QString("%1 · %2\n电量 %3 kWh   ·   ¥%4   ·   %5")
                     .arg(order.stationName.isEmpty() ? QStringLiteral("充电站") : order.stationName,
                          order.pileCode.isEmpty() ? QStringLiteral("--") : order.pileCode)
                     .arg(order.energy, 0, 'f', 2).arg(order.amount, 0, 'f', 2)
@@ -618,7 +748,7 @@ void HomePage::loadNetworkDetails()
     } else {
         m_orderSummary->setText("加载失败");
         m_orderLines[0]->setText("订单信息暂不可用\n点击卡片进入订单页重试");
-        m_orderLines[1]->clear();
+        for (int i = 1; i < m_orderLines.size(); ++i) m_orderLines[i]->clear();
     }
 
     m_pageSummary->setText(QString("%1 个空闲桩 · %2 条未读消息 · 服务端 %3")
@@ -637,42 +767,50 @@ void HomePage::refreshPage()
 
 void HomePage::relayoutCards(int availableWidth)
 {
-    if (!m_grid || m_cards.size() != 7) return;
+    if (!m_grid || m_cards.size() != 8) return;
     const int columns = availableWidth < 820 ? 2 : 3;
     if (columns == m_layoutColumns) return;
     m_layoutColumns = columns;
 
     while (QLayoutItem *item = m_grid->takeAt(0))
         delete item;
-    for (int column = 0; column < 3; ++column)
-        m_grid->setColumnStretch(column, column < columns ? 1 : 0);
+    for (int column = 0; column < 3; ++column) {
+        const int stretch = columns == 3
+            ? (column == 0 ? 13 : column == 1 ? 16 : 11)
+            : (column < 2 ? (column == 0 ? 11 : 14) : 0);
+        m_grid->setColumnStretch(column, stretch);
+    }
     for (int row = 0; row < 5; ++row)
         m_grid->setRowMinimumHeight(row, 0);
 
     if (columns == 3) {
         m_grid->addWidget(m_cards[0], 0, 0, 1, 2);
-        m_grid->addWidget(m_cards[1], 0, 2);
-        m_grid->addWidget(m_cards[2], 1, 0, 1, 2);
-        m_grid->addWidget(m_cards[3], 1, 2);
-        m_grid->addWidget(m_cards[4], 2, 0);
-        m_grid->addWidget(m_cards[5], 2, 1);
-        m_grid->addWidget(m_cards[6], 2, 2);
-        m_grid->setRowMinimumHeight(0, 350);
-        m_grid->setRowMinimumHeight(1, 190);
-        m_grid->setRowMinimumHeight(2, 254);
+        m_grid->addWidget(m_cards[3], 0, 2);
+        m_grid->addWidget(m_cards[5], 1, 0, 2, 1);
+        m_grid->addWidget(m_cards[1], 1, 1);
+        m_grid->addWidget(m_cards[2], 1, 2, 2, 1);
+        m_grid->addWidget(m_cards[6], 2, 1, 2, 1);
+        m_grid->addWidget(m_cards[4], 3, 0);
+        m_grid->addWidget(m_cards[7], 3, 2);
+        m_grid->setRowMinimumHeight(0, 330);
+        m_grid->setRowMinimumHeight(1, 250);
+        m_grid->setRowMinimumHeight(2, 250);
+        m_grid->setRowMinimumHeight(3, 220);
     } else {
         m_grid->addWidget(m_cards[0], 0, 0, 1, 2);
-        m_grid->addWidget(m_cards[1], 1, 0, 1, 2);
-        m_grid->addWidget(m_cards[2], 2, 0, 1, 2);
-        m_grid->addWidget(m_cards[3], 3, 0);
-        m_grid->addWidget(m_cards[4], 3, 1);
-        m_grid->addWidget(m_cards[5], 4, 0);
-        m_grid->addWidget(m_cards[6], 4, 1);
+        m_grid->addWidget(m_cards[5], 1, 0, 2, 1);
+        m_grid->addWidget(m_cards[1], 1, 1);
+        m_grid->addWidget(m_cards[3], 2, 1);
+        m_grid->addWidget(m_cards[2], 3, 0, 2, 1);
+        m_grid->addWidget(m_cards[6], 3, 1, 2, 1);
+        m_grid->addWidget(m_cards[4], 5, 0);
+        m_grid->addWidget(m_cards[7], 5, 1);
         m_grid->setRowMinimumHeight(0, 330);
-        m_grid->setRowMinimumHeight(1, 330);
-        m_grid->setRowMinimumHeight(2, 190);
-        m_grid->setRowMinimumHeight(3, 254);
-        m_grid->setRowMinimumHeight(4, 254);
+        m_grid->setRowMinimumHeight(1, 250);
+        m_grid->setRowMinimumHeight(2, 230);
+        m_grid->setRowMinimumHeight(3, 250);
+        m_grid->setRowMinimumHeight(4, 220);
+        m_grid->setRowMinimumHeight(5, 220);
     }
 }
 

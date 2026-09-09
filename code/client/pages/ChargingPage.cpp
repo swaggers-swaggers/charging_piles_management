@@ -39,6 +39,7 @@
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QtMath>
+#include <cmath>
 
 namespace {
 PileInfo findPile(const QList<PileInfo> &piles, int id)
@@ -122,77 +123,127 @@ void updateLiveMetric(QLabel *label, const QString &text)
 } // namespace
 
 // ============================================================================
-// ChargeRingWidget 环形进度
+// EnergyFlowWidget 动态能量流舞台（无环形图）
 // ============================================================================
-ChargeRingWidget::ChargeRingWidget(QWidget *parent)
+EnergyFlowWidget::EnergyFlowWidget(QWidget *parent)
     : QWidget(parent)
 {
-    setMinimumSize(220, 220);
+    setObjectName(QStringLiteral("chargingEnergyStage"));
+    setAccessibleName(QStringLiteral("动态充电能量流"));
+    setMinimumHeight(230);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     m_progressAnimation = new QVariantAnimation(this);
-    // 服务端每 3 秒更新一次进度，稍长的补间可保证两次更新之间圆弧持续移动。
-    m_progressAnimation->setDuration(3200);
-    m_progressAnimation->setEasingCurve(QEasingCurve::Linear);
+    m_progressAnimation->setDuration(900);
+    m_progressAnimation->setEasingCurve(QEasingCurve::OutCubic);
     connect(m_progressAnimation, &QVariantAnimation::valueChanged, this,
             [this](const QVariant &value) {
                 m_progress = value.toDouble();
                 update();
             });
+    m_flowTimer = new QTimer(this);
+    m_flowTimer->setInterval(33);
+    connect(m_flowTimer, &QTimer::timeout, this, [this] { update(); });
 }
 
-void ChargeRingWidget::setProgress(double progress)
+void EnergyFlowWidget::setTelemetry(double energy, double power, double progress,
+                                    const QString &targetText)
 {
     const double target = qBound(0.0, progress, 1.0);
-    if (m_progressAnimation->state() == QAbstractAnimation::Running
-        && qAbs(m_progressAnimation->endValue().toDouble() - target) < 0.0001)
-        return;
-
-    m_progressAnimation->stop();
-    if (target + 0.001 < m_progress)
-        m_progress = 0.0;
-    m_progressAnimation->setStartValue(m_progress);
-    m_progressAnimation->setEndValue(target);
-    m_progressAnimation->start();
-}
-
-void ChargeRingWidget::setCenterText(const QString &big, const QString &small)
-{
-    m_big = big;
-    m_small = small;
+    m_energy = energy;
+    m_power = power;
+    m_targetText = targetText;
+    setProperty("telemetryProgress", target);
+    if (qAbs(target - m_progress) > 0.0001) {
+        m_progressAnimation->stop();
+        if (target + 0.001 < m_progress) m_progress = 0.0;
+        m_progressAnimation->setStartValue(m_progress);
+        m_progressAnimation->setEndValue(target);
+        m_progressAnimation->start();
+    }
     update();
 }
 
-void ChargeRingWidget::paintEvent(QPaintEvent *)
+bool EnergyFlowWidget::animationRunning() const
 {
-    QPainter p(this);
-    p.setRenderHint(QPainter::Antialiasing);
-    const QPointF c(width() / 2.0, height() / 2.0);
-    const qreal r = qMin(width(), height()) / 2.0 - 16;
-    const QRectF ringRect(c.x() - r, c.y() - r, r * 2, r * 2);
+    return m_flowTimer && m_flowTimer->isActive();
+}
 
-    QPen bg(QColor("#E6EDF5"), 14, Qt::SolidLine, Qt::RoundCap);
-    p.setPen(bg);
-    p.drawArc(ringRect, 0, 360 * 16);
+void EnergyFlowWidget::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+    m_clock.restart();
+    m_flowTimer->start();
+}
 
-    if (m_progress > 0.0001) {
-        QPen fg(QColor("#237653"), 14, Qt::SolidLine, Qt::RoundCap);
-        p.setPen(fg);
-        const int span = int(qBound(0.0, m_progress, 1.0) * 360 * 16);
-        p.drawArc(ringRect, 90 * 16, -span);
+void EnergyFlowWidget::hideEvent(QHideEvent *event)
+{
+    m_flowTimer->stop();
+    QWidget::hideEvent(event);
+}
+
+void EnergyFlowWidget::paintEvent(QPaintEvent *)
+{
+    QPainter p(this); p.setRenderHint(QPainter::Antialiasing, true);
+    const QRectF surface = QRectF(rect()).adjusted(.5, .5, -.5, -.5);
+    QPainterPath clip; clip.addRoundedRect(surface, 22, 22); p.setClipPath(clip);
+    QLinearGradient bg(surface.topLeft(), surface.bottomRight());
+    bg.setColorAt(0, QColor("#102F2B")); bg.setColorAt(.48, QColor("#155141"));
+    bg.setColorAt(1, QColor("#173F4C")); p.fillPath(clip, bg);
+
+    p.setPen(QPen(QColor(142, 224, 189, 22), 1));
+    for (int x = 24; x < width(); x += 34) p.drawLine(x, 0, x, height());
+    for (int y = 22; y < height(); y += 28) p.drawLine(0, y, width(), y);
+
+    const qreal t = m_clock.isValid() ? m_clock.elapsed() / 1000.0 : 0.0;
+    const qreal pathLeft = 180.0;
+    const qreal pathRight = qMax(pathLeft + 80.0, width() - 205.0);
+    for (int lane = 0; lane < 3; ++lane) {
+        const qreal y = 82.0 + lane * 34.0;
+        QPainterPath beam; beam.moveTo(pathLeft, y);
+        beam.cubicTo(pathLeft + 90, y - 34 + lane * 8,
+                     pathRight - 80, y + 30 - lane * 7, pathRight, y);
+        p.setPen(QPen(QColor(62, 221, 159, 34), 9, Qt::SolidLine, Qt::RoundCap)); p.drawPath(beam);
+        p.setPen(QPen(QColor(lane == 1 ? "#86EBC3" : "#58BFD1"), 2.2,
+                      Qt::SolidLine, Qt::RoundCap)); p.drawPath(beam);
+        for (int node = 0; node < 3; ++node) {
+            const qreal phase = std::fmod(t * (.20 + lane * .025) + node / 3.0 + lane * .13, 1.0);
+            const QPointF point = beam.pointAtPercent(phase);
+            QRadialGradient glow(point, 12); glow.setColorAt(0, QColor(218, 255, 235, 245));
+            glow.setColorAt(.3, QColor(79, 226, 166, 150)); glow.setColorAt(1, QColor(79, 226, 166, 0));
+            p.setPen(Qt::NoPen); p.setBrush(glow); p.drawEllipse(point, 12, 12);
+        }
     }
 
-    QFont big = p.font();
-    big.setPointSize(22);
-    big.setBold(true);
-    p.setPen(QColor("#1F2A3C"));
-    p.setFont(big);
-    p.drawText(QRectF(c.x() - r, c.y() - 22, r * 2, 34), Qt::AlignCenter, m_big);
+    p.setClipping(false);
+    p.setPen(QColor("#9DD9C0")); QFont eyebrow = font(); eyebrow.setPointSize(9);
+    eyebrow.setBold(true); eyebrow.setLetterSpacing(QFont::AbsoluteSpacing, 1.5); p.setFont(eyebrow);
+    p.drawText(QRectF(26, 22, 250, 22), QStringLiteral("ENERGY FLOW  ·  实时传输"));
+    QFont energyFont = font(); energyFont.setPointSize(27); energyFont.setBold(true); p.setFont(energyFont);
+    p.setPen(Qt::white); p.drawText(QRectF(26, 51, 150, 42),
+        QString("%1 kWh").arg(m_energy, 0, 'f', 2));
+    QFont powerFont = font(); powerFont.setPointSize(12); powerFont.setBold(true); p.setFont(powerFont);
+    p.setPen(QColor("#7CE6BB")); p.drawText(QRectF(28, 101, 145, 24),
+        m_power >= 0 ? QString("%1 kW  LIVE").arg(m_power, 0, 'f', 1) : QStringLiteral("等待功率数据"));
 
-    QFont small = p.font();
-    small.setPointSize(10);
-    small.setBold(false);
-    p.setPen(QColor("#6B7280"));
-    p.setFont(small);
-    p.drawText(QRectF(c.x() - r, c.y() + 14, r * 2, 24), Qt::AlignCenter, m_small);
+    const QRectF battery(width() - 178, 66, 124, 72);
+    p.setPen(QPen(QColor(198, 245, 220, 190), 2)); p.setBrush(QColor(255,255,255,15));
+    p.drawRoundedRect(battery, 12, 12); p.setPen(Qt::NoPen); p.setBrush(QColor("#7CE6BB"));
+    p.drawRoundedRect(QRectF(battery.right() + 4, battery.center().y() - 12, 7, 24), 3, 3);
+    const QRectF fill = battery.adjusted(7, 7, -7, -7);
+    QLinearGradient batteryFill(fill.topLeft(), fill.topRight());
+    batteryFill.setColorAt(0, QColor("#3EDB91")); batteryFill.setColorAt(1, QColor("#74D7E8"));
+    p.setBrush(batteryFill);
+    p.drawRoundedRect(QRectF(fill.left(), fill.top(), qMax(5.0, fill.width() * m_progress), fill.height()), 7, 7);
+    QFont percentFont = font(); percentFont.setPointSize(16); percentFont.setBold(true); p.setFont(percentFont);
+    p.setPen(Qt::white); p.drawText(battery, Qt::AlignCenter, QString("%1%").arg(qRound(m_progress * 100)));
+
+    const QRectF rail(28, height() - 39, width() - 56, 7);
+    p.setPen(Qt::NoPen); p.setBrush(QColor(255,255,255,35)); p.drawRoundedRect(rail, 3.5, 3.5);
+    p.setBrush(batteryFill); p.drawRoundedRect(QRectF(rail.left(), rail.top(),
+        qMax(7.0, rail.width() * m_progress), rail.height()), 3.5, 3.5);
+    QFont targetFont = font(); targetFont.setPointSize(9); p.setFont(targetFont); p.setPen(QColor("#C8E4D8"));
+    p.drawText(QRectF(28, height() - 64, width() - 56, 20),
+               Qt::AlignLeft | Qt::AlignVCenter, m_targetText);
 }
 
 // ============================================================================
@@ -702,12 +753,11 @@ private:
 ChargingPage::ChargingPage(QWidget *parent)
     : QWidget(parent)
 {
+    setObjectName(QStringLiteral("chargingPage"));
+    setAttribute(Qt::WA_StyledBackground, true);
     this->setStyleSheet(
         "QFrame#pileCard{background:white;border:1px solid #E4E7ED;border-radius:12px;}"
-        "QFrame#miniCard{background:white;border:1px solid #E4E7ED;border-radius:12px;}"
         "QLabel#cardCode{font-size:17px;font-weight:bold;color:#1F2A3C;}"
-        "QLabel#miniValue{font-size:20px;font-weight:bold;color:#1F2A3C;}"
-        "QLabel#miniCap{color:#6B7280;font-size:12px;}"
         "QPushButton#primaryBtn{background:#237653;color:white;border:none;border-radius:8px;"
         "padding:7px 14px;font-weight:bold;} QPushButton#primaryBtn:hover{background:#1B5BB8;}"
         "QPushButton#ghostBtn{background:white;color:#237653;border:1px solid #237653;border-radius:8px;"
@@ -735,6 +785,8 @@ ChargingPage::ChargingPage(QWidget *parent)
 void ChargingPage::buildSelectView()
 {
     m_selectView = new QWidget(this);
+    m_selectView->setObjectName(QStringLiteral("chargingSelectView"));
+    m_selectView->setAttribute(Qt::WA_StyledBackground, true);
     QVBoxLayout *lay = new QVBoxLayout(m_selectView);
     lay->setContentsMargins(24, 20, 24, 24);
     lay->setSpacing(14);
@@ -754,23 +806,21 @@ void ChargingPage::buildSelectView()
     QPushButton *searchBtn = new QPushButton(QStringLiteral("搜索"), m_selectView);
     searchBtn->setObjectName("chargingStationSearchButton");
     searchRow->addWidget(m_stationSearch);
-    searchRow->addStretch(1);
     searchRow->addWidget(searchBtn);
-
-    QHBoxLayout *stationRow = new QHBoxLayout();
-    stationRow->addWidget(new QLabel(QStringLiteral("充电站:"), m_selectView));
+    searchRow->addSpacing(8);
+    searchRow->addWidget(new QLabel(QStringLiteral("充电站:"), m_selectView));
     m_stationCombo = new QComboBox(m_selectView);
     m_stationCombo->setObjectName("stationCombo");
     m_stationCombo->setMinimumWidth(180);
     m_stationCombo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     QPushButton *refreshBtn = new QPushButton(QStringLiteral("刷新"), m_selectView);
     refreshBtn->setObjectName("searchButton");
-    stationRow->addWidget(m_stationCombo);
-    stationRow->addWidget(refreshBtn);
+    searchRow->addWidget(m_stationCombo);
+    searchRow->addWidget(refreshBtn);
     m_stationInfo = new QLabel(m_selectView);
     m_stationInfo->setStyleSheet("color:#6B7280;");
-    stationRow->addWidget(m_stationInfo);
-    stationRow->addStretch(1);
+    searchRow->addWidget(m_stationInfo);
+    searchRow->addStretch(1);
 
     m_cardScroll = new QScrollArea(m_selectView);
     m_cardScroll->setWidgetResizable(true);
@@ -786,7 +836,6 @@ void ChargingPage::buildSelectView()
     lay->addWidget(title);
     lay->addWidget(hint);
     lay->addLayout(searchRow);
-    lay->addLayout(stationRow);
     lay->addWidget(m_cardScroll, 1);
 
     connect(refreshBtn, &QPushButton::clicked, this, &ChargingPage::refreshStations);
@@ -808,82 +857,96 @@ void ChargingPage::buildSelectView()
 void ChargingPage::buildChargingView()
 {
     m_chargingView = new ChargingParticles(this);
+    m_chargingView->setObjectName(QStringLiteral("chargingActiveView"));
     QVBoxLayout *lay = new QVBoxLayout(m_chargingView);
     lay->setContentsMargins(24, 20, 24, 24);
     lay->setSpacing(14);
 
-    QLabel *title = new QLabel(QStringLiteral("充电中"), m_chargingView);
-    title->setObjectName("pageTitle");
+    auto *top = new QHBoxLayout;
+    QLabel *title = new QLabel(QStringLiteral("能量传输中"), m_chargingView);
+    title->setObjectName("chargingLiveTitle");
+    auto *liveBadge = new QLabel(QStringLiteral("●  LIVE"), m_chargingView);
+    liveBadge->setObjectName("chargingLiveBadge");
+    top->addWidget(title); top->addStretch(); top->addWidget(liveBadge, 0, Qt::AlignVCenter);
+
+    auto *heroRow = new QHBoxLayout; heroRow->setSpacing(14);
+    m_energyStage = new EnergyFlowWidget(m_chargingView);
+    heroRow->addWidget(m_energyStage, 3);
+    auto *sessionCard = new QFrame(m_chargingView); sessionCard->setObjectName("chargingSessionCard");
+    auto *sessionBox = new QVBoxLayout(sessionCard); sessionBox->setContentsMargins(18, 16, 18, 16); sessionBox->setSpacing(8);
+    auto *sessionEyebrow = new QLabel(QStringLiteral("CURRENT SESSION"), sessionCard);
+    sessionEyebrow->setObjectName("chargingSessionEyebrow"); sessionBox->addWidget(sessionEyebrow);
     m_orderTitle = new QLabel(m_chargingView);
-    m_orderTitle->setAlignment(Qt::AlignCenter);
-    m_orderTitle->setStyleSheet("font-size:14px;color:#475569;");
+    m_orderTitle->setObjectName("chargingOrderTitle"); m_orderTitle->setWordWrap(true);
+    sessionBox->addWidget(m_orderTitle);
+    auto *sessionDivider = new QFrame(sessionCard); sessionDivider->setObjectName("chargingSessionDivider");
+    sessionDivider->setFixedHeight(1); sessionBox->addWidget(sessionDivider);
+    m_priceHint = new QLabel(m_chargingView);
+    m_priceHint->setObjectName("chargingPriceHint"); m_priceHint->setWordWrap(true);
+    sessionBox->addWidget(m_priceHint); sessionBox->addStretch();
+    auto *syncHint = new QLabel(QStringLiteral("数据每 3 秒同步 · 加密链路正常"), sessionCard);
+    syncHint->setObjectName("chargingSyncHint"); sessionBox->addWidget(syncHint);
+    heroRow->addWidget(sessionCard, 1);
 
-    m_ring = new ChargeRingWidget(m_chargingView);
-
-    auto makeMini = [this](const QString &cap, QLabel **valOut) {
+    auto makeMetric = [this](IconFactory::IconType iconType, const QString &cap,
+                             const QString &tone, QLabel **valOut) {
         QFrame *card = new QFrame(m_chargingView);
-        card->setObjectName("miniCard");
-        card->setFixedHeight(82);
-        QVBoxLayout *v = new QVBoxLayout(card);
-        v->setContentsMargins(16, 12, 16, 12);
+        card->setObjectName("chargeMetricCard"); card->setProperty("metricTone", tone);
+        card->setFixedHeight(84);
+        QHBoxLayout *row = new QHBoxLayout(card); row->setContentsMargins(14, 11, 14, 11); row->setSpacing(10);
+        auto *icon = new QLabel(card); icon->setObjectName("chargeMetricIcon");
+        icon->setAlignment(Qt::AlignCenter); icon->setFixedSize(38, 38);
+        icon->setPixmap(IconFactory::icon(iconType, QColor("#287458"), 19).pixmap(19, 19));
+        row->addWidget(icon);
+        auto *copy = new QVBoxLayout; copy->setSpacing(1);
         QLabel *capL = new QLabel(cap, card);
-        capL->setObjectName("miniCap");
+        capL->setObjectName("chargeMetricCaption");
         QLabel *val = new QLabel("-", card);
-        val->setObjectName("miniValue");
-        val->setAlignment(Qt::AlignCenter);
-        v->addWidget(capL);
-        v->addWidget(val);
+        val->setObjectName("chargeMetricValue");
+        copy->addWidget(capL); copy->addWidget(val); row->addLayout(copy, 1);
         *valOut = val;
         return card;
     };
     QHBoxLayout *cards = new QHBoxLayout();
     cards->setSpacing(12);
-    cards->addWidget(makeMini(QStringLiteral("已充电量(度)"), &m_energyVal), 1);
-    cards->addWidget(makeMini(QStringLiteral("当前费用(元)"), &m_amountVal), 1);
-    cards->addWidget(makeMini(QStringLiteral("充电时长(分)"), &m_minutesVal), 1);
-    cards->addWidget(makeMini(QStringLiteral("实时功率(kW)"), &m_powerVal), 1);
-
-    m_priceHint = new QLabel(m_chargingView);
-    m_priceHint->setAlignment(Qt::AlignCenter);
-    m_priceHint->setStyleSheet("color:#6B7280;");
+    cards->addWidget(makeMetric(IconFactory::IconBattery, QStringLiteral("已充电量 / kWh"), "mint", &m_energyVal), 1);
+    cards->addWidget(makeMetric(IconFactory::IconChartLine, QStringLiteral("当前费用 / 元"), "sky", &m_amountVal), 1);
+    cards->addWidget(makeMetric(IconFactory::IconPlug, QStringLiteral("充电时长 / 分"), "amber", &m_minutesVal), 1);
+    cards->addWidget(makeMetric(IconFactory::IconBolt, QStringLiteral("实时功率 / kW"), "mint", &m_powerVal), 1);
 
     // 实时充电曲线
+    auto *chartPanel = new QFrame(m_chargingView); chartPanel->setObjectName("chargeChartPanel");
+    auto *chartBox = new QVBoxLayout(chartPanel); chartBox->setContentsMargins(17, 13, 17, 14); chartBox->setSpacing(7);
     auto *chartRow = new QHBoxLayout();
     chartRow->setSpacing(8);
-    auto *chartTitle = new QLabel(QStringLiteral("充电曲线 · 演示模拟"), m_chargingView);
-    chartTitle->setStyleSheet("font-size:13px;font-weight:bold;color:#1A1B1C;");
-    m_chartModeBtn = new QPushButton(QStringLiteral("切换:电量"), m_chargingView);
-    m_chartModeBtn->setStyleSheet("QPushButton{background:#EDF7F0;border:1px solid #91BFA0;"
-                                   "border-radius:6px;padding:4px 12px;color:#237653;font-size:11px;}"
-                                   "QPushButton:hover{background:#E2F2E7;}");
+    auto *chartTitle = new QLabel(QStringLiteral("实时能量脉冲"), chartPanel);
+    chartTitle->setObjectName("chargeChartTitle");
+    m_chartModeBtn = new QPushButton(QStringLiteral("切换：电量"), chartPanel);
+    m_chartModeBtn->setObjectName("chargeChartModeButton");
     m_chartModeBtn->setCursor(Qt::PointingHandCursor);
     chartRow->addWidget(chartTitle);
     chartRow->addStretch();
     chartRow->addWidget(m_chartModeBtn);
 
-    m_chart = new ChargeChartWidget(m_chargingView);
-    m_chart->setFixedHeight(160);
+    m_chart = new ChargeChartWidget(chartPanel);
+    m_chart->setFixedHeight(155);
+    chartBox->addLayout(chartRow); chartBox->addWidget(m_chart);
 
     QPushButton *stopBtn = new QPushButton(QStringLiteral("结束充电并结算"), m_chargingView);
     stopBtn->setObjectName("settleBtn");
     stopBtn->setCursor(Qt::PointingHandCursor);
 
-    lay->addWidget(title);
-    lay->addWidget(m_orderTitle);
-    lay->addWidget(m_ring, 0, Qt::AlignHCenter);
+    lay->addLayout(top);
+    lay->addLayout(heroRow);
     lay->addLayout(cards);
-    lay->addWidget(m_priceHint);
-    lay->addSpacing(4);
-    lay->addLayout(chartRow);
-    lay->addWidget(m_chart);
-    lay->addStretch();
+    lay->addWidget(chartPanel);
     lay->addWidget(stopBtn);
 
     connect(stopBtn, &QPushButton::clicked, this, &ChargingPage::onStopCharge);
     connect(m_chartModeBtn, &QPushButton::clicked, this, [this]() {
         const int next = (m_chart->mode() + 1) % 3;
         m_chart->setMode(next);
-        const QStringList labels{"切换:金额", "切换:功率", "切换:电量"};
+        const QStringList labels{"切换：金额", "切换：功率", "切换：电量"};
         m_chartModeBtn->setText(labels[next]);
     });
 }
@@ -891,6 +954,8 @@ void ChargingPage::buildChargingView()
 void ChargingPage::buildWaitingView()
 {
     m_waitingView = new QWidget(this);
+    m_waitingView->setObjectName(QStringLiteral("chargingWaitingView"));
+    m_waitingView->setAttribute(Qt::WA_StyledBackground, true);
     m_waitingView->setStyleSheet(QStringLiteral(
         "QLabel{background:transparent;}"
         "QPushButton#voucherCancel{background:#FFFFFF;color:#67736B;border:1px solid #D5DED8;"
@@ -1374,8 +1439,7 @@ void ChargingPage::enterChargingView(const OrderInfo &order)
     m_amountVal->setText(QString::number(order.amount, 'f', 2));
     m_minutesVal->setText(QString::number(order.simMinutes));
     m_powerVal->setText(QStringLiteral("--"));
-    m_ring->setCenterText(QString::number(order.energy, 'f', 1), QStringLiteral("度"));
-    // 有明确目标时展示目标完成度；手动结束模式按时长持续增长并逐渐接近满环。
+    // 有明确目标时展示目标完成度；手动结束模式按时长逐渐推进线性能量轨道。
     double progress = 1.0 - qExp(-qMax(0, order.simMinutes) / 30.0);
     if (order.targetValue > 0) {
         if (order.targetType == TargetEnergy)
@@ -1385,7 +1449,7 @@ void ChargingPage::enterChargingView(const OrderInfo &order)
         else if (order.targetType == TargetMinutes)
             progress = double(order.simMinutes) / order.targetValue;
     }
-    m_ring->setProgress(progress);
+    m_energyStage->setTelemetry(order.energy, -1.0, progress, targetDesc(order));
     if (m_chart && !sameOrder) {
         m_chart->clearData();
         if (order.simMinutes > 0)
@@ -1538,13 +1602,15 @@ void ChargingPage::onPushReceived(const QJsonObject &msg)
         updateLiveMetric(m_minutesVal, QString::number(m_currentOrder.simMinutes));
         updateLiveMetric(m_powerVal,
                          QString::number(msg.value("power").toDouble(0.0), 'f', 1));
-        m_ring->setCenterText(QString::number(m_currentOrder.energy, 'f', 1),
-                              QStringLiteral("度"));
+        double progress = 0.0;
         if (m_currentOrder.targetType == TargetNone) {
-            m_ring->setProgress(1.0 - qExp(-qMax(0, m_currentOrder.simMinutes) / 30.0));
+            progress = 1.0 - qExp(-qMax(0, m_currentOrder.simMinutes) / 30.0);
         } else if (msg.contains("targetProgress")) {
-            m_ring->setProgress(msg.value("targetProgress").toDouble());
+            progress = msg.value("targetProgress").toDouble();
         }
+        m_energyStage->setTelemetry(m_currentOrder.energy,
+                                    msg.value("power").toDouble(0.0),
+                                    progress, targetDesc(m_currentOrder));
         if (m_chart)
             m_chart->addPoint(m_currentOrder.simMinutes, m_currentOrder.energy, m_currentOrder.amount,
                               msg.value("power").toDouble(-1));
@@ -1636,7 +1702,7 @@ void ChargingPage::showSettlement(const OrderInfo &order, double balance)
 
     const bool targetReached = order.finishType == FinishByTarget;
     if (targetReached)
-        m_ring->setProgress(1.0);
+        m_energyStage->setTelemetry(order.energy, 0.0, 1.0, reachedTargetDesc(order));
     const QString title = targetReached ? QStringLiteral("充电已自动结束")
                                         : QStringLiteral("结算成功");
     const QString lead = targetReached

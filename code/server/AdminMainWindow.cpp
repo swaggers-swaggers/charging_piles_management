@@ -12,6 +12,7 @@
 #include "UserManagePage.h"
 #include "IconFactory.h"
 #include "HoverSidebar.h"
+#include "AsymmetricGradientCanvas.h"
 
 #include <QDesktopServices>
 #include <QApplication>
@@ -61,8 +62,7 @@ AdminMainWindow::AdminMainWindow(const QString &serverInfo, const QString &webUr
 
 void AdminMainWindow::initUi()
 {
-    QWidget *central = new QWidget(this);
-    central->setObjectName("appCentral");
+    QWidget *central = new AsymmetricGradientCanvas(this);
     QHBoxLayout *rootLayout = new QHBoxLayout(central);
     rootLayout->setContentsMargins(10, 10, 0, 10);
     rootLayout->setSpacing(10);
@@ -93,10 +93,10 @@ void AdminMainWindow::initUi()
     m_navList = new QListWidget(sidebar);
     m_navList->setObjectName("navList");
     const QStringList navNames = {
-        "销售业绩", "电桩状态", "充电站与电桩管理", "订单管理", "用户管理",
+        "首页", "电桩状态", "充电站与电桩管理", "订单管理", "用户管理",
     };
     const QVector<IconFactory::IconType> navIcons = {
-        IconFactory::IconChartLine, IconFactory::IconBattery, IconFactory::IconBuilding,
+        IconFactory::IconHome, IconFactory::IconBattery, IconFactory::IconBuilding,
         IconFactory::IconBolt, IconFactory::IconUsers,
     };
     for (int i = 0; i < navNames.size(); ++i) {
@@ -125,42 +125,21 @@ void AdminMainWindow::initUi()
     sidebar->addExpandedOnly(logo);
     sidebar->setActionButton(logoutBtn, QStringLiteral("退出登录"));
 
-    // ---------- 右侧: 页头 + 页面栈 ----------
+    // ---------- 右侧页面栈：取消重复顶栏，管理员与连接状态统一进入首页 ----------
     QWidget *rightArea = new QWidget(central);
     QVBoxLayout *rightLayout = new QVBoxLayout(rightArea);
     rightLayout->setContentsMargins(0, 0, 0, 0);
     rightLayout->setSpacing(0);
 
-    QWidget *header = new QWidget(rightArea);
-    header->setObjectName("headerBar");
-    header->setFixedHeight(42);
-    QHBoxLayout *headerLayout = new QHBoxLayout(header);
-    headerLayout->setContentsMargins(18, 0, 18, 0);
-
-    m_headerTitle = new QLabel(navNames.first(), header);
-    m_headerTitle->setObjectName("headerTitle");
-    m_headerUser = new QLabel("管理员: " + ServerSession::instance().adminName, header);
-    m_headerUser->setObjectName("headerUser");
-
-    QPushButton *openWebBtn = new QPushButton("打开大屏", header);
-    openWebBtn->setObjectName("openWebBtn");
-    openWebBtn->setCursor(Qt::PointingHandCursor);
-    openWebBtn->setFixedHeight(34);
-
-    headerLayout->addWidget(m_headerTitle);
-    headerLayout->addStretch();
-    headerLayout->addWidget(openWebBtn);
-    headerLayout->addWidget(m_headerUser);
-
     m_stack = new QStackedWidget(rightArea);
     m_stack->setObjectName("contentStack");
-    m_stack->addWidget(new SalesPage());
+    m_homePage = new SalesPage();
+    m_stack->addWidget(m_homePage);
     m_stack->addWidget(new PileStatusPage());
     m_stack->addWidget(new StationManagePage());
     m_stack->addWidget(new OrderManagePage());
     m_stack->addWidget(new UserManagePage());
 
-    rightLayout->addWidget(header);
     rightLayout->addWidget(m_stack, 1);
 
     rootLayout->addWidget(sidebar);
@@ -170,7 +149,9 @@ void AdminMainWindow::initUi()
             this, &AdminMainWindow::onNavChanged);
     connect(logoutBtn, &QPushButton::clicked,
             this, &AdminMainWindow::onLogoutClicked);
-    connect(openWebBtn, &QPushButton::clicked,
+    connect(m_homePage, &SalesPage::pageRequested,
+            this, [this](int pageIndex) { m_navList->setCurrentRow(pageIndex); });
+    connect(m_homePage, &SalesPage::openWebRequested,
             this, &AdminMainWindow::onOpenWebClicked);
 
     m_autoRefreshTimer = new QTimer(this);
@@ -188,7 +169,6 @@ void AdminMainWindow::onNavChanged(int row)
     if (row < 0)
         return;
     m_stack->setCurrentIndex(row);
-    m_headerTitle->setText(m_navList->item(row)->data(Qt::UserRole).toString());
     QTimer::singleShot(0, this, &AdminMainWindow::refreshCurrentPage);
 }
 
@@ -227,66 +207,6 @@ void AdminMainWindow::onOpenWebClicked()
 
 void AdminMainWindow::showConnectionInfo(QTcpServer *server)
 {
-    auto *panel = new QWidget(this);
-    panel->setObjectName("lanConnectionPanel");
-    panel->setMaximumHeight(44);
-    auto *row = new QHBoxLayout(panel);
-    row->setContentsMargins(16, 4, 16, 4);
-    auto *label = new QLabel(panel);
-    label->setObjectName("lanStatusLabel");
-    auto *addresses = new QComboBox(panel);
-    addresses->setObjectName("lanAddressCombo");
-    addresses->setAccessibleName("服务器 IP 与端口");
-    addresses->setMinimumContentsLength(24);
-    addresses->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
-    auto *copy = new QPushButton("复制地址", panel);
-    auto *refresh = new QPushButton("刷新", panel);
-    row->addWidget(label);
-    row->addWidget(addresses);
-    row->addStretch(1);
-    row->addWidget(copy);
-    row->addWidget(refresh);
-    auto *layout = qobject_cast<QVBoxLayout *>(m_stack->parentWidget()->layout());
-    layout->insertWidget(1, panel);
-    panel->setToolTip("另一台电脑在客户端登录页填写对应 IP 和端口。多网卡时选择与客户端同一局域网的地址；127.0.0.1 仅供本机使用。");
-    const auto update = [server, label, addresses, copy] {
-        const QString selected = addresses->currentData().toString();
-        addresses->clear();
-        if (!server->isListening()) {
-            label->setText("客户端服务未启动");
-            addresses->addItem("监听失败：" + server->errorString());
-            copy->setEnabled(false);
-            return;
-        }
-        const auto port = server->serverPort();
-        QStringList seen;
-        for (const auto &iface : QNetworkInterface::allInterfaces()) {
-            if (!(iface.flags() & QNetworkInterface::IsUp)
-                || !(iface.flags() & QNetworkInterface::IsRunning)
-                || (iface.flags() & QNetworkInterface::IsLoopBack)) continue;
-            for (const auto &entry : iface.addressEntries()) {
-                const auto ip = entry.ip();
-                if (ip.protocol() != QAbstractSocket::IPv4Protocol || ip.isLoopback()
-                    || ip.isNull() || ip.isLinkLocal() || seen.contains(ip.toString())) continue;
-                seen.append(ip.toString());
-                const QString endpoint = QString("%1:%2").arg(ip.toString()).arg(port);
-                addresses->addItem(endpoint + "  (" + iface.humanReadableName() + ")", endpoint);
-            }
-        }
-        label->setText(seen.isEmpty() ? "未发现局域网 IP" : "客户端连接地址");
-        const QString local = QString("127.0.0.1:%1").arg(port);
-        addresses->addItem(local + "  (仅本机)", local);
-        const int previous = addresses->findData(selected);
-        if (previous >= 0) addresses->setCurrentIndex(previous);
-        copy->setEnabled(true);
-    };
-    connect(copy, &QPushButton::clicked, this, [addresses] {
-        QGuiApplication::clipboard()->setText(addresses->currentData().toString());
-    });
-    connect(refresh, &QPushButton::clicked, this, update);
-    auto *timer = new QTimer(panel);
-    connect(timer, &QTimer::timeout, this, update);
-    timer->start(10000);
-    update();
-    UiMotion::install(panel);
+    if (m_homePage)
+        m_homePage->showConnectionInfo(server, m_serverInfo, m_webUrl);
 }

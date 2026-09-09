@@ -14,6 +14,7 @@
 #include "protocol.h"
 #include "IconFactory.h"
 #include "HoverSidebar.h"
+#include "AsymmetricGradientCanvas.h"
 
 #include <QFile>
 #include <QApplication>
@@ -56,8 +57,7 @@ UserMainWindow::UserMainWindow(QWidget *parent)
 
 void UserMainWindow::initUi()
 {
-    QWidget *central = new QWidget(this);
-    central->setObjectName("appCentral");
+    QWidget *central = new AsymmetricGradientCanvas(this);
     QHBoxLayout *rootLayout = new QHBoxLayout(central);
     rootLayout->setContentsMargins(10, 10, 0, 10);
     rootLayout->setSpacing(10);
@@ -125,39 +125,25 @@ void UserMainWindow::initUi()
     sidebar->addExpandedOnly(sideNote);
     sidebar->setActionButton(logoutBtn, QStringLiteral("退出登录"));
 
-    // ---------- 右侧: 页头 + 页面栈 ----------
+    // ---------- 右侧页面栈：页面自身承载标题与状态，不再重复显示应用顶栏 ----------
     QWidget *rightArea = new QWidget(central);
     QVBoxLayout *rightLayout = new QVBoxLayout(rightArea);
     rightLayout->setContentsMargins(0, 0, 0, 0);
     rightLayout->setSpacing(0);
-
-    QWidget *header = new QWidget(rightArea);
-    header->setObjectName("headerBar");
-    header->setFixedHeight(42);
-    QHBoxLayout *headerLayout = new QHBoxLayout(header);
-    headerLayout->setContentsMargins(18, 0, 18, 0);
-
-    m_headerTitle = new QLabel(navNames.first(), header);
-    m_headerTitle->setObjectName("headerTitle");
-
-    m_headerUser = new QLabel(QString("%1  |  余额: %2 元")
-                                  .arg(ClientSession::instance().nickname)
-                                  .arg(ClientSession::instance().balance, 0, 'f', 2),
-                              header);
-    m_headerUser->setObjectName("headerUser");
-
-    headerLayout->addWidget(m_headerTitle);
-    headerLayout->addStretch();
-    headerLayout->addWidget(m_headerUser);
 
     m_stack = new QStackedWidget(rightArea);
     m_stack->setObjectName("contentStack");
     m_stack->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Ignored);
     auto addScrollablePage = [this](QWidget *page) {
         auto *scroll = new QScrollArea(m_stack);
+        scroll->setProperty("pageScroller", true);
         scroll->setWidgetResizable(true);
         scroll->setFrameShape(QFrame::NoFrame);
         scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        scroll->setAutoFillBackground(false);
+        scroll->viewport()->setAutoFillBackground(false);
+        scroll->viewport()->setAttribute(Qt::WA_StyledBackground, true);
+        page->setAutoFillBackground(false);
         scroll->setWidget(page);
         m_stack->addWidget(scroll);
     };
@@ -195,14 +181,6 @@ void UserMainWindow::initUi()
         // 不用 exec 嵌套阻塞正在等待应答的首页请求。
         dialog->open();
     });
-    auto *balanceTimer = new QTimer(this);
-    connect(balanceTimer, &QTimer::timeout, this, [this] {
-        m_headerUser->setText(QString("%1  |  余额: %2 元")
-            .arg(ClientSession::instance().nickname)
-            .arg(ClientSession::instance().balance, 0, 'f', 2));
-    });
-    balanceTimer->start(1000);
-
     // 消息中心未读角标: 导航项文本后追加未读数
     auto updateMsgBadge = [this, sidebar](int unread) {
         if (m_navList->count() <= 4) return;
@@ -213,7 +191,6 @@ void UserMainWindow::initUi()
     connect(&MessageCenter::instance(), &MessageCenter::unreadCountChanged,
             this, updateMsgBadge);
 
-    rightLayout->addWidget(header);
     rightLayout->addWidget(m_stack, 1);
 
     rootLayout->addWidget(sidebar);
@@ -241,11 +218,6 @@ void UserMainWindow::onNavChanged(int row)
     if (row < 0)
         return;
     m_stack->setCurrentIndex(row);
-    m_headerTitle->setText(m_navList->item(row)->data(Qt::UserRole).toString());
-    // 每次切换页面刷新头部(余额可能被充值/结算改变)
-    m_headerUser->setText(QString("%1  |  余额: %2 元")
-                              .arg(ClientSession::instance().nickname)
-                              .arg(ClientSession::instance().balance, 0, 'f', 2));
 }
 
 void UserMainWindow::refreshCurrentPage()

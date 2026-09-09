@@ -1,14 +1,13 @@
 /* 客户端和管理端共用浅色主题。 */
 QWidget#appCentral {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                stop:0 #838e7c, stop:0.5 #dbd4b8, stop:1 #33662b);
+    background: transparent;
 }
 QStackedWidget#contentStack { background: transparent; }
 QWidget#sidebar {
-    background: #FFFFFF; border: 1px solid #DCE9E1; border-radius: 22px;
+    background: #DDF2E5; border: 1px solid #B9DCC6; border-radius: 22px;
 }
 QWidget#sidebar[sidebarExpanded="true"] {
-    border-color: #BEDAC9;
+    background: #D6EEDF; border-color: #99C7AB;
 }
 QWidget#logoBox { background: transparent; border: none; margin: 8px 6px; }
 QLabel#logoLabel { color: #1E5E43; font-size: 18px; }
@@ -110,7 +109,8 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
 
 QMainWindow, QDialog {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                stop:0 #838e7c, stop:0.5 #dbd4b8, stop:1 #33662b);
+                stop:0 #8EA487, stop:0.17 #FFFFFF, stop:0.43 #DDD5B9,
+                stop:0.68 #FFFFFF, stop:1 #5E8A58);
     color: #243E33;
 }
 QStackedWidget, QScrollArea, QTabWidget::pane { background: transparent; color: #243E33; }
@@ -142,6 +142,11 @@ QComboBox[compactExpanded="false"]::down-arrow { margin-right: 12px; }
 
 /* 首页：参照网页模板的信息型 Bento，卡片内部直接展示业务摘要。 */
 QWidget#homePage { background: transparent; }
+QWidget#messagePage, QWidget#accountPage, QWidget#chargingPage,
+QWidget#chargingSelectView, QWidget#chargingActiveView, QWidget#chargingWaitingView,
+QScrollArea[pageScroller="true"], QScrollArea[pageScroller="true"] QWidget#qt_scrollarea_viewport {
+    background: transparent; border: none;
+}
 QLabel#homeGreeting { color: #33424E; font-size: 25px; font-weight: 750; }
 QLabel#homeIntro { color: #758693; font-size: 13px; }
 QPushButton#homeRefreshButton {
@@ -198,9 +203,21 @@ QPushButton#bentoCard QLabel#homeFeatureTitle { color: #41515D; font-size: 14px;
 QPushButton#bentoCard QLabel#homeDetailLine {
     color: #6C7D8B; font-size: 11px; line-height: 1.35;
 }
-QPushButton#bentoCard QLabel#homeDetailLine[detailRow="true"] {
-    color: #52636F; background: #F5F8FA; border: 1px solid #E3EAEE;
-    border-radius: 10px; padding: 8px 10px;
+QPushButton#bentoCard QFrame#homeInfoRow {
+    border-radius: 10px; border: 1px solid #DCE9E2;
+}
+QPushButton#bentoCard QFrame#homeInfoRow[rowTone="mint"] {
+    background: #EDF7F1; border-color: #D6E9DE;
+}
+QPushButton#bentoCard QFrame#homeInfoRow[rowTone="sky"] {
+    background: #EEF5F9; border-color: #D8E7EF;
+}
+QPushButton#bentoCard QFrame#homeInfoRow QLabel#homeInfoRowIcon {
+    background: rgba(255,255,255,175); border: 1px solid rgba(185,211,199,150);
+    border-radius: 8px;
+}
+QPushButton#bentoCard QFrame#homeInfoRow QLabel#homeDetailLine {
+    color: #425B52; background: transparent; border: none; padding: 0px;
 }
 QPushButton#bentoCard QFrame#homeStatBlock {
     background: #F4F7F9; border: 1px solid #E0E8ED; border-radius: 11px;
@@ -242,6 +259,146 @@ QPushButton#bentoCard[bentoTone="amber"] { background: #FFFCF6; border-color: #E
 QPushButton#bentoCard[bentoTone="amber"]:hover { background: #FFFCF6; border-color: #EAE0CD; }
 QPushButton#bentoCard[bentoTone="amber"] QLabel#bentoIcon { background: #F6ECD9; border-color: #E8D8B8; }
 QLabel#homeFootnote { color: #8B9AA6; font-size: 11px; letter-spacing: 1px; padding-top: 2px; }
+QWidget#homeCarousel {
+    background: transparent; border: none; border-radius: 20px;
+}
+
+/* 充电中：深色能量流舞台 + 交替色实时指标，不使用环形图。 */
+QLabel#chargingLiveTitle {
+    color: #173F33; font-size: 24px; font-weight: 800; letter-spacing: 1px;
+}
+QLabel#chargingLiveBadge {
+    color: #13764D; background: #DDF3E6; border: 1px solid #BFE2CD;
+    border-radius: 11px; padding: 6px 12px; font-size: 10px; font-weight: 800;
+}
+QWidget#chargingEnergyStage { background: transparent; border: none; }
+QFrame#chargingSessionCard {
+    background: rgba(255,255,255,222); border: 1px solid #D4E5DC; border-radius: 18px;
+}
+QLabel#chargingSessionEyebrow {
+    color: #4E9071; font-size: 9px; font-weight: 800; letter-spacing: 2px;
+}
+QLabel#chargingOrderTitle { color: #244739; font-size: 16px; font-weight: 750; line-height: 1.35; }
+QFrame#chargingSessionDivider { background: #DDE9E2; border: none; }
+QLabel#chargingPriceHint { color: #5E766B; font-size: 11px; line-height: 1.45; }
+QLabel#chargingSyncHint { color: #91A098; font-size: 9px; }
+QFrame#chargeMetricCard {
+    background: rgba(255,255,255,225); border: 1px solid #D9E6DF; border-radius: 15px;
+}
+QFrame#chargeMetricCard[metricTone="mint"] { background: #EFF8F2; border-color: #D2E7D9; }
+QFrame#chargeMetricCard[metricTone="sky"] { background: #EEF6FA; border-color: #D4E6EF; }
+QFrame#chargeMetricCard[metricTone="amber"] { background: #FFF8EC; border-color: #EADFCB; }
+QLabel#chargeMetricIcon {
+    background: rgba(255,255,255,190); border: 1px solid rgba(199,220,208,190); border-radius: 11px;
+}
+QLabel#chargeMetricCaption { color: #788D83; font-size: 9px; }
+QLabel#chargeMetricValue { color: #204F3D; font-size: 19px; font-weight: 800; }
+QFrame#chargeChartPanel {
+    background: rgba(255,255,255,225); border: 1px solid #D7E5DD; border-radius: 17px;
+}
+QLabel#chargeChartTitle { color: #254A3B; font-size: 14px; font-weight: 750; }
+QPushButton#chargeChartModeButton {
+    color: #236B4D; background: #E7F4EC; border: 1px solid #BFDCCB;
+    border-radius: 9px; padding: 6px 12px; font-size: 10px; font-weight: 700;
+}
+QPushButton#chargeChartModeButton:hover { color: #154D35; background: #DCEFE3; border-color: #78AE8C; }
+QWidget#chargingActiveView QPushButton#settleBtn {
+    min-height: 28px; border-radius: 12px; font-size: 14px; font-weight: 750;
+}
+
+/* 管理端首页：与客户端同源的柔和 Bento 表面，尺寸由不规则跨行跨列布局决定。 */
+QWidget#adminHomePage, QWidget#adminHomeContent, QScrollArea#adminHomeScroll,
+QScrollArea#adminHomeScroll QWidget#qt_scrollarea_viewport { background: transparent; border: none; }
+QLabel#adminHomeGreeting { color: #28463B; font-size: 25px; font-weight: 750; }
+QLabel#adminHomeIntro { color: #73857C; font-size: 13px; }
+QFrame[adminHomeCard="true"] {
+    background: #FFFFFF; border: 1px solid #D6E5DC; border-radius: 20px;
+}
+QFrame#adminHomeHero {
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
+        stop:0 #E2F1E7, stop:0.26 #FFFFFF, stop:0.61 #EDF4E6, stop:1 #CDE2D1);
+    border-color: #C6DCCF;
+}
+QFrame#adminConnectionCard { background: #F6FBF7; border-color: #C7DFD0; }
+QFrame#adminTrendCard { background: #FFFFFF; border-color: #DCE8E0; }
+QFrame#adminPileCard { background: #F4F8F6; }
+QFrame#adminStationCard { background: #FFFCF5; border-color: #E7DDC8; }
+QFrame#adminOrderCard { background: #F2F7FA; border-color: #D5E2E9; }
+QFrame#adminUserCard { background: #EDF6F0; border-color: #D0E3D6; }
+QLabel#adminHomeCardTitle { color: #294A3C; font-size: 17px; font-weight: 750; }
+QLabel#adminHomeCardHint { color: #768A80; font-size: 11px; }
+QLabel#adminHomeBadge {
+    color: #2A6D4C; background: #E1F1E7; border: 1px solid #C7E2D1;
+    border-radius: 10px; padding: 5px 10px; font-size: 10px; font-weight: 700;
+}
+QFrame#adminHomeStat { background: rgba(255,255,255,180); border: 1px solid #DFE9E2; border-radius: 12px; }
+QLabel#adminHomeStatValue { color: #2F7655; font-size: 20px; font-weight: 750; }
+QLabel#adminHomeStatCaption { color: #819189; font-size: 10px; }
+QLabel#adminHomeBigValue { color: #2C6E50; font-size: 28px; font-weight: 750; }
+QFrame#adminHomeDataPill {
+    background: rgba(255,255,255,165); border: 1px solid rgba(205,224,212,190);
+    border-radius: 10px;
+}
+QLabel#adminHomeDataIcon {
+    background: #E2F1E8; border: 1px solid #CAE2D3; border-radius: 8px;
+}
+QLabel#adminHomeDataValue {
+    color: #315F4A; background: transparent; border: none;
+    font-size: 12px; font-weight: 700;
+}
+QLabel#adminHomeDataCaption {
+    color: #87978F; background: transparent; border: none; font-size: 9px;
+}
+QLabel#adminHomeEndpoint { color: #547064; font-size: 11px; }
+QLabel#adminHomeFootnote { color: #82948A; font-size: 11px; padding: 4px; }
+QWidget#lanConnectionPanel { background: transparent; border: none; }
+QLabel#lanStatusBadge {
+    color: #246347; background: #DFF0E5; border: 1px solid #C4DDCD;
+    border-radius: 10px; padding: 4px 9px; font-size: 10px; font-weight: 700;
+}
+QFrame#lanPrimaryAddressPanel {
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
+        stop:0 #174A38, stop:0.62 #23684D, stop:1 #32785A);
+    border: 1px solid #2A6D51; border-radius: 14px;
+}
+QLabel#lanAddressEyebrow {
+    color: #BEE1CD; background: transparent; border: none;
+    font-size: 10px; font-weight: 700; letter-spacing: 1px;
+}
+QLabel#lanAddressText {
+    color: #FFFFFF; background: transparent; border: none;
+    padding: 1px 0px; font-size: 21px; font-weight: 750; letter-spacing: 1px;
+}
+QLabel#lanAddressMeta {
+    color: #D5EADF; background: transparent; border: none; font-size: 10px;
+}
+QFrame#lanPrimaryAddressPanel QPushButton#adminHomeAction {
+    color: #174B37; background: rgba(255,255,255,225); border-color: rgba(255,255,255,110);
+    padding: 6px 10px;
+}
+QFrame#lanPrimaryAddressPanel QPushButton#adminHomeAction:hover {
+    color: #103C2B; background: #FFFFFF; border-color: #FFFFFF;
+}
+QLabel#lanOtherAddresses {
+    color: #456A58; background: #EDF5F0; border: 1px solid #D4E5DA;
+    border-radius: 9px; padding: 7px 10px; font-size: 10px; line-height: 1.35;
+}
+QFrame#lanLocalAddressPanel {
+    background: rgba(255,255,255,145); border: 1px solid #D7E6DC; border-radius: 10px;
+}
+QLabel#lanLocalCaption {
+    color: #7A8E83; background: transparent; border: none; font-size: 10px;
+}
+QLabel#lanLocalAddress {
+    color: #315F49; background: transparent; border: none;
+    font-size: 12px; font-weight: 700; letter-spacing: 1px;
+}
+QPushButton#adminHomeAction {
+    color: #356D54; background: rgba(255,255,255,190); border: 1px solid #D0E1D6;
+    border-radius: 9px; padding: 7px 11px; font-size: 11px; font-weight: 700;
+}
+QPushButton#adminHomeAction:hover { color: #174F35; background: #E8F3EC; border-color: #85B497; }
+QWidget#adminRevenueChart { background: transparent; border: none; }
 
 /* 账户与通知：个人资料、钱包与卡片式车库。 */
 QFrame#accountProfile, QFrame#accountSection, QFrame#vehicleGarage {

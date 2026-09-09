@@ -1,18 +1,19 @@
 /* 企业稳重主题：深藏青 + 暖金 */
 QMainWindow, QDialog {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                stop:0 #838e7c, stop:0.5 #dbd4b8, stop:1 #33662b);
+                stop:0 #8EA487, stop:0.17 #FFFFFF, stop:0.43 #DDD5B9,
+                stop:0.68 #FFFFFF, stop:1 #5E8A58);
 }
 
 QWidget {
     color: #243247;
-    font-family: "FandolFang", "FandolFang R", "Noto Serif CJK SC", serif;
+    font-family: "Times New Roman", "FandolFang", "FandolFang R", "Noto Serif CJK SC", serif;
     font-size: 13px;
 }
 
 QWidget#sidebar {
-    background: #18263D;
-    border-right: 1px solid #101B2D;
+    background: #DDF2E5;
+    border-right: 1px solid #BFDCCB;
 }
 
 QWidget#logoBox {

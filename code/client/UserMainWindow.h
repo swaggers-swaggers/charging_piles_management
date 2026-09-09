@@ -3,7 +3,6 @@
 
 #include <QMainWindow>
 
-class QLabel;
 class QListWidget;
 class QStackedWidget;
 class QTimer;
@@ -27,8 +26,6 @@ private:
 
     QListWidget *m_navList;
     QStackedWidget *m_stack;
-    QLabel *m_headerTitle;
-    QLabel *m_headerUser;
     QTimer *m_autoRefreshTimer = nullptr;
 };
 

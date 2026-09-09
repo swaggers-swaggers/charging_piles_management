@@ -11,4 +11,4 @@ HEADERS += $$PWD/AppTheme.h $$PWD/ChargingPowerModel.h
 
 HEADERS += $$PWD/UiMotion.h $$PWD/AdminTableCard.h $$PWD/DonutChart.h $$PWD/StatusBadge.h $$PWD/HoverSidebar.h $$PWD/CompactField.h
 
-HEADERS += $$PWD/WindowChrome.h $$PWD/ChargingParticles.h
+HEADERS += $$PWD/WindowChrome.h $$PWD/ChargingParticles.h $$PWD/AsymmetricGradientCanvas.h

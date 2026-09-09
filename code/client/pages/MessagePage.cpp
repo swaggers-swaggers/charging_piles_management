@@ -70,6 +70,7 @@ public:
 
 MessagePage::MessagePage(QWidget *parent) : QWidget(parent) {
     setObjectName("messagePage");
+    setAttribute(Qt::WA_StyledBackground, true);
     auto *layout = new QVBoxLayout(this); layout->setContentsMargins(28,24,28,28); layout->setSpacing(16);
     auto *title = new QLabel("消息中心",this); title->setObjectName("pageTitle");
     layout->addWidget(title);

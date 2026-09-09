@@ -109,6 +109,7 @@ private:
 UserInfoPage::UserInfoPage(QWidget *parent) : QWidget(parent)
 {
     setObjectName("accountPage");
+    setAttribute(Qt::WA_StyledBackground, true);
     auto *page = new QVBoxLayout(this); page->setContentsMargins(28, 24, 28, 32); page->setSpacing(18);
     auto *titleRow = new QHBoxLayout; auto *titles = new QVBoxLayout; titles->setSpacing(3);
     titles->addWidget(label("我的账户", "pageTitle", this));

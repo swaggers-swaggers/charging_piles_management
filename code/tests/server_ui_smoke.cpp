@@ -200,14 +200,20 @@ int main(int argc,char **argv) {
     QTest::qWait(100);
     AdminMainWindow window("测试数据库",QString());
     window.showConnectionInfo(&server);
-    auto *addresses = window.findChild<QComboBox*>("lanAddressCombo");
-    if (!addresses || addresses->count() < 1) return 15;
-    if (!addresses->currentData().toString().endsWith(":" + QString::number(server.serverPort()))) return 16;
+    auto *addresses = window.findChild<QLabel*>("lanAddressText");
+    if (!addresses || !addresses->text().contains(":" + QString::number(server.serverPort()))) return 15;
+    if (window.findChild<QComboBox*>("lanAddressCombo")) return 16;
+    auto *localAddress = window.findChild<QLabel*>("lanLocalAddress");
+    auto *connectionBadge = window.findChild<QLabel*>("lanStatusBadge");
+    if (!localAddress || localAddress->text() != QString("127.0.0.1:%1").arg(server.serverPort())
+        || !connectionBadge
+        || (connectionBadge->text() != QStringLiteral("可连接")
+            && connectionBadge->text() != QStringLiteral("仅本机"))) return 89;
     auto *panel = window.findChild<QWidget*>("lanConnectionPanel");
     for (auto *button : panel->findChildren<QPushButton*>()) {
-        if (button->text() == "复制地址") button->click();
+        if (button->text() == "复制推荐地址") button->click();
     }
-    if (QApplication::clipboard()->text() != addresses->currentData().toString()) return 17;
+    if (QApplication::clipboard()->text() != addresses->text()) return 17;
     window.resize(1200,820);window.show();
     auto *pageTimer = window.findChild<QTimer *>("pageAutoRefreshTimer");
     if (!pageTimer || !pageTimer->isActive() || pageTimer->interval() != 5000) return 57;
@@ -217,11 +223,30 @@ int main(int argc,char **argv) {
     if (refreshablePages != 5) return 58;
     auto *nav=window.findChild<QListWidget*>("navList");
     if (!nav || nav->count() != 5
+        || nav->item(0)->data(Qt::UserRole).toString() != QStringLiteral("首页")
         || nav->item(2)->data(Qt::UserRole).toString()
                != QStringLiteral("充电站与电桩管理")) return 59;
     auto *sidebar=window.findChild<QWidget*>("sidebar");
     auto *header=window.findChild<QWidget*>("headerBar");
-    if (!sidebar || !header || sidebar->width()>70 || header->height()!=42) return 78;
+    if (!sidebar || header || sidebar->width()>70) return 78;
+    auto *homePage=window.findChild<QWidget*>("adminHomePage");
+    auto *homeHero=window.findChild<QFrame*>("adminHomeHero");
+    auto *connectionCard=window.findChild<QFrame*>("adminConnectionCard");
+    auto *trendCard=window.findChild<QFrame*>("adminTrendCard");
+    if (!homePage || !homeHero || !connectionCard || !trendCard
+        || !homePage->isAncestorOf(panel)
+        || homeHero->size()==connectionCard->size()
+        || connectionCard->size()==trendCard->size()) return 88;
+    const auto dataPills=homePage->findChildren<QFrame*>("adminHomeDataPill");
+    const auto dataValues=homePage->findChildren<QLabel*>("adminHomeDataValue");
+    if (dataPills.size()!=9 || dataValues.size()!=9
+        || homePage->findChildren<QLabel*>("adminHomeDataIcon").size()<12) return 90;
+    for (auto *value : dataValues) if (value->text().isEmpty() || value->text()==QStringLiteral("--")) return 91;
+    for (auto *button : homePage->findChildren<QPushButton*>()) {
+        if (button->text() == QStringLiteral("处理订单  →")) button->click();
+    }
+    if (nav->currentRow()!=3) return 89;
+    nav->setCurrentRow(0);
     nav->setCurrentRow(2);
     QTest::qWait(50);
     auto *pileTable = window.findChild<QTableWidget *>("pileTable");
@@ -234,7 +259,9 @@ int main(int argc,char **argv) {
     QCoreApplication::processEvents();
     if (!app.property("bundledChineseFontLoaded").toBool()
         || app.property("bundledChineseFontFamily").toString()!=QStringLiteral("FandolFang")
-        || !app.styleSheet().contains(QStringLiteral("#838e7c"))
+        || !app.styleSheet().contains(QStringLiteral("#8EA487"))
+        || !app.styleSheet().contains(QStringLiteral("stop:0.17 #FFFFFF"))
+        || !app.styleSheet().contains(QStringLiteral("Times New Roman"))
         || !searchEdit->property("compactFieldInstalled").toBool()
         || !statusFilter->property("compactFieldInstalled").toBool()
         || searchEdit->width()>44 || statusFilter->width()>44)
@@ -382,9 +409,10 @@ int main(int argc,char **argv) {
     if (!window.findChildren<QWidget*>("motionOverlay").isEmpty()) return 22;
     server.close();
     for (auto *button : panel->findChildren<QPushButton*>()) {
-        if (button->text() == "刷新") button->click();
+        if (button->text() == "重新检测") button->click();
     }
-    if (!window.findChild<QLabel*>("lanStatusLabel")->text().contains("未启动")) return 18;
+    if (window.findChild<QLabel*>("lanStatusBadge")->text() != QStringLiteral("未启动")
+        || addresses->text() != QStringLiteral("--")) return 18;
     qInfo()<<"PASS: charging state linkage, merged station/pile management, search/status filters, fault toggle, TCP login, auto refresh and five admin pages";
     return 0;
 }

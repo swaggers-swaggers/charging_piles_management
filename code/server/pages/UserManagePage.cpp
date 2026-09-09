@@ -25,6 +25,8 @@ UserManagePage::UserManagePage(QWidget *parent)
     title->setObjectName("pageTitle");
 
     QHBoxLayout *topRow = new QHBoxLayout();
+    topRow->addWidget(title);
+    topRow->addSpacing(12);
     m_searchEdit = new QLineEdit(this);
     m_searchEdit->setObjectName("searchEdit");
     m_searchEdit->setPlaceholderText("按手机号/昵称模糊搜索, 留空显示全部");
@@ -54,7 +56,6 @@ UserManagePage::UserManagePage(QWidget *parent)
     m_table->setHorizontalHeaderLabels(
         { "用户ID", "手机号", "昵称", "钱包余额(元)", "注册时间", "状态" });
 
-    layout->addWidget(title);
     layout->addLayout(topRow);
     layout->addWidget(m_table, 1);
 

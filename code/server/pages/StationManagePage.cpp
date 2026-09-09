@@ -49,7 +49,6 @@ StationManagePage::StationManagePage(QWidget *parent)
     title->setObjectName("pageTitle");
 
     auto *filterRow = new QHBoxLayout;
-    auto *actionRow = new QHBoxLayout;
     m_searchEdit = new QLineEdit(this);
     m_searchEdit->setObjectName("stationPileSearch");
     m_searchEdit->setPlaceholderText(QStringLiteral("搜索站点名称、地址或电桩编号"));
@@ -79,10 +78,10 @@ StationManagePage::StationManagePage(QWidget *parent)
     filterRow->addStretch(1);
     filterRow->addWidget(searchBtn);
     filterRow->addWidget(refreshBtn);
-    actionRow->addWidget(addBtn);
-    actionRow->addWidget(m_restartBtn);
-    actionRow->addWidget(m_faultBtn);
-    actionRow->addStretch();
+    filterRow->addSpacing(8);
+    filterRow->addWidget(addBtn);
+    filterRow->addWidget(m_restartBtn);
+    filterRow->addWidget(m_faultBtn);
 
     auto *stationSectionTitle = new QLabel(QStringLiteral("选择充电站"), this);
     stationSectionTitle->setObjectName("sectionTitle");
@@ -133,7 +132,6 @@ StationManagePage::StationManagePage(QWidget *parent)
           QStringLiteral("状态"), QStringLiteral("累计次数"), QStringLiteral("累计时长(小时)") });
     layout->addWidget(title);
     layout->addLayout(filterRow);
-    layout->addLayout(actionRow);
     layout->addWidget(stationSectionTitle);
     layout->addWidget(m_stationCardsScroll);
     layout->addLayout(detailHeader);

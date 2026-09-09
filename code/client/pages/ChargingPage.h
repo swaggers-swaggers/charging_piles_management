@@ -4,37 +4,46 @@
 #include "ChargeChartWidget.h"
 #include "types.h"
 
+#include <QElapsedTimer>
 #include <QWidget>
 
 class QComboBox;
 class QGridLayout;
+class QHideEvent;
 class QLabel;
 class QLineEdit;
 class QPushButton;
 class QScrollArea;
 class QStackedWidget;
+class QShowEvent;
 class QVariantAnimation;
 
-// 环形目标进度控件: 外环为目标完成度, 中心显示主/副文本
-class ChargeRingWidget : public QWidget
+// 充电能量流舞台：用流动光束、矩形电池和线性目标进度呈现实时传输。
+class EnergyFlowWidget : public QWidget
 {
     Q_OBJECT
 
 public:
-    explicit ChargeRingWidget(QWidget *parent = nullptr);
-    void setProgress(double progress);
-    void setCenterText(const QString &big, const QString &small);
+    explicit EnergyFlowWidget(QWidget *parent = nullptr);
+    void setTelemetry(double energy, double power, double progress,
+                      const QString &targetText);
     double displayedProgress() const { return m_progress; }
-    QSize sizeHint() const override { return QSize(220, 220); }
+    bool animationRunning() const;
+    QSize sizeHint() const override { return QSize(680, 230); }
 
 protected:
     void paintEvent(QPaintEvent *event) override;
+    void showEvent(QShowEvent *event) override;
+    void hideEvent(QHideEvent *event) override;
 
 private:
     double m_progress = 0.0;
     QVariantAnimation *m_progressAnimation = nullptr;
-    QString m_big;
-    QString m_small;
+    QTimer *m_flowTimer = nullptr;
+    QElapsedTimer m_clock;
+    double m_energy = 0.0;
+    double m_power = -1.0;
+    QString m_targetText;
 };
 
 // 电动汽车充电页: 选桩(卡片) → 充电设置(目标) → 实时扣费充电 → 结算
@@ -89,7 +98,7 @@ private:
 
     // ---- 充电视图 ----
     QWidget *m_chargingView;
-    ChargeRingWidget *m_ring;
+    EnergyFlowWidget *m_energyStage;
     QLabel *m_orderTitle;
     QLabel *m_energyVal;
     QLabel *m_amountVal;

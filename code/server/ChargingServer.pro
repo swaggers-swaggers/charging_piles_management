@@ -5,7 +5,7 @@
 
 QT       += core gui sql network
 
-# Qt Charts(销售业绩折线图): 安装了就启用 QChart, 未安装自动降级为自绘折线图
+# Qt Charts 可供其他统计视图使用；首页营收趋势使用轻量自绘，所有环境表现一致。
 # 安装命令: Qt5 -> sudo apt install libqt5charts5-dev; Qt6 -> sudo apt install libqt6charts6-dev
 qtHaveModule(charts) {
     QT += charts
