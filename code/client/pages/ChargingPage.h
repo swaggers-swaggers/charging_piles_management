@@ -13,6 +13,7 @@ class QLineEdit;
 class QPushButton;
 class QScrollArea;
 class QStackedWidget;
+class QVariantAnimation;
 
 // 环形目标进度控件: 外环为目标完成度, 中心显示主/副文本
 class ChargeRingWidget : public QWidget
@@ -21,16 +22,17 @@ class ChargeRingWidget : public QWidget
 
 public:
     explicit ChargeRingWidget(QWidget *parent = nullptr);
-    // progress <0 表示无明确目标(不画进度弧)
     void setProgress(double progress);
     void setCenterText(const QString &big, const QString &small);
+    double displayedProgress() const { return m_progress; }
     QSize sizeHint() const override { return QSize(220, 220); }
 
 protected:
     void paintEvent(QPaintEvent *event) override;
 
 private:
-    double m_progress = -1.0;
+    double m_progress = 0.0;
+    QVariantAnimation *m_progressAnimation = nullptr;
     QString m_big;
     QString m_small;
 };

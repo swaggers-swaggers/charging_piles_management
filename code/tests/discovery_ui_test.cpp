@@ -181,7 +181,7 @@ private slots:
                         reply["piles"]=QJsonArray{QJsonObject{{"id",101},{"stationId",lastPileStation},{"code","DC-01"},
                             {"type",0},{"power",120},{"status",lastPileStation==12?1:0}}}; }
                     if(type==8) { reply["hasOrder"]=activeOrder;
-                        reply["order"]=QJsonObject{{"id",99},{"pileId",101},{"pileCode","DC-01"},{"stationName","正在充电的站点"},{"status",0}}; }
+                        reply["order"]=QJsonObject{{"orderId",99},{"pileId",101},{"pileCode","DC-01"},{"stationName","正在充电的站点"},{"status",0}}; }
                     if(type==Protocol::ReqOrderHistory) { reply["orders"]=orders(); reply["total"]=orders().size(); }
                     if(type==Protocol::ReqOrderDetail) {
                         const int id=req["orderId"].toInt();
@@ -505,9 +505,16 @@ private slots:
     void activeChargeIsPreserved() {
         activeOrder=true;
         button(window->findChild<NearbyStationsPage*>(),"立即充电")->click();
-        auto *stack=window->findChild<ChargingPage*>()->findChild<QStackedWidget*>();
+        auto *page=window->findChild<ChargingPage*>();
+        auto *stack=page->findChild<QStackedWidget*>();
         QCOMPARE(stack->currentIndex(),1);
+        auto *ring=page->findChild<ChargeRingWidget*>();
+        QVERIFY(ring);
+        emit TcpClient::instance().pushReceived(QJsonObject{
+            {"type",Protocol::PushOrderProgress},{"orderId",99},{"energy",2.01},
+            {"amount",2.41},{"minutes",2},{"power",68.25},{"targetProgress",0.0}});
         QTest::qWait(250);
+        QVERIFY(ring->displayedProgress()>0.001);
         QVERIFY(window->grab().save("/tmp/charging-active-particles.png"));
     }
     void cleanupTestCase() { delete window; }

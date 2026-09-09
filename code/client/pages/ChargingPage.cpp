@@ -73,12 +73,30 @@ ChargeRingWidget::ChargeRingWidget(QWidget *parent)
     : QWidget(parent)
 {
     setMinimumSize(220, 220);
+    m_progressAnimation = new QVariantAnimation(this);
+    // 服务端每 3 秒更新一次进度，稍长的补间可保证两次更新之间圆弧持续移动。
+    m_progressAnimation->setDuration(3200);
+    m_progressAnimation->setEasingCurve(QEasingCurve::Linear);
+    connect(m_progressAnimation, &QVariantAnimation::valueChanged, this,
+            [this](const QVariant &value) {
+                m_progress = value.toDouble();
+                update();
+            });
 }
 
 void ChargeRingWidget::setProgress(double progress)
 {
-    m_progress = progress;
-    update();
+    const double target = qBound(0.0, progress, 1.0);
+    if (m_progressAnimation->state() == QAbstractAnimation::Running
+        && qAbs(m_progressAnimation->endValue().toDouble() - target) < 0.0001)
+        return;
+
+    m_progressAnimation->stop();
+    if (target + 0.001 < m_progress)
+        m_progress = 0.0;
+    m_progressAnimation->setStartValue(m_progress);
+    m_progressAnimation->setEndValue(target);
+    m_progressAnimation->start();
 }
 
 void ChargeRingWidget::setCenterText(const QString &big, const QString &small)
@@ -100,15 +118,11 @@ void ChargeRingWidget::paintEvent(QPaintEvent *)
     p.setPen(bg);
     p.drawArc(ringRect, 0, 360 * 16);
 
-    if (m_progress >= 0) {
+    if (m_progress > 0.0001) {
         QPen fg(QColor("#237653"), 14, Qt::SolidLine, Qt::RoundCap);
         p.setPen(fg);
         const int span = int(qBound(0.0, m_progress, 1.0) * 360 * 16);
         p.drawArc(ringRect, 90 * 16, -span);
-    } else {
-        QPen fg(QColor("#66CDA4"), 14, Qt::SolidLine, Qt::RoundCap);
-        p.setPen(fg);
-        p.drawArc(ringRect, 90 * 16, -60 * 16);
     }
 
     QFont big = p.font();
@@ -1299,7 +1313,8 @@ void ChargingPage::enterChargingView(const OrderInfo &order)
     m_amountVal->setText(QString::number(order.amount, 'f', 2));
     m_minutesVal->setText(QString::number(order.simMinutes));
     m_ring->setCenterText(QString::number(order.energy, 'f', 1), QStringLiteral("度"));
-    double progress = -1.0;
+    // 有明确目标时展示目标完成度；手动结束模式按时长持续增长并逐渐接近满环。
+    double progress = 1.0 - qExp(-qMax(0, order.simMinutes) / 30.0);
     if (order.targetValue > 0) {
         if (order.targetType == TargetEnergy)
             progress = order.energy / order.targetValue;
@@ -1461,7 +1476,9 @@ void ChargingPage::onPushReceived(const QJsonObject &msg)
         m_minutesVal->setText(QString::number(m_currentOrder.simMinutes));
         m_ring->setCenterText(QString::number(m_currentOrder.energy, 'f', 1),
                               QStringLiteral("度"));
-        if (msg.contains("targetProgress")) {
+        if (m_currentOrder.targetType == TargetNone) {
+            m_ring->setProgress(1.0 - qExp(-qMax(0, m_currentOrder.simMinutes) / 30.0));
+        } else if (msg.contains("targetProgress")) {
             m_ring->setProgress(msg.value("targetProgress").toDouble());
         }
         if (m_chart)
