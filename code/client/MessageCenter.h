@@ -10,7 +10,7 @@
 // 供消息中心页面展示和未读角标使用. PushOrderProgress(充电进度)不存储.
 struct AppMessage {
     int id = 0;
-    int type = 0;       // 1=系统 2=订单 3=退款 4=预约 5=排队
+    int type = 0;       // 1=系统 2=订单 3=退款 4=预约
     QString title;
     QString content;
     QDateTime time;

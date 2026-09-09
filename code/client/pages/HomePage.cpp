@@ -208,7 +208,7 @@ QString orderStatusText(int status)
     switch (status) {
     case OrderCharging: return QStringLiteral("充电中");
     case OrderFinished: return QStringLiteral("已完成");
-    case OrderWaiting: return QStringLiteral("排队中");
+    case OrderWaiting: return QStringLiteral("等待中");
     case OrderCancelled: return QStringLiteral("已取消");
     case OrderAbnormal: return QStringLiteral("异常中断");
     default: return QStringLiteral("状态未知");

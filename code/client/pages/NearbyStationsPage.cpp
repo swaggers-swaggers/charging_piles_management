@@ -228,7 +228,7 @@ void NearbyStationsPage::renderStations()
         auto *actions = new QHBoxLayout;
         auto *detail = new QPushButton("查看详情", card);
         auto *navigate = new QPushButton("导航", card);
-        auto *charge = new QPushButton(s.idlePiles > 0 ? "立即充电" : "预约 / 排队", card);
+        auto *charge = new QPushButton(s.idlePiles > 0 ? "立即充电" : "预约时段", card);
         charge->setObjectName("primaryBtn");
         charge->setEnabled(s.totalPiles > 0);
         charge->setToolTip("进入本站选择电桩；以最新电桩状态为准");
@@ -323,7 +323,7 @@ void NearbyStationsPage::showPileDetail(int stationId)
     closeBtn->setObjectName("secondaryBtn");
     auto *actions = new QHBoxLayout;
     auto *navigate = new QPushButton("导航到此站", &dlg);
-    auto *charge = new QPushButton("选择电桩 / 预约排队", &dlg);
+    auto *charge = new QPushButton("选择电桩 / 预约时段", &dlg);
     charge->setObjectName("primaryBtn");
     charge->setEnabled(!piles.isEmpty());
     actions->addWidget(navigate); actions->addWidget(charge); actions->addStretch(); actions->addWidget(closeBtn);

@@ -15,7 +15,7 @@
 namespace {
 enum { TitleRole = Qt::UserRole + 1, BodyRole, TimeRole, TypeRole, ReadRole };
 QString typeLabel(int type) {
-    return QStringList{"通知", "系统", "订单", "退款", "预约", "排队"}.value(type,"通知");
+    return QStringList{"通知", "系统", "订单", "退款", "预约"}.value(type,"通知");
 }
 // 原生绘制卡片，按当前宽度计算正文高度，长消息完整换行。
 class MessageDelegate : public QStyledItemDelegate {
@@ -81,7 +81,7 @@ MessagePage::MessagePage(QWidget *parent) : QWidget(parent) {
     m_filter = new QComboBox(this); m_filter->setObjectName("messageFilter");
     m_filter->setAccessibleName("筛选消息");
     m_filter->addItem("全部消息",-1); m_filter->addItem("只看未读",0);
-    for(int type=1;type<=5;++type) m_filter->addItem(typeLabel(type)+"通知",type);
+    for(int type=1;type<=4;++type) m_filter->addItem(typeLabel(type)+"通知",type);
     toolbar->addWidget(m_filter); toolbar->addStretch();
     m_clearBtn = new QPushButton("清空已读",this); m_clearBtn->setObjectName("secondaryBtn");
     toolbar->addWidget(m_clearBtn); layout->addLayout(toolbar);

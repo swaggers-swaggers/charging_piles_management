@@ -9,7 +9,7 @@
 //   套接字读写 / JSON 解析 / 业务处理(含数据库访问)全部在本线程完成
 // 数据库: 每个线程创建独立的 QSqlDatabase 连接(QSqlDatabase 连接禁止跨线程共用),
 //         连接名以线程 id 区分, 查询时通过 connName 参数传给 Dao
-// 充电推进: v2 起统一收归主线程 ChargingEngine, 本类只负责发起/结算/排队/预约等请求,
+// 充电推进: v2 起统一收归主线程 ChargingEngine, 本类只负责发起、结算和预约等请求,
 //           客户端断线不再影响充电; 引擎通过 pushToClient() 跨线程向本连接推送
 class ClientHandler : public QObject
 {
@@ -45,10 +45,10 @@ private:
     QJsonObject processUnfinishedOrder(const QJsonObject &req);
     QJsonObject startChargeInternal(int replyType, const QJsonObject &req);
     QJsonObject processStopCharge(const QJsonObject &req);
-    QJsonObject processReservePile(const QJsonObject &req);     // 现场排队/取消
+    QJsonObject processReservePile(const QJsonObject &req);     // 兼容旧协议的取消预约
     QJsonObject processAppointPile(const QJsonObject &req);     // 时段预约
     QJsonObject processAppointSlots(const QJsonObject &req);    // 某日时段占用
-    QJsonObject processMyReservations(const QJsonObject &req);  // 我的排队/预约
+    QJsonObject processMyReservations(const QJsonObject &req);  // 我的预约
     QJsonObject processOrderHistory(const QJsonObject &req);    // 订单历史
     QJsonObject processOrderDetail(const QJsonObject &req);     // 订单详情
     QJsonObject processStationFee(const QJsonObject &req);      // 站点分时费率

@@ -111,7 +111,7 @@ Qt Creator 中分别选择两个可执行目标运行即可；日常连接可完
 | [LoginDialog.cpp](client/LoginDialog.cpp) | 客户端地址配置、连接检查和登录 |
 | [TcpClient.cpp](client/network/TcpClient.cpp)、[TcpClientWorker.cpp](client/network/TcpClientWorker.cpp) | 独立网络线程、连接切换、超时处理和推送分发 |
 | [ClientHandler.cpp](server/network/ClientHandler.cpp) | 服务端请求处理与客户端会话 |
-| [ChargingEngine.cpp](server/ChargingEngine.cpp) | 模拟充电推进、结算、恢复、排队和预约扫描 |
+| [ChargingEngine.cpp](server/ChargingEngine.cpp) | 模拟充电推进、结算、恢复和预约扫描 |
 | [dao/](server/dao/) | 数据库读写 |
 | [AdminMainWindow.cpp](server/AdminMainWindow.cpp) | 六个管理页面和局域网信息面板 |
 | [UserMainWindow.cpp](client/UserMainWindow.cpp) | 用户页面导航和会话信息 |

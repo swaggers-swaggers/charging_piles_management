@@ -8,9 +8,9 @@ class QPushButton;
 class QTableWidget;
 class QTabWidget;
 
-// 管理端: 订单管理 + 排队/预约管理
+// 管理端: 订单管理 + 时段预约管理
 // Tab1 订单: 状态筛选 / 强制结束 / 故障退款 / 订单详情
-// Tab2 排队预约: 类型筛选 / 取消排队或预约
+// Tab2 时段预约: 状态展示 / 取消预约
 class OrderManagePage : public QWidget
 {
     Q_OBJECT
@@ -46,7 +46,7 @@ private:
     double m_selectedOrderAmount = 0;
     double m_selectedRefunded = 0;
 
-    // 排队预约 Tab
+    // 时段预约 Tab
     QComboBox *m_resFilter = nullptr;
     QTableWidget *m_resTable = nullptr;
     QPushButton *m_cancelResBtn = nullptr;

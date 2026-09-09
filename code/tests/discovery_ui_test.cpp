@@ -270,7 +270,7 @@ private slots:
         accessibleButton(home,"附近充电站")->click();
         QCOMPARE(nav->currentRow(),1);
         const auto cards=window->findChildren<QFrame*>("stationCard");
-        QVERIFY(!button(cards.last(),"预约 / 排队")->isEnabled());
+        QVERIFY(!button(cards.last(),"预约时段")->isEnabled());
         auto *page=window->findChild<NearbyStationsPage*>();
         QVERIFY(!page->findChild<QLineEdit*>("addrEdit"));
         QCOMPARE(page->findChildren<QLineEdit*>().size(),1);
@@ -285,7 +285,7 @@ private slots:
         QVERIFY(qAbs(sort->geometry().center().y()-rowY)<=2);
         search->setText("五道口"); QTest::qWait(10);
         QCOMPARE(page->findChildren<QFrame*>("stationCard").size(),1);
-        QVERIFY(button(page,"预约 / 排队"));
+        QVERIFY(button(page,"预约时段"));
         search->clear(); QTest::qWait(10);
         auto *filter=page->findChild<QCheckBox*>(); filter->setChecked(true); QTest::qWait(10);
         QCOMPARE(page->findChildren<QFrame*>("stationCard").size(),1);
@@ -297,11 +297,11 @@ private slots:
         window->resize(1200,820);
     }
     void busyStationAndRefresh() {
-        button(window->findChild<NearbyStationsPage*>(),"预约 / 排队")->click();
+        button(window->findChild<NearbyStationsPage*>(),"预约时段")->click();
         auto *combo=window->findChild<QComboBox*>("stationCombo");
         QCOMPARE(combo->currentData().toInt(),12); QCOMPARE(lastPileStation,12);
         auto *page=window->findChild<ChargingPage*>();
-        QVERIFY(button(page,"排队等待")); QVERIFY(button(page,"预约时段"));
+        QVERIFY(button(page,"预约时段"));
         button(page,"刷新")->click(); QCOMPARE(combo->currentData().toInt(),12);
         auto *stationSearch=page->findChild<QLineEdit*>("chargingStationSearch");
         QVERIFY(stationSearch);
@@ -428,7 +428,7 @@ private slots:
         button(page,"查看票据  ↗")->click();
         auto *tabs=page->findChild<QTabWidget*>("orderTabs");
         tabs->setCurrentIndex(1); QTest::qWait(40);
-        QCOMPARE(page->findChildren<QFrame*>("reservationTicket").size(),2);
+        QCOMPARE(page->findChildren<QFrame*>("reservationTicket").size(),1);
         QVERIFY(window->grab().save("/tmp/charging-reservation-cards.png"));
         reservationCardActive=false;
         tabs->setCurrentIndex(0);

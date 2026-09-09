@@ -9,7 +9,7 @@ class QLabel;
 class QComboBox;
 class QTimer;
 
-// 用户端消息中心: 展示服务端推送的所有通知(订单结束/退款/预约/排队),
+// 用户端消息中心: 展示服务端推送的所有通知(订单结束/退款/预约),
 // 未读高亮, 点击标记已读, 支持清空已读. 数据来自 MessageCenter 单例.
 class MessagePage : public QWidget
 {

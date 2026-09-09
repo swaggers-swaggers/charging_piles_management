@@ -129,7 +129,7 @@ void ChargeRingWidget::paintEvent(QPaintEvent *)
 // ============================================================================
 // 预约凭证(电子票券)自绘部件
 // 设计语言: 登机牌/票根 —— 顶部墨绿渐变色带、齿孔虚线与两侧半圆撕口、
-// 浅底存根, 搭配细线呼吸状态标记; 仅用于排队/预约等待视图。
+// 浅底存根, 搭配细线呼吸状态标记; 用于预约等待视图。
 // ============================================================================
 namespace VoucherUi {
 constexpr qreal kRadius = 16.0;
@@ -304,11 +304,11 @@ protected:
     }
 };
 
-// 状态标记: 细线圆环 + 对勾(预约)/时钟指针(排队), 外环缓慢呼吸扩散
+// 状态标记: 细线圆环 + 对勾, 外环缓慢呼吸扩散
 class WaitingStatusMark : public QWidget
 {
 public:
-    enum Kind { Appoint = 0, Queue = 1 };
+    enum Kind { Appoint = 0 };
     explicit WaitingStatusMark(QWidget *parent = nullptr) : QWidget(parent)
     {
         setAttribute(Qt::WA_TranslucentBackground);
@@ -333,7 +333,7 @@ protected:
     {
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing);
-        const QColor main = m_kind == Appoint ? QColor("#237653") : QColor("#C28A2E");
+        const QColor main("#237653");
         const qreal cx = width() / 2.0, cy = height() / 2.0;
 
         const qreal t = m_anim.currentValue().toReal();
@@ -357,17 +357,11 @@ protected:
         ic.setCapStyle(Qt::RoundCap);
         ic.setJoinStyle(Qt::RoundJoin);
         p.setPen(ic);
-        if (m_kind == Appoint) {
-            QPainterPath ck;
-            ck.moveTo(cx - 6.5, cy + 0.8);
-            ck.lineTo(cx - 1.6, cy + 5.6);
-            ck.lineTo(cx + 7.0, cy - 5.2);
-            p.drawPath(ck);
-        } else {
-            p.drawEllipse(QPointF(cx, cy), 7.4, 7.4);
-            p.drawLine(QPointF(cx, cy), QPointF(cx, cy - 5.2));
-            p.drawLine(QPointF(cx, cy), QPointF(cx + 3.8, cy + 1.6));
-        }
+        QPainterPath ck;
+        ck.moveTo(cx - 6.5, cy + 0.8);
+        ck.lineTo(cx - 1.6, cy + 5.6);
+        ck.lineTo(cx + 7.0, cy - 5.2);
+        p.drawPath(ck);
     }
 private:
     QVariantAnimation m_anim;
@@ -682,7 +676,7 @@ void ChargingPage::buildSelectView()
     QLabel *title = new QLabel(QStringLiteral("选择电桩，开启充电"), m_selectView);
     title->setObjectName("pageTitle");
     QLabel *hint = new QLabel(
-        QStringLiteral("选择充电站与电桩: 空闲桩可立即充电或预约, 在用桩可排队等待"), m_selectView);
+        QStringLiteral("选择充电站与电桩：空闲桩可立即充电，所有正常电桩均可预约时段"), m_selectView);
     hint->setObjectName("pageHint");
 
     QHBoxLayout *searchRow = new QHBoxLayout();
@@ -979,28 +973,6 @@ void ChargingPage::buildWaitingView()
     ap->addLayout(timeRow);
     bl->addWidget(m_appointCore);
 
-    // 位置核心(排队)
-    m_queueCore = new QWidget(body);
-    m_queueCore->setObjectName(QStringLiteral("queueCore"));
-    m_queueCore->setStyleSheet(QStringLiteral("#queueCore{background:transparent;}"));
-    m_queueCore->hide();
-    auto *qz = new QVBoxLayout(m_queueCore);
-    qz->setContentsMargins(0, 6, 0, 2);
-    qz->setSpacing(4);
-    m_waitQueuePos = new QLabel(m_queueCore);
-    m_waitQueuePos->setAlignment(Qt::AlignCenter);
-    QFont qf = m_waitQueuePos->font();
-    qf.setPointSize(32);
-    qf.setBold(true);
-    m_waitQueuePos->setFont(qf);
-    m_waitQueuePos->setStyleSheet("color:#B07E2E;font-size:34px;font-weight:700;");
-    auto *qcap = new QLabel(QStringLiteral("当前排队位置 · 请留意叫号提醒"), m_queueCore);
-    qcap->setAlignment(Qt::AlignCenter);
-    qcap->setStyleSheet("color:#9AA6B2;font-size:11px;");
-    qz->addWidget(m_waitQueuePos);
-    qz->addWidget(qcap);
-    bl->addWidget(m_queueCore);
-
     card->addWidget(band);
     card->addWidget(body);
     card->addWidget(new VoucherPerforation(m_voucherCard));
@@ -1201,16 +1173,12 @@ void ChargingPage::rebuildPileCards()
             btns->addWidget(start);
             btns->addWidget(appoint);
         } else if (p.status == PileInUse) {
-            QPushButton *queue = new QPushButton(QStringLiteral("排队等待"), card);
-            queue->setObjectName("warnBtn");
-            queue->setCursor(Qt::PointingHandCursor);
             QPushButton *appoint = new QPushButton(QStringLiteral("预约时段"), card);
             appoint->setObjectName("ghostBtn");
             appoint->setCursor(Qt::PointingHandCursor);
-            connect(queue, &QPushButton::clicked, this, [this, id = p.id] { joinQueue(id); });
             connect(appoint, &QPushButton::clicked, this, [this, id = p.id] { openAppointDialog(id); });
-            btns->addWidget(queue);
             btns->addWidget(appoint);
+            btns->addStretch();
         } else {
             QLabel *fault = new QLabel(QStringLiteral("设备检修中, 暂不可用"), card);
             fault->setStyleSheet("color:#C5525A;font-size:12px;");
@@ -1254,23 +1222,6 @@ void ChargingPage::doStart(int pileId, int targetType, double targetValue)
     m_hasOrder = true;
     m_waitingId = -1;
     enterChargingView(m_currentOrder);
-}
-
-void ChargingPage::joinQueue(int pileId)
-{
-    QJsonObject req;
-    req.insert("userId", ClientSession::instance().userId);
-    req.insert("pileId", pileId);
-    req.insert("action", 0);
-    const QJsonObject reply = TcpClient::instance().request(Protocol::ReqReservePile, req);
-    if (!reply.value("ok").toBool()) {
-        QMessageBox::warning(this, QStringLiteral("排队失败"), reply.value("error").toString());
-        return;
-    }
-    QMessageBox::information(this, QStringLiteral("排队成功"),
-                             QStringLiteral("已加入排队, 当前第 %1 位, 轮到您时将自动提醒")
-                                 .arg(reply.value("queuePos").toInt()));
-    refreshWaiting();
 }
 
 void ChargingPage::openAppointDialog(int pileId)
@@ -1320,9 +1271,8 @@ void ChargingPage::onCancelWaiting()
 {
     if (m_waitingId < 0)
         return;
-    const QString tip = m_waitingType == ReserveAppoint
-                            ? QStringLiteral("确定取消该预约吗?") : QStringLiteral("确定退出排队吗?");
-    if (QMessageBox::question(this, QStringLiteral("提示"), tip) != QMessageBox::Yes)
+    if (QMessageBox::question(this, QStringLiteral("取消预约"),
+                              QStringLiteral("确定取消该预约吗?")) != QMessageBox::Yes)
         return;
     QJsonObject req;
     req.insert("userId", ClientSession::instance().userId);
@@ -1378,9 +1328,9 @@ void ChargingPage::enterSelectView()
 
 void ChargingPage::enterWaitingView(const ReservationInfo &r)
 {
+    if (r.type != ReserveAppoint)
+        return;
     m_waitingId = r.id;
-    m_waitingPileId = r.pileId;
-    m_waitingType = r.type;
 
     auto *mark = static_cast<WaitingStatusMark *>(m_waitMark);
     m_waitPileCode->setText(r.pileCode);
@@ -1391,50 +1341,30 @@ void ChargingPage::enterWaitingView(const ReservationInfo &r)
         m_waitStation->show();
     }
 
-    if (r.type == ReserveAppoint) {
-        mark->setKind(WaitingStatusMark::Appoint);
-        m_bandTitle->setText(QStringLiteral("充电预约凭证"));
-        m_bandEn->setText(QStringLiteral("RESERVATION"));
-        m_waitStatusTitle->setText(QStringLiteral("时段预约成功"));
-        m_waitStatusEn->setText(QStringLiteral("RESERVATION CONFIRMED"));
+    mark->setKind(WaitingStatusMark::Appoint);
+    m_bandTitle->setText(QStringLiteral("充电预约凭证"));
+    m_bandEn->setText(QStringLiteral("RESERVATION"));
+    m_waitStatusTitle->setText(QStringLiteral("时段预约成功"));
+    m_waitStatusEn->setText(QStringLiteral("RESERVATION CONFIRMED"));
 
-        QString dateText = r.reserveDate;
-        const QDate d = QDate::fromString(r.reserveDate, QStringLiteral("yyyy-MM-dd"));
-        if (d.isValid()) {
-            const QStringList week = {QStringLiteral("周一"), QStringLiteral("周二"),
-                                      QStringLiteral("周三"), QStringLiteral("周四"),
-                                      QStringLiteral("周五"), QStringLiteral("周六"),
-                                      QStringLiteral("周日")};
-            dateText = QStringLiteral("%1  ·  %2").arg(
-                r.reserveDate, week.value(d.dayOfWeek() - 1));
-        }
-        m_waitDate->setText(dateText);
-        m_waitStart->setText(r.reserveStart);
-        m_waitEnd->setText(r.reserveEnd);
-        m_appointCore->show();
-        m_queueCore->hide();
-
-        m_waitTip->setText(QStringLiteral("开始前 10 分钟将推送提醒，请按时到场扫码启动充电"));
-        m_waitVoucherNo->setText(
-            QStringLiteral("预约编号  NO.%1").arg(r.id, 6, 10, QChar('0')));
-        m_cancelWaitBtn->setText(QStringLiteral("取消预约"));
-    } else {
-        mark->setKind(WaitingStatusMark::Queue);
-        m_bandTitle->setText(QStringLiteral("现场排队凭证"));
-        m_bandEn->setText(QStringLiteral("QUEUE PASS"));
-        m_waitStatusTitle->setText(QStringLiteral("现场排队中"));
-        m_waitStatusEn->setText(QStringLiteral("WAITING IN QUEUE"));
-        m_waitQueuePos->setText(
-            QStringLiteral("第 %1 位").arg(qMax(1, r.queuePos)));
-        m_appointCore->hide();
-        m_queueCore->show();
-
-        m_waitTip->setText(
-            QStringLiteral("电桩释放轮到您时，将在 30 秒内提醒确认，超时自动顺延下一位"));
-        m_waitVoucherNo->setText(
-            QStringLiteral("排队编号  NO.%1").arg(r.id, 6, 10, QChar('0')));
-        m_cancelWaitBtn->setText(QStringLiteral("退出排队"));
+    QString dateText = r.reserveDate;
+    const QDate d = QDate::fromString(r.reserveDate, QStringLiteral("yyyy-MM-dd"));
+    if (d.isValid()) {
+        const QStringList week = {QStringLiteral("周一"), QStringLiteral("周二"),
+                                  QStringLiteral("周三"), QStringLiteral("周四"),
+                                  QStringLiteral("周五"), QStringLiteral("周六"),
+                                  QStringLiteral("周日")};
+        dateText = QStringLiteral("%1  ·  %2").arg(
+            r.reserveDate, week.value(d.dayOfWeek() - 1));
     }
+    m_waitDate->setText(dateText);
+    m_waitStart->setText(r.reserveStart);
+    m_waitEnd->setText(r.reserveEnd);
+    m_appointCore->show();
+    m_waitTip->setText(QStringLiteral("开始前 10 分钟将推送提醒，请按时到场扫码启动充电"));
+    m_waitVoucherNo->setText(
+        QStringLiteral("预约编号  NO.%1").arg(r.id, 6, 10, QChar('0')));
+    m_cancelWaitBtn->setText(QStringLiteral("取消预约"));
 
     m_stack->setCurrentIndex(2);
 }
@@ -1449,7 +1379,8 @@ void ChargingPage::refreshWaiting()
     const QJsonArray arr = reply.value("reservations").toArray();
     for (const QJsonValue &v : arr) {
         const ReservationInfo r = ReservationInfo::fromJson(v.toObject());
-        if (r.status == ReservationActive || r.status == ReservationAssigned) {
+        if (r.type == ReserveAppoint
+            && (r.status == ReservationActive || r.status == ReservationAssigned)) {
             enterWaitingView(r);
             return;
         }
@@ -1484,7 +1415,7 @@ void ChargingPage::refreshPage()
         return;
     }
 
-    // 无在充订单: 检查是否有有效排队/预约
+    // 无在充订单: 检查是否有有效预约
     const QJsonObject res = TcpClient::instance().request(
         Protocol::ReqMyReservations,
         QJsonObject{{"userId", ClientSession::instance().userId}});
@@ -1497,7 +1428,8 @@ void ChargingPage::refreshPage()
         const QJsonArray arr = res.value("reservations").toArray();
         for (const QJsonValue &v : arr) {
             const ReservationInfo r = ReservationInfo::fromJson(v.toObject());
-            if (r.status == ReservationActive || r.status == ReservationAssigned) {
+            if (r.type == ReserveAppoint
+                && (r.status == ReservationActive || r.status == ReservationAssigned)) {
                 m_requestedStationId = -1;
                 enterWaitingView(r);
                 waiting = true;
@@ -1542,18 +1474,11 @@ void ChargingPage::onPushReceived(const QJsonObject &msg)
         return;
 
     const int event = msg.value("event").toInt();
-    if (event == 1) {
-        // 排队轮到
-        const int pileId = msg.value("pileId").toInt(m_waitingPileId);
-        m_waitingId = -1;
-        if (QMessageBox::question(this, QStringLiteral("轮到您了"),
-                                  QStringLiteral("电桩已空闲! 是否立即开始充电?\n(超时未确认将顺延给下一位)"))
-            == QMessageBox::Yes) {
-            doStart(pileId, TargetNone, 0);
-        } else {
-            enterSelectView();
-            refreshStations();
-        }
+    if (event == 1 || event == 4) {
+        return; // 忽略旧服务端可能发送的已下线功能事件。
+    } else if (event == 7
+               && msg.value("message").toString().contains(QStringLiteral("排队"))) {
+        return;
     } else if (event == 2) {
         // 订单自动结束
         const OrderInfo order = OrderInfo::fromJson(msg.value("order").toObject());
@@ -1575,16 +1500,13 @@ void ChargingPage::onPushReceived(const QJsonObject &msg)
                                  .arg(order.id).arg(order.amount, 0, 'f', 2));
         enterSelectView();
         refreshStations();
-    } else if (event == 4) {
-        // 排队位置变化
-        refreshWaiting();
     } else if (event == 6) {
         QMessageBox::information(this, QStringLiteral("预约提醒"),
                                  QStringLiteral("您预约的电桩 %1 将在 10 分钟后开放, 请准备到场")
                                      .arg(msg.value("pileCode").toString()));
     } else if (event == 7) {
-        QMessageBox::information(this, QStringLiteral("排队/预约通知"),
-                                 msg.value("message").toString(QStringLiteral("您的排队/预约已结束")));
+        QMessageBox::information(this, QStringLiteral("预约通知"),
+                                 msg.value("message").toString(QStringLiteral("您的预约状态已更新")));
         if (m_stack->currentIndex() == 2) {
             m_waitingId = -1;
             enterSelectView();

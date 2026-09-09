@@ -14,7 +14,7 @@ enum UserStatus  { UserNormal = 0, UserFrozen = 1 };
 enum OrderStatus {
     OrderCharging  = 0,   // 充电中
     OrderFinished  = 1,   // 已完成
-    OrderWaiting   = 2,   // (保留)排队中; 排队实体实际独立存于 charge_reservation
+    OrderWaiting   = 2,   // 兼容旧数据
     OrderCancelled = 3,   // 已取消
     OrderAbnormal  = 4,   // 异常中断(桩故障等)
 };
@@ -39,13 +39,13 @@ enum TargetType {
 
 // 排队/预约类型(charge_reservation.type)
 enum ReservationType {
-    ReserveQueue   = 0,   // 现场排队
+    ReserveQueue   = 0,   // 兼容旧数据
     ReserveAppoint = 1,   // 提前预约时段
 };
 
 // 排队/预约状态(charge_reservation.status)
 enum ReservationStatus {
-    ReservationActive   = 0,   // 有效(排队中 / 预约待履约)
+    ReservationActive   = 0,   // 有效
     ReservationAssigned = 1,   // 已分配待确认(排队轮到)
     ReservationCanceled = 2,   // 已取消
     ReservationExpired  = 3,   // 已过期

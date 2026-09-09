@@ -35,7 +35,7 @@ enum MessageType {
     ReqStartChargeExt   = 11,  // {userId, pileId, targetType?, targetValue?}
                                //   → {order:{...OrderInfo}, price, balance}
                                //   失败: ErrBalanceNotEnough / ErrPileBusy / ErrOrderExists / ErrTargetInvalid
-    ReqReservePile      = 12,  // 现场排队: {userId, pileId, action:0排队/1取消, reservationId?}
+    ReqReservePile      = 12,  // 旧协议兼容；当前仅 action:1 用于取消预约
                                //   排队 → {reservationId, queuePos}; 取消 → {ok}
     ReqOrderHistory     = 13,  // {userId, page?, pageSize?} → {orders:[...OrderInfo], total}
     ReqOrderDetail      = 14,  // {userId, orderId} → {order:{...OrderInfo}}

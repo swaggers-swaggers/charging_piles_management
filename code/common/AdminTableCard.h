@@ -21,7 +21,7 @@ public:
         (widget ? widget->style() : QApplication::style())->drawControl(QStyle::CE_ItemViewItem, &base, p, widget);
         QColor fg("#24724E"), bg("#E5F4EA");
         if (text.contains("故障") || text.contains("冻结") || text.contains("异常")) { fg=QColor("#AE454F"); bg=QColor("#FCEBED"); }
-        else if (text.contains("充电") || text.contains("在用") || text.contains("排队") || text.contains("待")) { fg=QColor("#94631E"); bg=QColor("#FFF2D9"); }
+        else if (text.contains("充电") || text.contains("在用") || text.contains("待")) { fg=QColor("#94631E"); bg=QColor("#FFF2D9"); }
         else if (text.contains("取消") || text.contains("结束")) { fg=QColor("#677B70"); bg=QColor("#EDF2EF"); }
         p->save(); p->setRenderHint(QPainter::Antialiasing);
         const int width = qMin(option.rect.width()-12, option.fontMetrics.horizontalAdvance(text)+24);
@@ -56,7 +56,7 @@ inline void decorate(QWidget *root) {
         else if (name.contains("station",Qt::CaseInsensitive)) title="站点档案";
         else if (name.contains("status",Qt::CaseInsensitive)) title="运行状态明细";
         else if (name.contains("order",Qt::CaseInsensitive)) title="充电订单";
-        else if (table->columnCount()==9) title="排队与预约";
+        else if (table->columnCount()==9) title="时段预约";
         else if (name.contains("user",Qt::CaseInsensitive)) title="用户档案";
         auto *label = new QLabel(title,card); label->setObjectName("dataCardTitle");
         auto *count = new QLabel(card); count->setObjectName("dataCountBadge");

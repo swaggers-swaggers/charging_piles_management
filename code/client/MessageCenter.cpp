@@ -55,6 +55,10 @@ void MessageCenter::onPushReceived(const QJsonObject &msg)
         return;   // 充电进度推送不存消息
 
     const int event = msg.value("event").toInt();
+    if (event == 1 || event == 4)
+        return;
+    if (event == 7 && msg.value("message").toString().contains(QStringLiteral("排队")))
+        return;
     AppMessage m;
     m.id = m_nextId++;
     m.time = QDateTime::currentDateTime();
@@ -62,11 +66,6 @@ void MessageCenter::onPushReceived(const QJsonObject &msg)
     m.read = false;
 
     switch (event) {
-    case 1:
-        m.type = 5;
-        m.title = QStringLiteral("排队轮到您了");
-        m.content = msg.value("message").toString(QStringLiteral("电桩已空闲，请尽快确认开始充电（超时将顺延）"));
-        break;
     case 2:
         m.type = 2;
         m.title = QStringLiteral("充电已结束");
@@ -76,11 +75,6 @@ void MessageCenter::onPushReceived(const QJsonObject &msg)
         m.type = 2;
         m.title = QStringLiteral("充电异常中断");
         m.content = msg.value("message").toString(QStringLiteral("订单因故障中断，已按实际充电用量结算"));
-        break;
-    case 4:
-        m.type = 5;
-        m.title = QStringLiteral("排队位置更新");
-        m.content = msg.value("message").toString(QStringLiteral("您的排队位置已更新"));
         break;
     case 5:
         m.type = 2;
@@ -94,8 +88,8 @@ void MessageCenter::onPushReceived(const QJsonObject &msg)
         break;
     case 7:
         m.type = 4;
-        m.title = QStringLiteral("预约/排队通知");
-        m.content = msg.value("message").toString(QStringLiteral("您的预约/排队状态已更新"));
+        m.title = QStringLiteral("预约通知");
+        m.content = msg.value("message").toString(QStringLiteral("您的预约状态已更新"));
         break;
     case 8:
         m.type = 3;
@@ -145,6 +139,9 @@ void MessageCenter::load()
     const QJsonArray arr = s.value("messages").toJsonArray();
     for (const QJsonValue &v : arr) {
         const QJsonObject o = v.toObject();
+        // 旧版现场队列通知使用类型 5；功能下线后不再恢复到消息中心。
+        if (o["type"].toInt() == 5)
+            continue;
         AppMessage m;
         m.id = o["id"].toInt();
         m.type = o["type"].toInt();

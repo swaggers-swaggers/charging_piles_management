@@ -10,7 +10,7 @@ class QPushButton;
 class QTabWidget;
 class QVBoxLayout;
 
-// 用户端“我的订单”：卡片式充电旅程 + 排队预约记录。
+// 用户端“我的订单”：卡片式充电旅程 + 时段预约记录。
 class OrderHistoryPage : public QWidget
 {
     Q_OBJECT

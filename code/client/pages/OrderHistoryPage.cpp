@@ -23,7 +23,7 @@ QString orderStatusText(int status)
     switch (status) {
     case OrderCharging:  return QStringLiteral("充电中");
     case OrderFinished:  return QStringLiteral("已完成");
-    case OrderWaiting:   return QStringLiteral("排队中");
+    case OrderWaiting:   return QStringLiteral("等待中");
     case OrderCancelled: return QStringLiteral("已取消");
     case OrderAbnormal:  return QStringLiteral("异常中断");
     default:             return QStringLiteral("状态未知");
@@ -38,9 +38,9 @@ QString orderStyle(int status)
     return QStringLiteral("muted");
 }
 
-QString reservationTypeText(int type)
+QString reservationTypeText(int)
 {
-    return type == ReserveAppoint ? QStringLiteral("时段预约") : QStringLiteral("现场排队");
+    return QStringLiteral("时段预约");
 }
 
 QString reservationStatusText(int status)
@@ -175,7 +175,7 @@ OrderHistoryPage::OrderHistoryPage(QWidget *parent)
     reservationLayout->addLayout(reservationToolbar);
     reservationLayout->addWidget(cardArea(reservationTab, &m_reservationCards,
                                            "reservationCardsHost"), 1);
-    m_tabs->addTab(reservationTab, QStringLiteral("排队与预约"));
+    m_tabs->addTab(reservationTab, QStringLiteral("时段预约"));
 
     layout->addWidget(m_tabs, 1);
 
@@ -317,18 +317,9 @@ QWidget *OrderHistoryPage::createReservationCard(const ReservationInfo &reservat
     top->addWidget(status);
     body->addLayout(top);
 
-    QString schedule;
-    if (reservation.type == ReserveAppoint) {
-        schedule = QStringLiteral("%1   %2—%3")
-                       .arg(reservation.reserveDate, reservation.reserveStart,
-                            reservation.reserveEnd);
-    } else if (reservation.status == ReservationAssigned) {
-        schedule = QStringLiteral("已轮到您，请尽快前往确认");
-    } else if (reservation.status == ReservationActive) {
-        schedule = QStringLiteral("当前排队第 %1 位").arg(qMax(1, reservation.queuePos));
-    } else {
-        schedule = QStringLiteral("排队流程已结束");
-    }
+    const QString schedule = QStringLiteral("%1   %2—%3")
+                                 .arg(reservation.reserveDate, reservation.reserveStart,
+                                      reservation.reserveEnd);
     auto *journey = new QLabel(QStringLiteral("电桩 %1      ·      %2")
                                    .arg(reservation.pileCode.isEmpty() ? QStringLiteral("--")
                                                                        : reservation.pileCode,
@@ -346,9 +337,7 @@ QWidget *OrderHistoryPage::createReservationCard(const ReservationInfo &reservat
     footer->addWidget(created);
     footer->addStretch();
     if (reservation.status == ReservationActive || reservation.status == ReservationAssigned) {
-        auto *cancel = new QPushButton(reservation.type == ReserveAppoint
-                                           ? QStringLiteral("取消预约")
-                                           : QStringLiteral("取消排队"), card);
+        auto *cancel = new QPushButton(QStringLiteral("取消预约"), card);
         cancel->setObjectName("reservationCancelButton");
         footer->addWidget(cancel);
         connect(cancel, &QPushButton::clicked, this,
@@ -494,23 +483,27 @@ void OrderHistoryPage::refreshReservations()
     const QJsonObject reply = TcpClient::instance().request(Protocol::ReqMyReservations, request);
     if (!reply.value("ok").toBool()) return;
 
-    const QJsonArray reservations = reply.value("reservations").toArray();
+    const QJsonArray allReservations = reply.value("reservations").toArray();
     clearCards(m_reservationCards);
     int active = 0;
-    for (const QJsonValue &value : reservations) {
+    int count = 0;
+    for (const QJsonValue &value : allReservations) {
         const ReservationInfo reservation = ReservationInfo::fromJson(value.toObject());
+        if (reservation.type != ReserveAppoint)
+            continue;
+        ++count;
         if (reservation.status == ReservationActive || reservation.status == ReservationAssigned)
             ++active;
         m_reservationCards->addWidget(createReservationCard(reservation));
     }
-    if (reservations.isEmpty()) {
-        auto *empty = new QLabel(QStringLiteral("当前没有排队或预约\n\n选中繁忙电桩后，可以加入队列或预约时段"), this);
+    if (count == 0) {
+        auto *empty = new QLabel(QStringLiteral("当前没有时段预约\n\n选择任意正常电桩，即可预约充电时段"), this);
         empty->setObjectName("orderEmpty");
         empty->setAlignment(Qt::AlignCenter);
         m_reservationCards->addWidget(empty);
     }
     m_reservationSummary->setText(QStringLiteral("%1 条记录   ·   %2 条正在进行")
-                                      .arg(reservations.size()).arg(active));
+                                      .arg(count).arg(active));
 }
 
 void OrderHistoryPage::onCancelReservation()
@@ -519,7 +512,7 @@ void OrderHistoryPage::onCancelReservation()
         || (m_selectedResStatus != ReservationActive
             && m_selectedResStatus != ReservationAssigned)) return;
     if (QMessageBox::question(this, QStringLiteral("取消预约"),
-                              QStringLiteral("确定取消 #%1 的排队或预约吗？").arg(m_selectedResId))
+                              QStringLiteral("确定取消 #%1 预约吗？").arg(m_selectedResId))
         != QMessageBox::Yes) return;
 
     QJsonObject request;

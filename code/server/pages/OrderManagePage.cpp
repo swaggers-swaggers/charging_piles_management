@@ -28,7 +28,7 @@ QString orderStatusText(int s)
     switch (s) {
     case OrderCharging:  return QStringLiteral("充电中");
     case OrderFinished:  return QStringLiteral("已完成");
-    case OrderWaiting:   return QStringLiteral("排队中");
+    case OrderWaiting:   return QStringLiteral("等待中");
     case OrderCancelled: return QStringLiteral("已取消");
     case OrderAbnormal:  return QStringLiteral("异常中断");
     default:             return QStringLiteral("未知");
@@ -58,7 +58,7 @@ QString finishText(int f)
     }
 }
 
-QString resTypeText(int t) { return t == ReserveAppoint ? QStringLiteral("预约") : QStringLiteral("排队"); }
+QString resTypeText(int) { return QStringLiteral("预约"); }
 
 QString resStatusText(int s)
 {
@@ -142,7 +142,7 @@ OrderManagePage::OrderManagePage(QWidget *parent)
     orderLayout->addWidget(m_orderTable, 1);
     m_tabs->addTab(orderTab, QStringLiteral("充电订单"));
 
-    // ---- Tab2 排队/预约 ----
+    // ---- Tab2 时段预约 ----
     QWidget *resTab = new QWidget(this);
     QVBoxLayout *resLayout = new QVBoxLayout(resTab);
     resLayout->setContentsMargins(0, 12, 0, 0);
@@ -151,8 +151,6 @@ OrderManagePage::OrderManagePage(QWidget *parent)
     QHBoxLayout *resTop = new QHBoxLayout();
     resTop->addWidget(new QLabel(QStringLiteral("类型:"), resTab));
     m_resFilter = new QComboBox(resTab);
-    m_resFilter->addItem(QStringLiteral("全部"), -1);
-    m_resFilter->addItem(QStringLiteral("现场排队"), ReserveQueue);
     m_resFilter->addItem(QStringLiteral("时段预约"), ReserveAppoint);
     m_resFilter->setFixedWidth(140);
     QPushButton *resRefreshBtn = new QPushButton(QStringLiteral("刷新"), resTab);
@@ -180,9 +178,9 @@ OrderManagePage::OrderManagePage(QWidget *parent)
     m_resTable->setHorizontalHeaderLabels(
         { QStringLiteral("ID"), QStringLiteral("类型"), QStringLiteral("用户ID"),
           QStringLiteral("手机号"), QStringLiteral("充电桩"), QStringLiteral("充电站"),
-          QStringLiteral("创建时间"), QStringLiteral("时段/排队"), QStringLiteral("状态") });
+          QStringLiteral("创建时间"), QStringLiteral("预约时段"), QStringLiteral("状态") });
     resLayout->addWidget(m_resTable, 1);
-    m_tabs->addTab(resTab, QStringLiteral("排队 / 预约"));
+    m_tabs->addTab(resTab, QStringLiteral("时段预约"));
 
     layout->addWidget(m_tabs, 1);
 
@@ -370,13 +368,8 @@ void OrderManagePage::refreshReservations()
         m_resTable->setItem(i, 4, new QTableWidgetItem(r.pileCode));
         m_resTable->setItem(i, 5, new QTableWidgetItem(r.stationName));
         m_resTable->setItem(i, 6, new QTableWidgetItem(r.createTime));
-        QString middle;
-        if (r.type == ReserveAppoint)
-            middle = QStringLiteral("%1 %2~%3").arg(r.reserveDate, r.reserveStart, r.reserveEnd);
-        else if (r.status == ReservationAssigned)
-            middle = QStringLiteral("轮到, 待确认(至 %1)").arg(r.expireTime);
-        else if (r.status == ReservationActive)
-            middle = QStringLiteral("排队第 %1 位").arg(qMax(1, r.queuePos));
+        const QString middle = QStringLiteral("%1 %2~%3")
+                                   .arg(r.reserveDate, r.reserveStart, r.reserveEnd);
         m_resTable->setItem(i, 7, new QTableWidgetItem(middle));
         auto *stItem = new QTableWidgetItem(resStatusText(r.status));
         if (r.status == ReservationActive || r.status == ReservationAssigned)
@@ -415,7 +408,7 @@ void OrderManagePage::onCancelReservation()
     if (m_selectedResId < 0)
         return;
     if (QMessageBox::question(this, QStringLiteral("取消"),
-                              QStringLiteral("确定取消 #%1 的排队/预约吗?").arg(m_selectedResId))
+                              QStringLiteral("确定取消 #%1 预约吗?").arg(m_selectedResId))
         != QMessageBox::Yes)
         return;
     QString err;
@@ -424,7 +417,7 @@ void OrderManagePage::onCancelReservation()
                              err.isEmpty() ? QStringLiteral("记录不存在或已结束") : err);
         return;
     }
-    LogDao::record(ServerSession::instance().adminName, QStringLiteral("取消排队/预约"),
+    LogDao::record(ServerSession::instance().adminName, QStringLiteral("取消预约"),
                    QStringLiteral("记录 #%1").arg(m_selectedResId));
     refreshReservations();
 }

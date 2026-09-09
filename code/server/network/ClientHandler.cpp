@@ -457,13 +457,12 @@ QJsonObject ClientHandler::processStopCharge(const QJsonObject &req)
     return reply;
 }
 
-// ---------- 现场排队 ----------
+// ---------- 取消预约（保留旧请求号以兼容客户端协议） ----------
 
 QJsonObject ClientHandler::processReservePile(const QJsonObject &req)
 {
     const int userId = m_userId;
     const int action = req.value("action").toInt(0);
-
     if (action == 1) {
         const int rid = req.value("reservationId").toInt();
         QString err;
@@ -472,35 +471,8 @@ QJsonObject ClientHandler::processReservePile(const QJsonObject &req)
                                        err.isEmpty() ? "取消失败, 记录不存在或已结束" : err);
         return Protocol::makeReply(Protocol::ReqReservePile, true);
     }
-
-    const int pileId = req.value("pileId").toInt();
-    if (pileId <= 0)
-        return Protocol::makeReply(Protocol::ReqReservePile, false, "参数错误: 缺少pileId");
-
-    const PileInfo pile = PileDao::getById(pileId, nullptr, m_dbConnName);
-    if (pile.id == 0)
-        return Protocol::makeReply(Protocol::ReqReservePile, false, "充电桩不存在");
-    if (pile.status == PileFault)
-        return Protocol::makeReply(Protocol::ReqReservePile, false, "该桩故障中, 无法排队");
-    if (pile.status == PileIdle)
-        return Protocol::makeReply(Protocol::ReqReservePile, false, "该桩当前空闲, 可直接充电");
-
-    QString err;
-    const int rid = ReservationDao::enqueue(userId, pileId, pile.stationId, &err, m_dbConnName);
-    if (rid == -2)
-        return Protocol::makeReply(Protocol::ReqReservePile, false, "您已在该桩排队/预约, 请勿重复操作");
-    if (rid == -3)
-        return Protocol::makeReply(Protocol::ReqReservePile, false, "该桩排队人数已满, 请选择其他桩");
-    if (rid <= 0)
-        return Protocol::makeReply(Protocol::ReqReservePile, false,
-                                   err.isEmpty() ? "排队失败" : err);
-
-    const int pos = ReservationDao::queuePosition(rid, nullptr, m_dbConnName);
-    QJsonObject reply = Protocol::makeReply(Protocol::ReqReservePile, true);
-    reply.insert("reservationId", rid);
-    reply.insert("queuePos", pos);
-    reply.insert("waiting", ReservationDao::pendingCount(pileId, nullptr, m_dbConnName));
-    return reply;
+    return Protocol::makeReply(Protocol::ReqReservePile, false,
+                               "该功能已下线，请使用时段预约");
 }
 
 // ---------- 时段预约 ----------

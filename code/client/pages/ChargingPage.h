@@ -36,7 +36,7 @@ private:
 };
 
 // 电动汽车充电页: 选桩(卡片) → 充电设置(目标) → 实时扣费充电 → 结算
-// 同时承载现场排队与时段预约的等待视图, 服务端推送实时驱动界面
+// 同时承载时段预约等待视图, 服务端推送实时驱动界面
 class ChargingPage : public QWidget
 {
     Q_OBJECT
@@ -67,7 +67,6 @@ private:
     void applyStationFilter(int preferredStationId = -1);
     void openChargeSetup(int pileId);
     void openAppointDialog(int pileId);
-    void joinQueue(int pileId);
     void doStart(int pileId, int targetType, double targetValue);
     void enterChargingView(const OrderInfo &order);
     void enterSelectView();
@@ -97,11 +96,11 @@ private:
     ChargeChartWidget *m_chart;
     QPushButton *m_chartModeBtn;
 
-    // ---- 排队/预约等待视图(票券式预约凭证) ----
+    // ---- 预约等待视图(票券式预约凭证) ----
     QWidget *m_waitingView;
     QWidget *m_voucherCard;       // 凭证卡片本体, 承载淡入动效
     QWidget *m_waitMark;          // 状态标记(自绘, 文件内类)
-    QLabel *m_bandTitle;          // 色带副标题: 充电预约凭证 / 现场排队凭证
+    QLabel *m_bandTitle;          // 色带副标题: 充电预约凭证
     QLabel *m_bandEn;             // 色带英文眉题
     QLabel *m_waitStatusTitle;    // 状态主标题
     QLabel *m_waitStatusEn;       // 状态英文副题
@@ -111,8 +110,6 @@ private:
     QLabel *m_waitDate;           // 预约日期(胶囊)
     QLabel *m_waitStart;          // 开始时间
     QLabel *m_waitEnd;            // 结束时间
-    QWidget *m_queueCore;         // 排队核心区
-    QLabel *m_waitQueuePos;       // 排队位置
     QLabel *m_waitTip;            // 存根提示语
     QLabel *m_waitVoucherNo;      // 凭证编号
     QPushButton *m_cancelWaitBtn;
@@ -124,10 +121,8 @@ private:
     bool m_hasOrder = false;
     bool m_silentRefresh = false;
 
-    // 当前等待中的排队/预约
+    // 当前等待中的预约
     int m_waitingId = -1;
-    int m_waitingPileId = -1;
-    int m_waitingType = ReserveQueue;
 };
 
 #endif // CHARGINGPAGE_H
