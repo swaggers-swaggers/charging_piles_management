@@ -12,8 +12,21 @@ ChargeChartWidget::ChargeChartWidget(QWidget *parent)
     setMinimumHeight(140);
 }
 
+void ChargeChartWidget::beginSession(int orderId)
+{
+    if (m_sessionId == orderId)
+        return;
+    m_sessionId = orderId;
+    clearData();
+}
+
 void ChargeChartWidget::addPoint(int minutes, double energy, double amount, double power)
 {
+    // 正常推送的分钟数单调递增。出现回退意味着开始了新一轮采样，
+    // 即使调用方漏掉 beginSession，也不能把两轮数据连接在一起。
+    if (!m_data.isEmpty() && minutes < m_data.last().minutes)
+        m_data.clear();
+
     // 同一分钟只保留最新值(避免重复点)
     if (!m_data.isEmpty() && m_data.last().minutes == minutes) {
         m_data.last().energy = energy;

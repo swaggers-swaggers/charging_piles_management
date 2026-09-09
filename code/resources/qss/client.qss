@@ -127,18 +127,13 @@ QToolTip { background: #FFFFFF; color: #243E33; border: 1px solid #B5CDBE; }
 QDateEdit, QDateTimeEdit, QTimeEdit { background: #FFFFFF; color: #243E33; border: 1px solid #D3E0D8; border-radius: 6px; padding: 7px; }
 QStatusBar { background: rgba(255,255,255,205); color: #4C6257; }
 
-/* 搜索框与下拉框：默认是 42px 小按钮，点击后由 CompactField 动画展开。 */
+/* 搜索框与下拉框固定展开，始终显示提示或当前选项文字。 */
 QLineEdit[compactFieldInstalled="true"], QComboBox[compactFieldInstalled="true"] {
     min-height: 24px; border-radius: 10px; background: rgba(255,255,255,235);
-}
-QLineEdit[compactExpanded="false"], QComboBox[compactExpanded="false"] {
-    color: transparent; padding-left: 7px; padding-right: 7px;
 }
 QLineEdit[compactExpanded="true"], QComboBox[compactExpanded="true"] {
     color: #243E33; background: #FFFFFF; border-color: #6E9F7D;
 }
-QComboBox[compactExpanded="false"]::drop-down { width: 38px; }
-QComboBox[compactExpanded="false"]::down-arrow { margin-right: 12px; }
 
 /* 首页：参照网页模板的信息型 Bento，卡片内部直接展示业务摘要。 */
 QWidget#homePage { background: transparent; }

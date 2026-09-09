@@ -13,10 +13,14 @@ class ChargeChartWidget : public QWidget
 public:
     explicit ChargeChartWidget(QWidget *parent = nullptr);
 
+    // 每个订单拥有独立的数据序列；切换订单时自动清空上一条曲线。
+    void beginSession(int orderId);
     void addPoint(int minutes, double energy, double amount, double power = -1);
     void clearData();
     void setMode(int mode);   // 0=电量 1=金额 2=功率
     int mode() const { return m_mode; }
+    int sessionId() const { return m_sessionId; }
+    int pointCount() const { return m_data.size(); }
 
     QSize minimumSizeHint() const override { return QSize(200, 140); }
     QSize sizeHint() const override { return QSize(400, 160); }
@@ -28,6 +32,7 @@ private:
     struct Point { int minutes; double energy; double amount; double power; };
     QVector<Point> m_data;
     int m_mode = 2;   // 0=电量 1=金额 2=功率
+    int m_sessionId = -1;
 };
 
 #endif // CHARGECHARTWIDGET_H

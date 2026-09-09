@@ -264,7 +264,9 @@ int main(int argc,char **argv) {
         || !app.styleSheet().contains(QStringLiteral("Times New Roman"))
         || !searchEdit->property("compactFieldInstalled").toBool()
         || !statusFilter->property("compactFieldInstalled").toBool()
-        || searchEdit->width()>44 || statusFilter->width()>44)
+        || !searchEdit->property("compactExpanded").toBool()
+        || !statusFilter->property("compactExpanded").toBool()
+        || searchEdit->width()<230 || statusFilter->width()<160)
         return 87;
     auto stationCards=[&window] {
         QList<QPushButton *> result;

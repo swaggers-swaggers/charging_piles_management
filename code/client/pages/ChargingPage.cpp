@@ -1430,7 +1430,7 @@ void ChargingPage::onCancelWaiting()
 
 void ChargingPage::enterChargingView(const OrderInfo &order)
 {
-    const bool sameOrder = m_hasOrder && m_currentOrder.id == order.id;
+    const bool newChartSession = m_chart && m_chart->sessionId() != order.id;
     m_currentOrder = order;
     m_hasOrder = true;
     m_orderTitle->setText(QStringLiteral("订单 #%1    %2    电桩 %3")
@@ -1450,9 +1450,9 @@ void ChargingPage::enterChargingView(const OrderInfo &order)
             progress = double(order.simMinutes) / order.targetValue;
     }
     m_energyStage->setTelemetry(order.energy, -1.0, progress, targetDesc(order));
-    if (m_chart && !sameOrder) {
-        m_chart->clearData();
-        if (order.simMinutes > 0)
+    if (m_chart) {
+        m_chart->beginSession(order.id);
+        if (newChartSession && order.simMinutes > 0)
             m_chart->addPoint(order.simMinutes, order.energy, order.amount);
     }
     m_priceHint->setText(QStringLiteral("单价 %1 元/度 · 费用实时扣除 · %2")

@@ -373,20 +373,23 @@ private slots:
         QTRY_VERIFY(search->property("compactFieldInstalled").toBool());
         QTRY_VERIFY(region->property("compactFieldInstalled").toBool());
         QTRY_VERIFY(sort->property("compactFieldInstalled").toBool());
-        QTRY_VERIFY(search->width()<=44);
-        QTRY_VERIFY(region->width()<=44);
-        QTRY_VERIFY(sort->width()<=44);
+        QTRY_VERIFY(search->property("compactExpanded").toBool());
+        QTRY_VERIFY(search->width()>=230);
+        QTRY_VERIFY(region->property("compactExpanded").toBool());
+        QTRY_VERIFY(sort->property("compactExpanded").toBool());
+        QTRY_VERIFY(region->width()>=160);
+        QTRY_VERIFY(sort->width()>=160);
         QTest::mouseClick(search,Qt::LeftButton,Qt::NoModifier,search->rect().center());
         QTRY_VERIFY(search->width()>=230);
         QTest::mouseClick(nav->viewport(),Qt::LeftButton,Qt::NoModifier,
                           nav->visualItemRect(nav->currentItem()).center());
-        QTRY_VERIFY(search->width()<=44);
+        QTRY_VERIFY(search->width()>=230);
         QTest::mouseClick(region,Qt::LeftButton,Qt::NoModifier,region->rect().center());
         QTRY_VERIFY(region->width()>=160);
         region->hidePopup();
         QTest::mouseClick(nav->viewport(),Qt::LeftButton,Qt::NoModifier,
                           nav->visualItemRect(nav->currentItem()).center());
-        QTRY_VERIFY(region->width()<=44);
+        QTRY_VERIFY(region->width()>=160);
         const int rowY=search->geometry().center().y();
         QVERIFY(qAbs(region->geometry().center().y()-rowY)<=2);
         QVERIFY(qAbs(idle->geometry().center().y()-rowY)<=2);
@@ -637,6 +640,26 @@ private slots:
         }
         chart.show();
         QVERIFY(chart.grab().save("/tmp/charging-power-curve.png"));
+    }
+    void chargeChartSeparatesOrderSessions() {
+        ChargeChartWidget chart;
+        chart.beginSession(101);
+        chart.addPoint(1, 0.8, 0.96, 48.0);
+        chart.addPoint(2, 1.7, 2.04, 54.0);
+        QCOMPARE(chart.sessionId(), 101);
+        QCOMPARE(chart.pointCount(), 2);
+
+        // 新订单即使也从第 1 分钟开始，旧订单的点也必须全部丢弃。
+        chart.beginSession(102);
+        QCOMPARE(chart.sessionId(), 102);
+        QCOMPARE(chart.pointCount(), 0);
+        chart.addPoint(1, 0.9, 1.08, 51.0);
+        QCOMPARE(chart.pointCount(), 1);
+
+        // 调用方未显式切换会话时，时间倒退也不能连接旧折线。
+        chart.addPoint(3, 2.8, 3.36, 57.0);
+        chart.addPoint(1, 0.7, 0.84, 45.0);
+        QCOMPARE(chart.pointCount(), 1);
     }
     void activeChargeIsPreserved() {
         activeOrder=true;
