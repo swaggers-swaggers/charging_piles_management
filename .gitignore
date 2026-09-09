@@ -7,6 +7,7 @@
 # Qt Creator 构建目录(内含 .o / 可执行文件 / Makefile / moc / ui / qrc 等)
 build-*/
 build/
+_qt*/
 # 目标文件 / 库 / 可执行文件
 *.o
 *.obj
