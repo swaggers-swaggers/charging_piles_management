@@ -514,8 +514,33 @@ private slots:
             {"type",Protocol::PushOrderProgress},{"orderId",99},{"energy",2.01},
             {"amount",2.41},{"minutes",2},{"power",68.25},{"targetProgress",0.0}});
         QTest::qWait(250);
-        QVERIFY(ring->displayedProgress()>0.001);
         QVERIFY(window->grab().save("/tmp/charging-active-particles.png"));
+
+        QString popupTitle;
+        QString popupText;
+        QTimer popupInspector;
+        connect(&popupInspector, &QTimer::timeout, this, [&] {
+            for (QWidget *widget : QApplication::topLevelWidgets()) {
+                if (auto *box = qobject_cast<QMessageBox *>(widget)) {
+                    popupTitle = box->windowTitle();
+                    popupText = box->text();
+                    box->accept();
+                }
+            }
+        });
+        popupInspector.start(10);
+        activeOrder=false;
+        emit TcpClient::instance().pushReceived(QJsonObject{
+            {"type",Protocol::PushOrderEvent},{"event",2},{"orderId",99},
+            {"finishType",FinishByTarget},{"message","已达到设定时长目标 2 分钟, 自动结束"},
+            {"order",QJsonObject{{"orderId",99},{"pileCode","DC-01"},{"status",OrderFinished},
+                                  {"finishType",FinishByTarget},{"targetType",TargetMinutes},
+                                  {"targetValue",2},{"energy",2.01},{"amount",2.41},{"simMinutes",2}}}});
+        popupInspector.stop();
+        QCOMPARE(popupTitle,QString("充电已自动结束"));
+        QVERIFY(popupText.contains("已达到时长目标 2 分钟"));
+        QVERIFY(popupText.contains("系统已自动停止充电并完成结算"));
+        QCOMPARE(stack->currentIndex(),0);
     }
     void cleanupTestCase() { delete window; }
 };

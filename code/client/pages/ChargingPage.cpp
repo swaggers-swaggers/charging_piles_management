@@ -64,6 +64,20 @@ QString targetDesc(const OrderInfo &o)
     default:            return QStringLiteral("手动结束");
     }
 }
+
+QString reachedTargetDesc(const OrderInfo &o)
+{
+    switch (o.targetType) {
+    case TargetEnergy:
+        return QStringLiteral("已达到电量目标 %1 度").arg(o.targetValue, 0, 'f', 1);
+    case TargetAmount:
+        return QStringLiteral("已达到金额目标 %1 元").arg(o.targetValue, 0, 'f', 1);
+    case TargetMinutes:
+        return QStringLiteral("已达到时长目标 %1 分钟").arg(int(o.targetValue));
+    default:
+        return QStringLiteral("已达到设定目标");
+    }
+}
 } // namespace
 
 // ============================================================================
@@ -1498,7 +1512,11 @@ void ChargingPage::onPushReceived(const QJsonObject &msg)
         return;
     } else if (event == 2) {
         // 订单自动结束
-        const OrderInfo order = OrderInfo::fromJson(msg.value("order").toObject());
+        OrderInfo order = OrderInfo::fromJson(msg.value("order").toObject());
+        if (msg.contains("finishType"))
+            order.finishType = msg.value("finishType").toInt(order.finishType);
+        if (order.cancelReason.isEmpty())
+            order.cancelReason = msg.value("message").toString();
         const QJsonObject info = TcpClient::instance().request(
             Protocol::ReqGetUserInfo, QJsonObject{});
         double balance = ClientSession::instance().balance;
@@ -1549,17 +1567,26 @@ void ChargingPage::showSettlement(const OrderInfo &order, double balance)
     m_hasOrder = false;
 
     QString reason;
-    if (order.finishType == FinishByTarget) reason = QStringLiteral("已达到设定目标, 自动结束");
+    if (order.finishType == FinishByTarget) reason = reachedTargetDesc(order);
     else if (order.finishType == FinishByBalance) reason = QStringLiteral("余额用尽，自动结束");
     else if (order.finishType == FinishByAdmin) reason = QStringLiteral("管理员结束");
     else if (order.finishType == FinishByFault) reason = QStringLiteral("故障结束");
     else reason = QStringLiteral("用户手动结束");
 
+    const bool targetReached = order.finishType == FinishByTarget;
+    if (targetReached)
+        m_ring->setProgress(1.0);
+    const QString title = targetReached ? QStringLiteral("充电已自动结束")
+                                        : QStringLiteral("结算成功");
+    const QString lead = targetReached
+        ? QStringLiteral("%1，系统已自动停止充电并完成结算。").arg(reason)
+        : QStringLiteral("订单 #%1 已完成。").arg(order.id);
+
     QMessageBox::information(
-        this, QStringLiteral("结算成功"),
-        QStringLiteral("订单 #%1 已完成\n\n电桩: %2\n结束方式: %3\n充电电量: %4 度\n"
-                       "充电时长: %5 分钟\n消费金额: %6 元\n\n当前余额: %7 元")
-            .arg(order.id).arg(order.pileCode, reason)
+        this, title,
+        QStringLiteral("%1\n\n订单: #%2\n电桩: %3\n结束方式: %4\n充电电量: %5 度\n"
+                       "充电时长: %6 分钟\n消费金额: %7 元\n\n当前余额: %8 元")
+            .arg(lead).arg(order.id).arg(order.pileCode, reason)
             .arg(order.energy, 0, 'f', 2).arg(order.simMinutes)
             .arg(order.amount, 0, 'f', 2).arg(balance, 0, 'f', 2));
 

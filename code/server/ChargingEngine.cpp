@@ -579,6 +579,9 @@ void ChargingEngine::notifyOrderEnded(const OrderInfo &order, int finishType,
     ev.insert("orderId", order.id);
     ev.insert("order", order.toJson());
     ev.insert("finishType", finishType);
+    ev.insert("targetType", order.targetType);
+    ev.insert("targetValue", order.targetValue);
+    ev.insert("autoStopped", finishType == FinishByTarget || finishType == FinishByBalance);
     ev.insert("message", reason);
     pushToUser(order.userId, ev);
 }
