@@ -231,6 +231,14 @@ int main(int argc,char **argv) {
     auto *faultButton = window.findChild<QPushButton *>("faultButton");
     if (!occupancyBar || !pileTable || !searchEdit || !statusFilter || !faultButton)
         return 60;
+    QCoreApplication::processEvents();
+    if (!app.property("bundledChineseFontLoaded").toBool()
+        || app.property("bundledChineseFontFamily").toString()!=QStringLiteral("FandolFang")
+        || !app.styleSheet().contains(QStringLiteral("#838e7c"))
+        || !searchEdit->property("compactFieldInstalled").toBool()
+        || !statusFilter->property("compactFieldInstalled").toBool()
+        || searchEdit->width()>44 || statusFilter->width()>44)
+        return 87;
     auto stationCards=[&window] {
         QList<QPushButton *> result;
         for (auto *button : window.findChildren<QPushButton *>("stationManageCard"))

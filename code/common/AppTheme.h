@@ -2,12 +2,23 @@
 #define APPTHEME_H
 #include <QApplication>
 #include <QFile>
+#include <QFontDatabase>
 #include <QPalette>
 
 // 显式设置全部色组，避免桌面深色主题渗透到 viewport、Tab 和空表区域。
 namespace AppTheme {
 inline void apply(QApplication &app)
 {
+    const int fontId = QFontDatabase::addApplicationFont(
+        QStringLiteral(":/fonts/FandolFang-Regular.otf"));
+    const QStringList fontFamilies = QFontDatabase::applicationFontFamilies(fontId);
+    QFont applicationFont(fontFamilies.isEmpty() ? QStringLiteral("FandolFang")
+                                                  : fontFamilies.first());
+    applicationFont.setPointSize(11);
+    app.setFont(applicationFont);
+    app.setProperty("bundledChineseFontLoaded", !fontFamilies.isEmpty());
+    app.setProperty("bundledChineseFontFamily", applicationFont.family());
+
     QPalette palette;
     for (auto group : {QPalette::Active, QPalette::Inactive, QPalette::Disabled}) {
         palette.setColor(group, QPalette::Window, QColor("#F3F7F6"));

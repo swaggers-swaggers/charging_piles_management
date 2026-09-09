@@ -21,6 +21,7 @@
 #include <QTabBar>
 #include <cmath>
 #include "WindowChrome.h"
+#include "CompactField.h"
 
 namespace UiMotion {
 // 仅绘制短暂覆盖层，不改变布局或给 WebEngine 添加图形效果。
@@ -197,6 +198,9 @@ protected:
     bool eventFilter(QObject *object,QEvent *event) override {
         auto *w=qobject_cast<QWidget*>(object);
         if(!w || w->testAttribute(Qt::WA_TransparentForMouseEvents)) return false;
+        if(event->type()==QEvent::Polish) CompactFieldController::install(w);
+        if(event->type()==QEvent::MouseButtonPress)
+            CompactFieldController::handleGlobalPress(w);
         const bool clickable=qobject_cast<QAbstractButton*>(w) || qobject_cast<QComboBox*>(w)
             || qobject_cast<QAbstractSpinBox*>(w) || qobject_cast<QTabBar*>(w)
             || w->property("clickableCard").toBool()

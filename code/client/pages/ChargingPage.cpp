@@ -753,7 +753,8 @@ void ChargingPage::buildSelectView()
     m_stationSearch->setAccessibleName(QStringLiteral("搜索充电站"));
     QPushButton *searchBtn = new QPushButton(QStringLiteral("搜索"), m_selectView);
     searchBtn->setObjectName("chargingStationSearchButton");
-    searchRow->addWidget(m_stationSearch, 1);
+    searchRow->addWidget(m_stationSearch);
+    searchRow->addStretch(1);
     searchRow->addWidget(searchBtn);
 
     QHBoxLayout *stationRow = new QHBoxLayout();
@@ -764,11 +765,12 @@ void ChargingPage::buildSelectView()
     m_stationCombo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     QPushButton *refreshBtn = new QPushButton(QStringLiteral("刷新"), m_selectView);
     refreshBtn->setObjectName("searchButton");
-    stationRow->addWidget(m_stationCombo, 1);
+    stationRow->addWidget(m_stationCombo);
     stationRow->addWidget(refreshBtn);
     m_stationInfo = new QLabel(m_selectView);
     m_stationInfo->setStyleSheet("color:#6B7280;");
     stationRow->addWidget(m_stationInfo);
+    stationRow->addStretch(1);
 
     m_cardScroll = new QScrollArea(m_selectView);
     m_cardScroll->setWidgetResizable(true);

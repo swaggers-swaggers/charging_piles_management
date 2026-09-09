@@ -4,6 +4,7 @@
 #include <QDialog>
 #include <QVBoxLayout>
 #include <QLabel>
+#include <QLinearGradient>
 #include <QPushButton>
 #include <QMouseEvent>
 #include <QPainter>
@@ -33,7 +34,11 @@ protected:
     }
     void paintEvent(QPaintEvent *) override {
         QPainter p(this); p.setRenderHint(QPainter::Antialiasing); p.setPen(Qt::NoPen);
-        p.setBrush(QColor("#F3F7F6"));
+        QLinearGradient background(rect().topLeft(),rect().bottomRight());
+        background.setColorAt(0.0,QColor("#838e7c"));
+        background.setColorAt(0.5,QColor("#dbd4b8"));
+        background.setColorAt(1.0,QColor("#33662b"));
+        p.setBrush(background);
         QWidget *host = parentWidget();
         if (host && (host->isMaximized() || host->isFullScreen()))
             p.drawRect(rect());

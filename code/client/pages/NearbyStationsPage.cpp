@@ -92,9 +92,10 @@ NearbyStationsPage::NearbyStationsPage(QWidget *parent)
     m_sort->addItems({"距离优先", "空闲优先", "价格优先"});
     m_sort->setAccessibleName("站点排序");
     filterRow->addWidget(m_regionCombo);
-    filterRow->addWidget(m_search, 1);
+    filterRow->addWidget(m_search);
     filterRow->addWidget(m_idleOnly);
     filterRow->addWidget(m_sort);
+    filterRow->addStretch(1);
     filterRow->addWidget(refreshBtn);
     layout->addLayout(filterRow);
     m_count = new QLabel(this);

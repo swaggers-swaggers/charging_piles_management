@@ -210,6 +210,12 @@ private slots:
         AppTheme::apply(*qApp);
         QCOMPARE(qApp->palette().color(QPalette::Window), QColor("#F3F7F6"));
         QCOMPARE(qApp->palette().color(QPalette::Base), QColor("#FFFFFF"));
+        QVERIFY(qApp->property("bundledChineseFontLoaded").toBool());
+        QCOMPARE(qApp->property("bundledChineseFontFamily").toString(),QString("FandolFang"));
+        QVERIFY(QFile(QStringLiteral(":/fonts/FandolFang-Regular.otf")).exists());
+        QVERIFY(qApp->styleSheet().contains(QStringLiteral("#838e7c")));
+        QVERIFY(qApp->styleSheet().contains(QStringLiteral("#dbd4b8")));
+        QVERIFY(qApp->styleSheet().contains(QStringLiteral("#33662b")));
         ClientSession::instance().userId=1;
         ClientSession::instance().nickname="体验用户";
         ClientSession::instance().phone="138****8000";
@@ -323,6 +329,23 @@ private slots:
         auto *idle=page->findChild<QCheckBox*>();
         auto *sort=page->findChild<QComboBox*>("stationSort");
         QVERIFY(region && idle && sort);
+        QTRY_VERIFY(search->property("compactFieldInstalled").toBool());
+        QTRY_VERIFY(region->property("compactFieldInstalled").toBool());
+        QTRY_VERIFY(sort->property("compactFieldInstalled").toBool());
+        QTRY_VERIFY(search->width()<=44);
+        QTRY_VERIFY(region->width()<=44);
+        QTRY_VERIFY(sort->width()<=44);
+        QTest::mouseClick(search,Qt::LeftButton,Qt::NoModifier,search->rect().center());
+        QTRY_VERIFY(search->width()>=230);
+        QTest::mouseClick(nav->viewport(),Qt::LeftButton,Qt::NoModifier,
+                          nav->visualItemRect(nav->currentItem()).center());
+        QTRY_VERIFY(search->width()<=44);
+        QTest::mouseClick(region,Qt::LeftButton,Qt::NoModifier,region->rect().center());
+        QTRY_VERIFY(region->width()>=160);
+        region->hidePopup();
+        QTest::mouseClick(nav->viewport(),Qt::LeftButton,Qt::NoModifier,
+                          nav->visualItemRect(nav->currentItem()).center());
+        QTRY_VERIFY(region->width()<=44);
         const int rowY=search->geometry().center().y();
         QVERIFY(qAbs(region->geometry().center().y()-rowY)<=2);
         QVERIFY(qAbs(idle->geometry().center().y()-rowY)<=2);

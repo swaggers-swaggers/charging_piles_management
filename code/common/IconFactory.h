@@ -28,6 +28,7 @@ public:
         IconPlug,          // 插头+闪电: 附近充电站顶部艺术图标(替代外部 svg, 免依赖 QtSvg)
         IconHome,          // 首页: Bento 功能总览
         IconLogout,        // 退出登录
+        IconSearch,        // 搜索框收起态
     };
 
     static QIcon icon(IconType type, const QColor &color = QColor("#D8E4F0"), int px = 48)
@@ -182,6 +183,11 @@ private:
             p->drawLine(10, 12, 21, 12);
             p->drawLine(17, 8, 21, 12);
             p->drawLine(17, 16, 21, 12);
+            break;
+        }
+        case IconSearch: {
+            p->drawEllipse(QRectF(4, 4, 11, 11));
+            p->drawLine(13.5, 13.5, 20, 20);
             break;
         }
         }

@@ -1,5 +1,9 @@
 /* 客户端和管理端共用浅色主题。 */
-QWidget#appCentral, QStackedWidget#contentStack { background: #F3F7F6; }
+QWidget#appCentral {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                stop:0 #838e7c, stop:0.5 #dbd4b8, stop:1 #33662b);
+}
+QStackedWidget#contentStack { background: transparent; }
 QWidget#sidebar {
     background: #FFFFFF; border: 1px solid #DCE9E1; border-radius: 22px;
 }
@@ -104,10 +108,13 @@ QScrollBar:vertical { background: #ECF2EE; width: 7px; border: none; margin: 0px
 QScrollBar::handle:vertical { background: #B5CDBE; min-height: 32px; border-radius: 3px; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
 
-QMainWindow, QDialog, QStackedWidget, QScrollArea, QTabWidget::pane {
-    background: #F3F7F6; color: #243E33;
+QMainWindow, QDialog {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                stop:0 #838e7c, stop:0.5 #dbd4b8, stop:1 #33662b);
+    color: #243E33;
 }
-QAbstractScrollArea::corner { background: #F3F7F6; border: none; }
+QStackedWidget, QScrollArea, QTabWidget::pane { background: transparent; color: #243E33; }
+QAbstractScrollArea::corner { background: transparent; border: none; }
 QTableWidget, QTableView, QListWidget, QTextEdit {
     background: #FFFFFF; alternate-background-color: #F1F7F3; color: #243E33;
 }
@@ -118,7 +125,20 @@ QTabBar::tab:selected { background: #FFFFFF; color: #237653; border-bottom: 3px 
 QTabBar::tab:hover { background: #E0F0E5; }
 QToolTip { background: #FFFFFF; color: #243E33; border: 1px solid #B5CDBE; }
 QDateEdit, QDateTimeEdit, QTimeEdit { background: #FFFFFF; color: #243E33; border: 1px solid #D3E0D8; border-radius: 6px; padding: 7px; }
-QStatusBar { background: #F3F7F6; color: #667C73; }
+QStatusBar { background: rgba(255,255,255,205); color: #4C6257; }
+
+/* 搜索框与下拉框：默认是 42px 小按钮，点击后由 CompactField 动画展开。 */
+QLineEdit[compactFieldInstalled="true"], QComboBox[compactFieldInstalled="true"] {
+    min-height: 24px; border-radius: 10px; background: rgba(255,255,255,235);
+}
+QLineEdit[compactExpanded="false"], QComboBox[compactExpanded="false"] {
+    color: transparent; padding-left: 7px; padding-right: 7px;
+}
+QLineEdit[compactExpanded="true"], QComboBox[compactExpanded="true"] {
+    color: #243E33; background: #FFFFFF; border-color: #6E9F7D;
+}
+QComboBox[compactExpanded="false"]::drop-down { width: 38px; }
+QComboBox[compactExpanded="false"]::down-arrow { margin-right: 12px; }
 
 /* 首页：参照网页模板的信息型 Bento，卡片内部直接展示业务摘要。 */
 QWidget#homePage { background: transparent; }

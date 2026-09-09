@@ -1,11 +1,12 @@
 /* 企业稳重主题：深藏青 + 暖金 */
 QMainWindow, QDialog {
-    background: #F3F7F6;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                stop:0 #838e7c, stop:0.5 #dbd4b8, stop:1 #33662b);
 }
 
 QWidget {
     color: #243247;
-    font-family: "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+    font-family: "FandolFang", "FandolFang R", "Noto Serif CJK SC", serif;
     font-size: 13px;
 }
 

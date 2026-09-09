@@ -74,8 +74,9 @@ StationManagePage::StationManagePage(QWidget *parent)
     m_faultBtn->setObjectName("faultButton");
     m_faultBtn->setEnabled(false);
 
-    filterRow->addWidget(m_searchEdit, 1);
+    filterRow->addWidget(m_searchEdit);
     filterRow->addWidget(m_statusFilter);
+    filterRow->addStretch(1);
     filterRow->addWidget(searchBtn);
     filterRow->addWidget(refreshBtn);
     actionRow->addWidget(addBtn);

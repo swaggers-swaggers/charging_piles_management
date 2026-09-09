@@ -242,7 +242,8 @@ void AdminMainWindow::showConnectionInfo(QTcpServer *server)
     auto *copy = new QPushButton("复制地址", panel);
     auto *refresh = new QPushButton("刷新", panel);
     row->addWidget(label);
-    row->addWidget(addresses, 1);
+    row->addWidget(addresses);
+    row->addStretch(1);
     row->addWidget(copy);
     row->addWidget(refresh);
     auto *layout = qobject_cast<QVBoxLayout *>(m_stack->parentWidget()->layout());
