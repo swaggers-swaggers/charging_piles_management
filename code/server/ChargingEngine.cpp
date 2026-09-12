@@ -110,7 +110,8 @@ ChargingEngine::StartResult ChargingEngine::startCharging(int userId, int pileId
     QSqlDatabase db = connName.isEmpty() ? DatabaseManager::instance().database()
                                          : QSqlDatabase::database(connName);
 
-    // 读余额和已有订单之前取得写锁，其他连接等待后读取提交后的最新状态。
+    // 在读取余额、未完成订单和电桩状态之前先取得 SQLite 写锁，
+    // 并发请求必须等待本事务提交后再读取，不会基于旧快照重复建单。
     QSqlQuery begin(db);
     if (!begin.exec("BEGIN IMMEDIATE")) {
         r.errorCode = ErrDbError; r.error = begin.lastError().text(); return r;
@@ -118,6 +119,7 @@ ChargingEngine::StartResult ChargingEngine::startCharging(int userId, int pileId
     struct RollbackGuard {
         QSqlDatabase &db;
         bool active = true;
+        // RAII 保底：任何校验或 SQL 失败导致函数提前 return 时自动回滚。
         ~RollbackGuard() { if (active) db.rollback(); }
     } transaction{db};
 
@@ -167,7 +169,7 @@ ChargingEngine::StartResult ChargingEngine::startCharging(int userId, int pileId
         unitPrice = 1.0;
 
     QString err;
-    // 1) 原子抢桩: 仅空闲能抢到
+    // 抢桩和建单处于同一事务：只有空闲桩能被原子抢占，随后必须成功创建订单。
     if (!PileDao::acquire(pileId, &err, connName)) {
         r.errorCode = ErrPileBusy; r.error = "手慢了, 该桩刚被占用"; return r;
     }
@@ -187,6 +189,7 @@ ChargingEngine::StartResult ChargingEngine::startCharging(int userId, int pileId
     fulfillQueue.addBindValue(pileId);
     fulfillQueue.exec();
 
+    // commit 是唯一成功出口；提交前任一步失败都会同时撤销抢桩和建单。
     if (!db.commit()) {
         r.errorCode = ErrDbError; r.error = db.lastError().text(); return r;
     }
@@ -228,7 +231,8 @@ ChargingEngine::SettleResult ChargingEngine::settleOrder(int orderId, int finish
     QSqlDatabase db = connName.isEmpty() ? DatabaseManager::instance().database()
                                          : QSqlDatabase::database(connName);
 
-    // 先获取写锁，再读取结算金额，避免读快照升级写事务时与心跳竞争。
+    // 自动达标、余额耗尽、用户停止、管理员强制结束和故障中断均进入本函数。
+    // 先取得写锁再重读订单状态，保证多个结束入口竞争时只有一个能结算成功。
     QSqlQuery begin(db);
     if (!begin.exec("BEGIN IMMEDIATE")) { r.error = begin.lastError().text(); return r; }
 
@@ -248,6 +252,7 @@ ChargingEngine::SettleResult ChargingEngine::settleOrder(int orderId, int finish
     simMin = q.value(4).toInt();
     curStatus = q.value(5).toInt();
     if (curStatus != OrderCharging) {
+        // 后到的结束请求看到订单已完成后直接退出，避免重复落单和重复释放电桩。
         db.rollback(); r.error = "订单不在充电中, 无法结算"; return r;
     }
 
@@ -266,7 +271,8 @@ ChargingEngine::SettleResult ChargingEngine::settleOrder(int orderId, int finish
     fin.addBindValue(orderId);
     if (!fin.exec()) { db.rollback(); r.error = fin.lastError().text(); return r; }
 
-    // 2) 累计使用时长并释放桩; 故障桩(status=2)保持故障, 不重新变为空闲
+    // 订单落单和电桩释放共用本事务；费用已在每次心跳中增量扣除，此处不再扣款。
+    // 故障桩(status=2)保持故障, 不重新变为空闲。
     QSqlQuery rel(db);
     rel.prepare("UPDATE pile SET status=CASE WHEN status=2 THEN 2 ELSE 0 END,"
                 " total_count=total_count+1,"
@@ -306,6 +312,8 @@ ChargingEngine::SettleResult ChargingEngine::forceFinish(int orderId, const QStr
 bool ChargingEngine::refundOrder(int orderId, double amount, QString *err,
                                  const QString &connName)
 {
+    // 退款由管理端发起：先校验单次金额和累计上限，再在一个事务中
+    // 同时增加用户余额与订单 refund_amount，避免出现钱已退但订单无记录。
     if (amount <= 0) {
         if (err) *err = "退款金额必须大于 0";
         return false;
@@ -335,7 +343,7 @@ bool ChargingEngine::refundOrder(int orderId, double amount, QString *err,
     if (!ro.exec()) { db.rollback(); if (err) *err = ro.lastError().text(); return false; }
     if (!db.commit()) { db.rollback(); if (err) *err = db.lastError().text(); return false; }
 
-    // 退款成功后推送消息给用户(消息系统统一入口)
+    // 只有两项数据都持久化成功后才通知用户；用户离线不影响已提交的退款。
     QJsonObject ev;
     ev.insert("type", PushOrderEvent);
     ev.insert("event", 8);   // 8=退款到账通知
@@ -392,12 +400,14 @@ void ChargingEngine::recoverOnStart()
 // ---------------------------------------------------------------------------
 void ChargingEngine::onTick()
 {
+    // 定时器每 3000 ms 调用一次，每次心跳代表 1 个模拟充电分钟。
     sweepActiveOrders();
     sweepReservations();
 }
 
 void ChargingEngine::sweepActiveOrders()
 {
+    // 订单进度全部以数据库为准，客户端断线后仍可继续推进和扣费。
     const QList<OrderInfo> actives = OrderDao::listActive();
     for (const OrderInfo &o : actives) {
         QSqlDatabase db = DatabaseManager::instance().database();
@@ -428,6 +438,7 @@ void ChargingEngine::sweepActiveOrders()
             continue;
         }
 
+        // 电量积分：本轮新增电量 = 平均功率(kW) × 模拟分钟数 / 60。
         int newMin = ctx.simMinutes + ChargeConfig::kMinutesPerTick;
         const double power = ChargingPowerModel::averageKw(ctx.power, o.id,
             ctx.simMinutes + ChargeConfig::kMinutesPerTick / 2.0, ctx.energy);
@@ -458,7 +469,8 @@ void ChargingEngine::sweepActiveOrders()
         newEnergy = qRound(newEnergy * 1000.0) / 1000.0;
         newAmount = qRound(newAmount * 100.0) / 100.0;
 
-        // 每次只扣本轮新产生的费用；余额不足时扣完剩余余额并立即结束。
+        // 增量计费：本轮只扣“新累计金额-旧累计金额”，不会把历史费用重复扣除。
+        // 余额不足时最多扣完现有余额，反算最后实际电量并标记自动结束。
         double charge = qMax(0.0, newAmount - ctx.amount);
         const double available = qMax(0.0, ctx.userBalance);
         if (charge > available + 0.000001) {
@@ -487,7 +499,8 @@ void ChargingEngine::sweepActiveOrders()
             continue;
         }
 
-        // 余额扣款与进度写入共用事务，任一步失败都会一起回滚。
+        // 余额扣款与进度写入共用事务，任一步失败都会一起回滚，
+        // 保证“钱已扣但电量未记录”和“电量已记录但未扣款”都不会发生。
         if (!OrderDao::updateProgress(o.id, newEnergy, newAmount, newMin)) {
             db.rollback();
             continue;
@@ -497,6 +510,7 @@ void ChargingEngine::sweepActiveOrders()
             continue;
         }
 
+        // 先提交本轮最后一次进度与扣款，再进入统一结算，避免嵌套写事务。
         if (finish >= 0) {
             SettleResult sr = settleOrder(o.id, finish, reason);
             if (sr.ok)

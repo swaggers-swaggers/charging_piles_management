@@ -2,5 +2,7 @@
     <qresource prefix="/">
         <file alias="web/index.html">../web/index.html</file>
         <file alias="web/echarts.min.js">../web/echarts.min.js</file>
+        <file alias="web/map.html">../web/map.html</file>
+        <file alias="web/dashboard-data.json">../web/dashboard-data.json</file>
     </qresource>
 </RCC>

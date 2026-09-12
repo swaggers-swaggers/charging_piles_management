@@ -68,6 +68,8 @@ QString DatabaseManager::resolveDatabaseFile() const
 
 bool DatabaseManager::init(QString *errMsg)
 {
+    // 主线程使用 Qt 的默认无名连接；客户端工作线程会在 ClientHandler::start()
+    // 中另建命名连接，避免把 QSqlDatabase 连接跨线程共享。
     m_dbPath = resolveDatabaseFile();
     m_db = QSqlDatabase::addDatabase("QSQLITE");   // 默认无名连接
     m_db.setDatabaseName(m_dbPath);
@@ -77,7 +79,8 @@ bool DatabaseManager::init(QString *errMsg)
                           .arg(m_dbPath, m_db.lastError().text());
         return false;
     }
-    // WAL 模式: 管理端写订单/统计时, 大屏只读连接不会锁库
+    // WAL 允许读取者与写入者尽量并行；busy_timeout 在遇到短暂写锁时
+    // 等待最多 3 秒；foreign_keys 在主连接上开启外键完整性校验。
     QSqlQuery pragma(m_db);
     pragma.exec("PRAGMA journal_mode=WAL");
     pragma.exec("PRAGMA busy_timeout=3000");

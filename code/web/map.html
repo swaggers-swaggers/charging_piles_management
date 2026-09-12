@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>程序站点导航地图</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css">
+  <script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+  <style>
+    *{box-sizing:border-box}html,body,#map,#fallback{width:100%;height:100%;margin:0}
+    body{overflow:hidden;background:#e8f1ec;font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#173e33}
+    #map{position:absolute;inset:0;z-index:2;opacity:0;transition:opacity .2s ease}
+    #fallback{position:absolute;inset:0;z-index:1;overflow:hidden;background:
+      linear-gradient(25deg,transparent 47%,rgba(255,255,255,.86) 48%,rgba(255,255,255,.86) 51%,transparent 52%) 0 0/120px 82px,
+      linear-gradient(-18deg,transparent 46%,rgba(255,255,255,.7) 47%,rgba(255,255,255,.7) 50%,transparent 51%) 0 0/150px 100px,
+      radial-gradient(circle at 45% 52%,#f8fbf9 0 19%,#dfeee5 20% 42%,#d5e8dc 43% 100%)}
+    #fallback::before{content:"北京市 · 本地地图降级视图";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:22px;font-weight:800;color:rgba(23,62,51,.28);white-space:nowrap}
+    #fallback-markers{position:absolute;inset:0}
+    #status{display:none;position:absolute;z-index:6;left:12px;bottom:10px;padding:6px 10px;color:#72572c;background:rgba(255,249,235,.95);border:1px solid #e7d6ae;border-radius:7px;font-size:11px;box-shadow:0 3px 12px rgba(24,38,61,.12)}
+    .marker{width:15px;height:15px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(24,65,44,.36);cursor:pointer;transition:transform .16s ease}
+    .marker:hover{transform:scale(1.35)}.marker.normal{background:#16845f}.marker.busy{background:#c58b20}.marker.fault{background:#cf4f59}
+    .fallback-marker{position:absolute;z-index:3}.fallback-marker::after{content:attr(data-name);display:none;position:absolute;left:18px;top:-8px;width:max-content;max-width:190px;padding:6px 8px;background:#fff;border:1px solid #dce8df;border-radius:6px;color:#173e33;font-size:11px;box-shadow:0 4px 14px rgba(24,65,44,.16)}
+    .fallback-marker:hover::after{display:block}
+    .popup-title{font-size:13px;font-weight:800;color:#173e33;margin-bottom:5px}.popup-row{font-size:11px;color:#526d63;line-height:1.65}.popup-idle{color:#16845f;font-weight:700}
+    .maplibregl-popup-content{border-radius:9px;padding:11px 13px}.maplibregl-ctrl-group{border-radius:8px!important}
+  </style>
+</head>
+<body>
+  <div id="fallback"><div id="fallback-markers"></div></div>
+  <div id="map"></div>
+  <div id="status">在线底图暂不可用，已切换到本地降级视图。</div>
+  <script>
+    let map=null,mapReady=false,pending=null,markers=[];
+    const status=document.getElementById('status');
+    function levelOf(s){if(s.level)return s.level;const rate=Number(s.idlePiles||0)/Math.max(Number(s.totalPiles||1),1);return rate<.2?'busy':'normal'}
+    function clear(){markers.forEach(m=>m.remove());markers=[];document.getElementById('fallback-markers').innerHTML=''}
+    function popup(s){const box=document.createElement('div');const title=document.createElement('div');title.className='popup-title';title.textContent=s.name;box.appendChild(title);[
+      s.address||'暂无地址',`电价：${Number(s.price||0).toFixed(2)} 元/度`,`空闲：${s.idlePiles||0} / ${s.totalPiles||0}`
+    ].forEach((text,i)=>{const row=document.createElement('div');row.className='popup-row'+(i===2?' popup-idle':'');row.textContent=text;box.appendChild(row)});return box}
+    function renderFallback(data){const host=document.getElementById('fallback-markers');const list=data.stations||[];const lons=list.map(s=>Number(s.lon)),lats=list.map(s=>Number(s.lat));const minLon=Math.min(...lons,116.1),maxLon=Math.max(...lons,116.7),minLat=Math.min(...lats,39.7),maxLat=Math.max(...lats,40.1);list.forEach(s=>{const el=document.createElement('div');el.className=`marker fallback-marker ${levelOf(s)}`;el.dataset.name=s.name;el.style.left=`${8+(Number(s.lon)-minLon)/Math.max(maxLon-minLon,.01)*84}%`;el.style.top=`${8+(maxLat-Number(s.lat))/Math.max(maxLat-minLat,.01)*82}%`;host.appendChild(el)})}
+    function render(data){pending=data;clear();renderFallback(data);if(!mapReady)return;(data.stations||[]).forEach(s=>{const el=document.createElement('div');el.className=`marker ${levelOf(s)}`;el.title=s.name;markers.push(new maplibregl.Marker({element:el}).setLngLat([s.lon,s.lat]).setPopup(new maplibregl.Popup({offset:15}).setDOMContent(popup(s))).addTo(map))});if(data.fitView!==false&&data.stations?.length){const bounds=new maplibregl.LngLatBounds();data.stations.forEach(s=>bounds.extend([s.lon,s.lat]));map.fitBounds(bounds,{padding:42,maxZoom:11.8,duration:500})}}
+    window.setChargingMapData=render;
+    addEventListener('message',event=>{if(event.data?.type==='charging-map-data')render(event.data.payload)});
+    try{
+      map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/liberty',center:[116.4074,39.9042],zoom:9.5,attributionControl:false});
+      map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
+      map.on('load',()=>{mapReady=true;document.getElementById('map').style.opacity='1';document.getElementById('fallback').style.display='none';status.style.display='none';if(pending)render(pending)});
+      map.on('error',()=>{if(!mapReady){document.getElementById('map').style.display='none';status.style.display='block'}});
+      setTimeout(()=>{if(!mapReady){document.getElementById('map').style.display='none';status.style.display='block'}},10000);
+    }catch(e){document.getElementById('map').style.display='none';status.style.display='block'}
+  </script>
+</body>
+</html>

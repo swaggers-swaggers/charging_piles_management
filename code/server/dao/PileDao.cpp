@@ -132,6 +132,8 @@ bool PileDao::statusCounts(int *idle, int *inUse, int *fault, QString *errMsg,
 bool PileDao::acquire(int pileId, QString *errMsg, const QString &connName)
 {
     QSqlQuery q(daoDb(connName));
+    // 将“是否空闲”和“改为在用”合并为一条条件 UPDATE，避免先 SELECT
+    // 再 UPDATE 时的竞争窗口；并发抢桩时只有一个请求能改动这一行。
     q.prepare("UPDATE pile SET status=1 WHERE id=? AND status=0");
     q.addBindValue(pileId);
     if (!q.exec()) {
@@ -139,6 +141,7 @@ bool PileDao::acquire(int pileId, QString *errMsg, const QString &connName)
             *errMsg = q.lastError().text();
         return false;
     }
+    // 影响 1 行表示本请求抢桩成功；影响 0 行表示电桩已被其他请求占用。
     return q.numRowsAffected() == 1;
 }
 

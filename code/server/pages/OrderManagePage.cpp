@@ -317,6 +317,8 @@ void OrderManagePage::onRefund()
 {
     if (m_selectedOrderId < 0)
         return;
+    // 界面默认建议退回“订单消费-累计已退”的剩余可退金额，最终上限
+    // 仍由 ChargingEngine::refundOrder() 校验，不把数据安全只寄托在按钮状态上。
     const double suggest = qMax(0.0, m_selectedOrderAmount - m_selectedRefunded);
     bool ok = false;
     const double amount = QInputDialog::getDouble(

@@ -53,7 +53,8 @@ void ClientHandler::start()
         return;
     }
 
-    // 本线程私有的数据库连接
+    // Qt 要求数据库连接只在其创建线程中使用，因此每个 ClientHandler
+    // 按工作线程 ID 创建私有命名连接，并把连接名透传给 DAO。
     m_dbConnName = QString("client-%1")
                        .arg(reinterpret_cast<quintptr>(QThread::currentThreadId()), 0, 16);
     QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", m_dbConnName);
@@ -81,6 +82,8 @@ void ClientHandler::start()
 
 void ClientHandler::onReadyRead()
 {
+    // TCP 是无消息边界的字节流：一次 readAll() 可能只是半包，也可能
+    // 包含多条粘在一起的消息，所以先全部追加到持久缓冲区。
     m_buffer.append(m_socket->readAll());
 
     if (m_buffer.size() > 1024 * 1024) {
@@ -90,6 +93,8 @@ void ClientHandler::onReadyRead()
     }
 
     int idx;
+    // 协议规定每条 Compact JSON 以 '\n' 结尾：while 可一次拆出多个粘包，
+    // 未找到换行符的尾部半包保留在 m_buffer，等待下次 readyRead() 继续拼接。
     while ((idx = m_buffer.indexOf('\n')) >= 0) {
         const QByteArray line = m_buffer.left(idx);
         m_buffer.remove(0, idx + 1);
@@ -107,6 +112,7 @@ void ClientHandler::onDisconnected()
 
 void ClientHandler::processLine(const QByteArray &line)
 {
+    // 这里接收的已是拆包后的一条完整帧，只负责 JSON 校验和业务分发。
     if (line.trimmed().isEmpty())
         return;
 
@@ -641,6 +647,7 @@ void ClientHandler::sendJson(const QJsonObject &obj)
 {
     if (!m_socket)
         return;
+    // Compact JSON 保持单行，末尾 '\n' 是应用层帧边界，供对端解决半包和粘包。
     m_socket->write(QJsonDocument(obj).toJson(QJsonDocument::Compact) + '\n');
 }
 
