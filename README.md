@@ -40,6 +40,19 @@ ChargingServer（Qt 管理后台 + TCP 服务 + 充电引擎）
 
 ## 快速开始
 
+### 0. 首次生成本地数据库
+
+仓库不提交运行数据库。拉取项目后，先将北京模拟数据集导入本地 SQLite：
+
+```bash
+python3 database/import_beijing_dataset.py
+```
+
+脚本读取仓库根目录的 `05.北京模拟充电数据集.zip`，创建 `database/test.db`，并生成
+`analytics_beijing_*` 分析表。数据库已存在时会先创建备份；生成的数据库、备份及
+WAL/SHM 文件均被 Git 忽略，不应提交。首次启动 `ChargingServer` 时会继续初始化原有
+业务表和演示数据。
+
 ### 1. 构建程序
 
 推荐使用 Qt Creator 打开 [code/ChargingPlatform.pro](code/ChargingPlatform.pro)，选择配置好依赖的 Kit，构建 `ChargingServer` 和 `ChargingClient`。两个程序也可通过各自的 `.pro` 独立构建。

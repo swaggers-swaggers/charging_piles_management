@@ -100,15 +100,20 @@ def load_navigation_stations(db_path: Path):
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     try:
-        rows = conn.execute(
-            """
-            SELECT s.id, s.name, s.address, s.longitude, s.latitude, s.price,
-                   COUNT(p.id) AS total_piles,
-                   SUM(CASE WHEN p.status = 0 THEN 1 ELSE 0 END) AS idle_piles
-            FROM station s LEFT JOIN pile p ON p.station_id = s.id
-            GROUP BY s.id ORDER BY s.id
-            """
-        ).fetchall()
+        try:
+            rows = conn.execute(
+                """
+                SELECT s.id, s.name, s.address, s.longitude, s.latitude, s.price,
+                       COUNT(p.id) AS total_piles,
+                       SUM(CASE WHEN p.status = 0 THEN 1 ELSE 0 END) AS idle_piles
+                FROM station s LEFT JOIN pile p ON p.station_id = s.id
+                GROUP BY s.id ORDER BY s.id
+                """
+            ).fetchall()
+        except sqlite3.Error:
+            # 新成员可能先导入分析库、后启动 Qt 服务端；此时业务站点表尚未创建。
+            # 大屏会自动使用数据集的行政区示意坐标，不让首次构建失败。
+            return []
         return [
             {
                 "id": row["id"],
