@@ -1,0 +1,1 @@
+{"type":"array","minItems":1,"items":{"type":"object","required":["station_id","name","district","device_count"],"properties":{"station_id":{"type":"integer"},"device_count":{"type":"integer","minimum":1},"name":{"type":"string"},"district":{"type":"string"}}}}

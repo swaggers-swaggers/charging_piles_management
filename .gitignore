@@ -76,3 +76,15 @@ __pycache__/
 01.项目说明书-东软电动汽车充电桩应用管理平台.doc
 .~副本充电桩管理平台_项目汇报_白底版(2).pptx
 .~.项目说明书-东软电动汽车充电桩应用管理平台.doc
+
+# Spark / Hadoop generated data and isolated runtime
+.venv-bigdata/
+.bigdata/
+.pytest_cache/
+artifacts/
+metastore_db/
+derby.log
+spark-warehouse/
+code/web/data/runs/
+code/web/data/current.json
+code/web/data/latest-attempt.json

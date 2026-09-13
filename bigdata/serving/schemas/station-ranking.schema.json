@@ -1,0 +1,1 @@
+{"type":"array","minItems":1,"items":{"type":"object","required":["station_id","station_name","energy_kwh","health"],"properties":{"station_id":{"type":"integer"},"health":{"type":"number","minimum":0,"maximum":100}}}}

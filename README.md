@@ -119,3 +119,7 @@ WAL/SHM 文件均被 Git 忽略，不应提交。首次启动 `ChargingServer` �
 - [用户首页重构说明](docs/用户首页重构说明.md)
 
 设计方案和开发计划保留了阶段性规划；当前功能、配置和行为以源码及实际运行结果为准。
+
+## Spark / Hadoop 充电预测工程
+
+新增独立的 PySpark 数据治理、SparkSQL 分析、MLlib 负荷 / 用户模型与四主题 Web 大屏。完整复现、HDFS/YARN 配置和数据口径见 [bigdata/README.md](bigdata/README.md)，现场演示见 [bigdata/DEMO.md](bigdata/DEMO.md)。此模块不改动 Qt、TCP 或 SQLite 核心业务流程。

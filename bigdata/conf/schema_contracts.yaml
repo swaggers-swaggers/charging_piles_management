@@ -1,0 +1,254 @@
+timezone: Asia/Shanghai
+data_nature: 模拟数据
+tables:
+  station:
+    source_file: beijing_stations.csv
+    primary_key:
+    - station_id
+    fields:
+    - source: stationId
+      name: station_id
+      type: int
+      required: true
+    - source: locationId
+      name: district
+      type: string
+      required: true
+    - source: facilityType
+      name: facility_type
+      type: int
+      required: true
+    - source: station_name
+      name: station_name
+      type: string
+      required: true
+    - source: address
+      name: address
+      type: string
+      required: true
+    - source: device_count
+      name: device_count
+      type: int
+      required: true
+    - source: open_time
+      name: open_time
+      type: string
+      required: true
+    - source: update_time
+      name: update_time
+      type: date
+      required: true
+  weather:
+    source_file: beijing_weather.csv
+    primary_key:
+    - dt
+    fields:
+    - source: date
+      name: dt
+      type: date
+      required: true
+    - source: weekday
+      name: weekday
+      type: int
+      required: true
+    - source: holiday
+      name: holiday
+      type: int
+      required: true
+    - source: temp_high
+      name: temp_high
+      type: double
+      required: true
+    - source: temp_low
+      name: temp_low
+      type: double
+      required: true
+    - source: condition
+      name: condition
+      type: int
+      required: true
+    - source: precipitation
+      name: precipitation
+      type: double
+      required: true
+  session:
+    source_file: beijing_sessions.csv
+    primary_key:
+    - session_id
+    fields:
+    - source: sessionId
+      name: session_id
+      type: long
+      required: true
+    - source: kwhTotal
+      name: kwh_total
+      type: decimal(18,6)
+      required: true
+    - source: charging_fees
+      name: charging_fees
+      type: decimal(18,6)
+      required: true
+    - source: created
+      name: created
+      type: timestamp
+      required: true
+    - source: ended
+      name: ended
+      type: timestamp
+      required: true
+    - source: startTime
+      name: start_hour
+      type: int
+      required: true
+    - source: endTime
+      name: end_hour
+      type: int
+      required: true
+    - source: chargeTimeHrs
+      name: charge_time_hrs
+      type: double
+      required: true
+    - source: weekday
+      name: weekday_text
+      type: string
+      required: true
+    - source: platform
+      name: platform
+      type: string
+      required: true
+    - source: userId
+      name: user_id
+      type: int
+      required: true
+    - source: stationId
+      name: station_id
+      type: int
+      required: true
+    - source: locationId
+      name: district
+      type: string
+      required: true
+    - source: managerVehicle
+      name: manager_vehicle
+      type: int
+      required: true
+    - source: facilityType
+      name: facility_type
+      type: int
+      required: true
+    - source: Mon
+      name: mon
+      type: int
+      required: true
+    - source: Tues
+      name: tues
+      type: int
+      required: true
+    - source: Wed
+      name: wed
+      type: int
+      required: true
+    - source: Thurs
+      name: thurs
+      type: int
+      required: true
+    - source: Fri
+      name: fri
+      type: int
+      required: true
+    - source: Sat
+      name: sat
+      type: int
+      required: true
+    - source: Sun
+      name: sun
+      type: int
+      required: true
+  snapshot:
+    source_file: beijing_snapshots.csv
+    primary_key:
+    - station_id
+    - record_time
+    fields:
+    - source: stationId
+      name: station_id
+      type: int
+      required: true
+    - source: record_time
+      name: record_time
+      type: timestamp
+      required: true
+    - source: in_use
+      name: in_use
+      type: int
+      required: true
+    - source: idle
+      name: idle
+      type: int
+      required: true
+    - source: fault
+      name: fault
+      type: int
+      required: true
+    - source: charging_power_kw
+      name: charging_power_kw
+      type: double
+      required: true
+    - source: queue_count
+      name: queue_count
+      type: int
+      required: true
+    - source: cum_kwh_day
+      name: cum_kwh_day
+      type: double
+      required: true
+  bms:
+    source_file: beijing_bms.csv
+    primary_key:
+    - session_id
+    - record_time
+    fields:
+    - source: esd
+      name: session_id
+      type: long
+      required: true
+    - source: record_time
+      name: record_time
+      type: timestamp
+      required: true
+    - source: soc
+      name: soc
+      type: double
+      required: true
+    - source: pack_voltage (V)
+      name: pack_voltage_v
+      type: double
+      required: true
+    - source: charge_current (A)
+      name: charge_current_a
+      type: double
+      required: true
+    - source: max_cell_voltage (V)
+      name: max_cell_voltage_v
+      type: double
+      required: true
+    - source: min_cell_voltage (V)
+      name: min_cell_voltage_v
+      type: double
+      required: true
+    - source: max_temperature (℃)
+      name: max_temperature_c
+      type: double
+      required: true
+    - source: min_temperature (℃)
+      name: min_temperature_c
+      type: double
+      required: true
+    - source: available_energy (kw)
+      name: available_energy_kw
+      type: double
+      required: true
+    - source: available_capacity (Ah)
+      name: available_capacity_ah
+      type: double
+      required: true

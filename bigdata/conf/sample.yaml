@@ -1,0 +1,13 @@
+root: .bigdata/sample-lake
+source_zip: .bigdata/sample.zip
+master: local[2]
+shuffle_partitions: 4
+train_end: '2026-06-01'
+validation_end: '2026-08-01'
+test_end: '2026-09-11'
+forecast_origin: '2026-09-11 23:00:00'
+gbt_iterations: 5
+gbt_depth: 3
+als_iterations: 3
+als_rank: 4
+sample: true

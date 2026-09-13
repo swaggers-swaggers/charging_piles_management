@@ -1,0 +1,11 @@
+root: hdfs://localhost:9000/charging
+master: yarn
+shuffle_partitions: 24
+train_end: '2026-06-01'
+validation_end: '2026-08-01'
+test_end: '2026-09-11'
+forecast_origin: '2026-09-11 23:00:00'
+gbt_iterations: 20
+gbt_depth: 5
+als_iterations: 10
+als_rank: 12
