@@ -27,7 +27,9 @@ def ingest(s,c,a):
     prev=read_json(s,c,'ods/manifests/'+c['run_id'][:8]+'/'+table+'.json')
     if prev['sha256']!=digest.hexdigest() or old!=lines-1: raise ValueError('Immutable ODS conflict '+table)
    else:
-    fs.mkdirs(p.getParent()); fs.copyFromLocalFile(False,False,s._jvm.org.apache.hadoop.fs.Path(local.as_uri()),p)
+    # Hadoop Path 会自行对空格和中文进行 URI 转义；传入 as_uri() 会造成二次编码，
+    # 最终把 %E5... 当作本地文件名。直接传绝对路径可兼容中文项目目录。
+    fs.mkdirs(p.getParent()); fs.copyFromLocalFile(False,False,s._jvm.org.apache.hadoop.fs.Path(str(local.resolve())),p)
    if not fs.exists(p): raise RuntimeError('ODS missing '+target)
    count=s.read.option('header',True).csv(target).count()
    if count!=lines-1: raise ValueError('ODS count mismatch')

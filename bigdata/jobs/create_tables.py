@@ -7,7 +7,9 @@ def create(s,c,a):
  for name,loc in names.items():
   if not exists(s,c,loc): continue
   d=read(s,c,loc)
-  schema=d.schema.toDDL()
+  # Python StructType.toDDL() is only available in newer PySpark releases.
+  # Use the JVM StructType API as a compatibility path for the installed Spark 3.4 cluster.
+  schema=d._jdf.schema().toDDL()
   partition=" PARTITIONED BY (dt)" if 'dt' in d.columns and name!='dwd_station' else ''
   s.sql(f"CREATE TABLE IF NOT EXISTS charging.{name} ({schema}) USING PARQUET{partition} LOCATION '{path(c,loc)}'")
   if partition: s.sql(f'MSCK REPAIR TABLE charging.{name}')
