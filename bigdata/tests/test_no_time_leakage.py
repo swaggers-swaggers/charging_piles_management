@@ -4,6 +4,7 @@ import pytest
 from pyspark.sql import functions as F
 from build_load_features import features,FEATURES,EXOG
 from modeling import feature_vector,forecast,backtest
+from train_direct_load import direct_frame
 
 def test_future_perturbation_cannot_change_past_features(spark):
  start=dt.datetime(2026,1,1)
@@ -30,3 +31,14 @@ def test_incomplete_end_window_excluded():
  times=[dt.datetime(2026,1,1)+dt.timedelta(hours=i) for i in range(200)]
  m,_,_=backtest(times,list(range(200)),[0]*200,{},'2026-01-09','2026-01-10','hour')
  assert m['n']==0
+
+def test_direct_horizon_target_never_crosses_split(spark):
+ start=dt.datetime(2026,1,1)
+ rows=[(1001,start+dt.timedelta(hours=i),float(i),float(i-168) if i>=168 else 0.,12) for i in range(240)]
+ d=spark.createDataFrame(rows,'station_id int,event_hour timestamp,load_kwh double,baseline_8week double,device_count int')
+ c={'train_end':'2026-01-09 00:00:00','validation_end':'2026-01-10 00:00:00','test_end':'2026-01-11 00:00:00'}
+ frame=direct_frame(d,6,c)
+ assert frame.filter((F.col('direct_split')=='train')&(F.col('target_end')>=F.lit(c['train_end']))).count()==0
+ row=frame.filter(F.col('event_hour')==start+dt.timedelta(hours=180)).first()
+ assert row.target_kwh==sum(range(180,186))
+ assert row.label_per_device==pytest.approx(sum(range(180,186))/12)

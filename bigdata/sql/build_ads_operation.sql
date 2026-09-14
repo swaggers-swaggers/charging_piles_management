@@ -40,7 +40,11 @@ FROM (SELECT user_id,count(*) visits,avg(kwh_total) avg_kwh,
 GROUP BY CASE WHEN visits>=300 THEN '高活跃' WHEN visits>=100 THEN '常规' ELSE '低频' END;
 CREATE OR REPLACE TEMP VIEW load_discrepancy AS
 SELECT sum(load_kwh) settlement_kwh,sum(telemetry_kwh) telemetry_kwh,
- (sum(telemetry_kwh)-sum(load_kwh))/sum(load_kwh) relative_difference
+ (sum(telemetry_kwh)-sum(load_kwh))/sum(load_kwh) relative_difference,
+ CASE WHEN (SELECT max(cum_kwh_day) FROM snapshots)>0 THEN true ELSE false END comparable,
+ CASE WHEN (SELECT max(cum_kwh_day) FROM snapshots)>0
+      THEN '累计电量可用，可辅助核对功率积分与结算电量'
+      ELSE '累计电量字段全零；功率快照与会话结算属于不同模拟口径，暂不直接比较' END comparison_note
 FROM hourly WHERE missing_snapshots=0;
 
 CREATE OR REPLACE TEMP VIEW device_status AS

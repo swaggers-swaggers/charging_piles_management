@@ -34,26 +34,34 @@ def train(s,c,a):
  for kind,model in models.items():
   predictions[kind]={(r.user_id,r.slot):float(r.prediction) for r in model.transform(candidates).select('user_id','slot','prediction').collect()}
  def order(scores): return sorted(range(168),key=lambda i:(-float(scores[i]),i))
- ranks={'als':{},'user_history':{},'global_popular':{}}
+ def normalize(values):
+  a=np.asarray(values,dtype=float); finite=np.isfinite(a)
+  if not finite.any(): return np.zeros_like(a)
+  lo,hi=float(a[finite].min()),float(a[finite].max()); a[~finite]=lo
+  return (a-lo)/(hi-lo) if hi>lo else np.zeros_like(a)
+ ranks={'als':{},'hybrid':{},'user_history':{},'global_popular':{}}
  for u in users:
   scores=[predictions['time'].get((u,k),float('nan')) for k in range(168)]
   scores=[x if math.isfinite(x) else popular[k] for k,x in enumerate(scores)]
-  ranks['als'][u]=order(scores); ranks['user_history'][u]=order(counts[u]); ranks['global_popular'][u]=order(popular)
+  hybrid=.5*normalize(scores)+.35*normalize(counts[u])+.15*normalize(popular)
+  ranks['als'][u]=order(scores); ranks['hybrid'][u]=order(hybrid); ranks['user_history'][u]=order(counts[u]); ranks['global_popular'][u]=order(popular)
  evaluation={}
  for split in ['validation','test']:
   held=[r.asDict() for r in data.filter(F.col('split')==split).collect()]
   time_metrics={name:ranking_metrics(rank,held) for name,rank in ranks.items()}
   actual=[r['kwh_total'] for r in held]; energy_metrics={}
-  for kind in ['als','user_mean','slot_mean']:
+  for kind in ['als','hybrid','user_mean','slot_mean']:
    pp=[]
    for r in held:
     fallback=energy_fallback(r['user_id'],r['slot'],user_means,slot_means,global_mean)
-    value=predictions['energy'].get((r['user_id'],r['slot']),float('nan')) if kind=='als' else (fallback if kind=='user_mean' else slot_means.get(r['slot'],global_mean))
+    als_value=predictions['energy'].get((r['user_id'],r['slot']),float('nan'))
+    if not math.isfinite(als_value): als_value=fallback
+    value=als_value if kind=='als' else ((als_value+fallback)/2 if kind=='hybrid' else (fallback if kind=='user_mean' else slot_means.get(r['slot'],global_mean)))
     pp.append(float(np.clip(value if math.isfinite(value) else fallback,*bounds)))
    energy_metrics[kind]=metrics(actual,pp)
   evaluation[split]={'time':time_metrics,'energy':energy_metrics}
- time_winner=max(['global_popular','user_history','als'],key=lambda k:evaluation['validation']['time'][k]['hit_rate_3'])
- energy_winner=min(['als','user_mean','slot_mean'],key=lambda k:evaluation['validation']['energy'][k]['mae'])
+ time_winner=max(['global_popular','user_history','als','hybrid'],key=lambda k:evaluation['validation']['time'][k]['hit_rate_3'])
+ energy_winner=min(['als','hybrid','user_mean','slot_mean'],key=lambda k:evaluation['validation']['energy'][k]['mae'])
  origin=dt.datetime.fromisoformat(c['forecast_origin']); next_start=origin+dt.timedelta(hours=1)
  distribution=np.zeros(168,dtype=int); energies=[]; daily_counts={}; cold=sum(u not in user_means for u in users)
  for u in users:
@@ -62,10 +70,12 @@ def train(s,c,a):
   next_time=next(t for t in times if t.weekday()*24+t.hour==slot)
   daily_counts[str(next_time.date())]=daily_counts.get(str(next_time.date()),0)+1
   fallback=energy_fallback(u,slot,user_means,slot_means,global_mean)
-  value=predictions['energy'].get((u,slot),float('nan')) if energy_winner=='als' else (fallback if energy_winner=='user_mean' else slot_means.get(slot,global_mean))
+  als_value=predictions['energy'].get((u,slot),float('nan'))
+  if not math.isfinite(als_value): als_value=fallback
+  value=als_value if energy_winner=='als' else ((als_value+fallback)/2 if energy_winner=='hybrid' else (fallback if energy_winner=='user_mean' else slot_means.get(slot,global_mean)))
   if not math.isfinite(value): cold+=1; value=fallback
   energies.append(float(np.clip(value,*bounds)))
- manifest=dict(version=c['run_id'],feature_version=v,application_id=s.sparkContext.applicationId,time_model=time_winner,energy_model=energy_winner,evaluation=evaluation,user_count=len(users),coverage=1.,cold_start_count=cold,energy_bounds=bounds,global_energy_mean=global_mean,fallback='用户均值 → 同时段均值 → 全局均值；新用户只展示群体分布',origin=origin.isoformat()+'+08:00',generated_at=now())
+ manifest=dict(version=c['run_id'],feature_version=v,application_id=s.sparkContext.applicationId,time_model=time_winner,energy_model=energy_winner,evaluation=evaluation,user_count=len(users),coverage=1.,cold_start_count=cold,energy_bounds=bounds,global_energy_mean=global_mean,fallback='ALS/混合模型缺失时：用户均值 → 同时段均值 → 全局均值；新用户只展示群体分布',time_features='一周168时段、90天时间衰减、最近30天活跃度、个人历史与全局热门混合',origin=origin.isoformat()+'+08:00',generated_at=now())
  write_json(s,c,'models/user/production.json',manifest)
  # User-level factors/mappings remain private in HDFS. ADS contains only aggregates.
  heatmap=[[k%24,k//24,int(popular[k])] for k in range(168)]

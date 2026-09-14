@@ -27,6 +27,8 @@ def train(s,c,a):
   for block in np.array_split(np.arange(len(records)),3):
    days=[records[int(i)] for i in block]
    if days: production['rolling_backtests'].append(dict(start=days[0]['date'],end=days[-1]['date'],**metrics([v for d in days for v in d['actual']],[v for d in days for v in d['predicted']])))
+  production['recent_backtest']=[dict(time=f"{day['date']}T{hour:02d}:00:00+08:00",actual_kwh=float(actual),predicted_kwh=float(predicted))
+                                 for day in records[-7:] for hour,(actual,predicted) in enumerate(zip(day['actual'],day['predicted']))]
   write_json(s,c,'models/load/'+scope+'/version='+c['run_id']+'/metrics.json',production)
   manifest.update(published=winner=='station',selected=winner,published_at=production['published_at'],test_metrics=tests.get('station'),failure=failure)
   write_json(s,c,'models/load/'+scope+'/version='+c['run_id']+'/manifest.json',manifest)

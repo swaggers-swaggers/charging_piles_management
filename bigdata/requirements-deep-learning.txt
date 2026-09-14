@@ -1,0 +1,2 @@
+# Optional experiment dependency. The production Spark/YARN pipeline does not require it.
+torch>=2.4

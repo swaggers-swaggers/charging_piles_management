@@ -18,7 +18,7 @@ python3 -m http.server 8090 --bind 127.0.0.1 --directory code/web
 
 浏览器访问 `http://127.0.0.1:8090`。首次无 ADS 时页面明确显示暂无结果，不展示随机数。Web 页面无需 C++ 服务；旧版已经编译进 Qt 可执行文件的首页需重新编译资源才会更新，推荐使用独立 HTTP 入口预览本模块。
 
-版本锁定在 `conf/versions.env` 和 `requirements.txt`。实测环境为 Python 3.13、Java 21、Spark 4.0.1、Hadoop 3.4.3。Spark 4 支持 Java 17/21；Hadoop 守护进程的 JDK 兼容性必须在部署机器独立确认，不据此推断其他 Hadoop 版本也支持 Java 21。
+版本锁定在 `conf/versions.env` 和 `requirements.txt`。本仓库当前已在 Python 3.11、Java 8、Spark / PySpark 3.4.1、Hadoop 3.2.1 的本机伪分布式 HDFS + YARN 环境完成全量训练验证。迁移到其他版本前仍需重新执行环境检查和全套测试。
 
 ## Hadoop / YARN
 
@@ -73,6 +73,8 @@ RUN_ID=your_run MAX_CONCURRENT=1 bash bigdata/scripts/submit_load_batches.sh big
 - 时间切分：训练 `<2026-06-01`，验证 `<2026-08-01`，测试 `<2026-09-11`，末日作为演示起点；前 168 小时用于特征预热。
 - 4 个基线：上一小时、昨日同小时、上周同小时、最多 8 周同期均值。
 - Spark MLlib 全局 GBT + 每站 GBT，平方误差训练，20 棵树、深度 5，固定随机种子。
+- 另训练共享的 H1/H6/H24 直接 GBT：预测未来 1、6、24 小时累计站点结算电量，目标窗口严格落在同一时间分区内，避免跨越训练/验证/测试边界。
+- 每个站点、每个预测跨度均在验证集上比较共享 GBT 与最多 8 周同期累计基线；验证冠军用于生产，测试集只用于最终报告，不据测试结果重新选模。
 - 每天 00:00 作为回测起点，模型递归产生 24 小时，不能将未来实际负荷作为后续递归输入。
 - 按验证集递归 24 小时 MAE 在分站、全局、四基线之间选取冠军。测试结果只用于报告与退化标记，不能再次据测试集挑选模型。
 - 指标：MAE、RMSE、WMAPE、sMAPE、R²；测试期额外按时间顺序拆成三个回测块，检查跨时段稳定性。这是固定模型滚动起点评估，不宣称完成三个扩展训练窗的重新拟合。
@@ -86,9 +88,27 @@ RUN_ID=your_run MAX_CONCURRENT=1 bash bigdata/scripts/submit_load_batches.sh big
 
 168 个星期小时槽。每用户最后一次会话测试、倒数第二次验证、此前训练。稳定整数 ID 与映射留在 HDFS，不导出个人记录。
 
-分别训练隐式 ALS 时段偏好和显式 ALS 电量；验证集决定采用 ALS 还是基线。时段比较全局热门/个人历史偏好，电量比较用户均值/时段均值，报告真实测试集指标。无法评分时按用户均值、时段均值、全局均值依次回退。新用户仅提供群体结果。
+分别训练隐式 ALS 时段偏好和显式 ALS 电量；用户时段行为加入 90 天指数衰减与最近 30 天活跃度特征。验证集在 ALS、历史/全局基线和混合模型之间选择冠军，测试集只报告泛化结果。无法评分时按用户均值、时段均值、全局均值依次回退。新用户仅提供群体结果。
 
 下一时段是从预测起点之后 168 小时中选择偏好最高的候选，不代表具有校准概率的精确出行承诺。Web 只呈现群体热力图、电量直方图与评估。
+
+## 深度学习对照实验
+
+`experiments/train_temporal_cnn.py` 提供不影响生产模型的 Temporal CNN 实验：输入每站过去 168 小时单桩负荷，通过三层一维卷积、站点嵌入和日历周期特征，同时预测 H1/H6/H24 累计负荷。数据仍由 Spark on YARN 从 HDFS 特征层导出，训练使用 PyTorch CPU；Hadoop 负责分布式存储、清洗和特征准备，神经网络优化由 PyTorch 完成。
+
+```bash
+RUN_ID=dl_export SPARK_MASTER=yarn \
+  bash bigdata/scripts/submit.sh export_deep_learning_data --config bigdata/conf/cluster.yaml
+python3 bigdata/experiments/train_temporal_cnn.py \
+  --input .bigdata/experiments/dl_load_20260914_hadoop2.npz \
+  --run-id temporal_cnn_trial
+# 让 CNN 学习 8 周同期基线的修正量
+python3 bigdata/experiments/train_temporal_cnn.py \
+  --input .bigdata/experiments/dl_load_20260914_hadoop2.npz \
+  --run-id residual_cnn_trial --residual
+```
+
+实验严格沿用训练/验证/测试时间边界，验证集用于比较，测试集只报告。模型和中间数组保存在忽略提交的 `.bigdata/experiments/`，可审计指标保存在 `reports/deep_learning_experiment.json` 和 `reports/deep_learning_residual_experiment.json`。只有验证集胜出且测试表现可接受时，才应进入下一轮按站点候选发布，不直接覆盖大屏冠军。
 
 ## 大屏契约和失败保护
 
@@ -102,13 +122,14 @@ RUN_ID=your_run MAX_CONCURRENT=1 bash bigdata/scripts/submit_load_batches.sh big
 .venv-bigdata/bin/python -m pytest bigdata/tests -q
 # 检查模型指标 / 47×24覆盖，生成正式报告
 RUN_ID=your_run bash bigdata/scripts/submit.sh evaluate_models --config bigdata/conf/cluster.yaml
+RUN_ID=your_run bash bigdata/scripts/submit.sh train_direct_load --config bigdata/conf/cluster.yaml
 RUN_ID=your_run bash bigdata/scripts/submit.sh predict_station_load --config bigdata/conf/cluster.yaml
 RUN_ID=your_run bash bigdata/scripts/export_dashboard_json.sh --config bigdata/conf/cluster.yaml
 ```
 
 验收记录见 `ACCEPTANCE.md`；部署与演示见 `DEMO.md`。依赖文档：
-- [Spark 4.0.1](https://spark.apache.org/docs/4.0.1/)
-- [Spark on YARN](https://spark.apache.org/docs/4.0.1/running-on-yarn.html)
-- [Spark ALS](https://spark.apache.org/docs/4.0.1/ml-collaborative-filtering.html)
+- [Spark 3.4.1](https://spark.apache.org/docs/3.4.1/)
+- [Spark on YARN](https://spark.apache.org/docs/3.4.1/running-on-yarn.html)
+- [Spark ALS](https://spark.apache.org/docs/3.4.1/ml-collaborative-filtering.html)
 
 不会把模拟数据说成真实运营数据，也不保证机器学习必然优于基线。P2 的 15 分钟模型、What-if 和 BMS 故障诊断不在当前实现内。

@@ -39,7 +39,7 @@ def rules(name):
   add('foreign_key','ERROR',F.col('_capacity').isNull(),'reject','站点关联失败')
   add('snapshot_domain','ERROR',(F.col('in_use')<0)|(F.col('in_use')>F.col('_capacity'))|(F.col('idle')<0)|(F.col('fault')<0)|(F.col('queue_count')<0)|(F.col('charging_power_kw')<0)|(F.pmod(F.col('record_time').cast('long'),F.lit(900))!=0),'reject','数量范围或15分钟时间对齐非法')
   add('capacity_conflict','WARN',F.col('in_use')+F.col('idle')+F.col('fault')!=F.col('_capacity'),'fix','保留原状态，按容量修正故障与空闲')
-  add('zero_cumulative','WARN',F.col('cum_kwh_day')==0,'alert','累计电量为零，不作为训练标签')
+  add('zero_cumulative','INFO',F.col('cum_kwh_day')==0,'disable','累计电量源字段不可用，不作为训练标签或遥测核对依据')
  if name=='bms':
   add('foreign_key','ERROR',F.col('created').isNull(),'reject','会话关联失败')
   add('bms_range','ERROR',(~F.col('soc').between(0,100))|(F.col('max_cell_voltage_v')<F.col('min_cell_voltage_v'))|(F.col('max_temperature_c')<F.col('min_temperature_c'))|(F.col('record_time')<F.col('created'))|(F.col('record_time')>F.col('ended')),'reject','SOC、电压、温度或会话时间范围非法')
