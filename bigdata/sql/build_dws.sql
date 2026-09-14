@@ -16,3 +16,14 @@ SELECT e.*,coalesce(o.orders,0) orders,coalesce(o.users,0) users,
 FROM hourly_energy e LEFT JOIN hourly_orders o USING(station_id,event_hour)
 JOIN stations s ON e.station_id=s.station_id
 LEFT JOIN weather w ON to_date(e.event_hour)=w.dt;
+CREATE OR REPLACE TEMP VIEW district_hourly AS
+SELECT district,event_hour,
+ sum(load_kwh) load_kwh,sum(revenue) revenue,sum(telemetry_kwh) telemetry_kwh,
+ sum(device_count) device_capacity,sum(in_use) in_use,sum(idle) idle,sum(fault) fault,
+ sum(queue_count) queue_count,sum(orders) orders,sum(users) user_events,
+ sum(in_use)/sum(device_count) utilization,sum(fault)/sum(device_count) fault_rate,
+ max(missing_snapshots) missing_snapshots,
+ first(temp_high) temp_high,first(temp_low) temp_low,first(precipitation) precipitation,
+ first(holiday) holiday,first(condition) condition
+FROM station_hourly
+GROUP BY district,event_hour;

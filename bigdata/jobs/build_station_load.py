@@ -35,7 +35,15 @@ def build(s,c,a):
    if statement.strip(): s.sql(statement)
  hourly=s.table('station_hourly').withColumn('dt',F.to_date('event_hour'))
  write(hourly,c,'dws/station_hourly_load','dt')
- daily=s.table('station_hourly').groupBy('station_id',F.to_date('event_hour').alias('dt')).agg(F.sum('load_kwh').alias('load_kwh'),F.sum('revenue').alias('revenue'),F.sum('orders').alias('orders'),F.avg('utilization').alias('utilization'),F.avg('fault_rate').alias('fault_rate'))
+ district=s.table('district_hourly').withColumn('dt',F.to_date('event_hour'))
+ write(district,c,'dws/district_hourly','dt')
+ daily=(s.table('station_hourly').groupBy('station_id',F.to_date('event_hour').alias('dt'))
+  .agg(F.sum('load_kwh').alias('load_kwh'),F.sum('revenue').alias('revenue'),F.sum('orders').alias('orders'),
+       F.avg('utilization').alias('utilization'),F.avg('fault_rate').alias('fault_rate'),F.avg('queue_count').alias('avg_queue'),
+       F.sum(F.when(F.hour('event_hour').between(17,21),F.col('load_kwh')).otherwise(0.)).alias('peak_kwh'),
+       F.sum(F.when(F.hour('event_hour').between(0,6),F.col('load_kwh')).otherwise(0.)).alias('valley_kwh'))
+  .withColumn('peak_share',F.when(F.col('load_kwh')>0,F.col('peak_kwh')/F.col('load_kwh')))
+  .withColumn('valley_share',F.when(F.col('load_kwh')>0,F.col('valley_kwh')/F.col('load_kwh'))))
  write(daily,c,'dws/station_daily_operation','dt')
- alloc.unpersist(); return {'quarter_rows':quarter.count(),'hourly_rows':hourly.count(),'observed_hourly_rows':hourly.filter(F.to_date('event_hour')<=F.lit(w[1])).count()}
+ alloc.unpersist(); return {'quarter_rows':quarter.count(),'hourly_rows':hourly.count(),'district_hourly_rows':district.count(),'observed_hourly_rows':hourly.filter(F.to_date('event_hour')<=F.lit(w[1])).count()}
 if __name__=='__main__': run('load',build)

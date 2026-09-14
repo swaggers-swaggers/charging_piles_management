@@ -7,4 +7,5 @@ CREATE TABLE IF NOT EXISTS charging.dwd_snapshot USING PARQUET LOCATION '${ROOT}
 CREATE TABLE IF NOT EXISTS charging.dwd_weather USING PARQUET LOCATION '${ROOT}/dwd/weather';
 CREATE TABLE IF NOT EXISTS charging.dwd_bms USING PARQUET LOCATION '${ROOT}/dwd/bms';
 CREATE TABLE IF NOT EXISTS charging.dws_station_hourly_load USING PARQUET LOCATION '${ROOT}/dws/station_hourly_load';
+CREATE TABLE IF NOT EXISTS charging.dws_district_hourly USING PARQUET LOCATION '${ROOT}/dws/district_hourly';
 CREATE TABLE IF NOT EXISTS charging.ads_load_forecast USING PARQUET LOCATION '${ROOT}/ads/load_forecast';

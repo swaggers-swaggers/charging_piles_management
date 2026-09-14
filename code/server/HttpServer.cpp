@@ -100,38 +100,40 @@ void HttpConnection::onReady()
     const QString filePath = m_root + "/" + rel;
     QByteArray content;
     QString servePath = filePath;               // 用于 MIME 判断
-    // 大屏静态页面(index.html/echarts.min.js)已打包进可执行文件资源(:/web/),
-    // 优先从资源加载, 不再依赖服务端能否找到磁盘 web/ 目录; data.json 必须从磁盘读(动态导出)
-    if (rel != "data.json") {
+    bool found = false;
+    // 磁盘优先：Spark 导出的 current.json 和新一代 ADS 结果无需重新编译即可生效。
+    // 找不到部署目录时再回退 Qt 内嵌资源，保证页面、脚本和最近一次静态结果仍可演示。
+    QFile file(filePath);
+    if (file.open(QIODevice::ReadOnly)) {
+        content = file.readAll();
+        file.close();
+        found = true;
+    }
+    if (!found && rel != "data.json") {
         QFile res(":/web/" + rel);
         if (res.open(QIODevice::ReadOnly)) {
             content = res.readAll();
             res.close();
             servePath = "web/" + rel;
+            found = true;
         }
     }
-    if (content.isEmpty()) {
-        QFile file(filePath);
-        if (!file.open(QIODevice::ReadOnly)) {
-            // 返回带提示的页面, 避免一片空白让使用者误以为是"没数据"
-            const QByteArray body =
-                "<html><head><meta charset='utf-8'></head>"
-                "<body style='font-family:sans-serif;padding:40px;line-height:1.8'>"
-                "<h2>文件不存在: " + rel.toUtf8() + "</h2>"
-                "<p>页面文件已打包进程序, 这里通常是 <b>data.json</b>(大屏数据) 未生成。</p>"
-                "<p>排查:</p>"
-                "<ol>"
-                "<li>data.json 由服务端每 10 秒自动导出到当前 web 目录;</li>"
-                "<li>若缺失说明订单表尚无数据: 管理端销售页点\"生成演示数据\", 或删除数据库后重启服务端;</li>"
-                "<li>也可用环境变量指定导出目录: <b>CHARGING_WEB_DIR=/绝对路径/web</b> 后重启服务端。</li>"
-                "</ol>"
-                "</body></html>";
-            closeWith(404, "Not Found", body, "text/html; charset=utf-8");
-            return;
-        }
-        content = file.readAll();
-        file.close();
-        servePath = filePath;
+    if (!found) {
+        // 返回带提示的页面, 避免一片空白让使用者误以为是"没数据"
+        const QByteArray body =
+            "<html><head><meta charset='utf-8'></head>"
+            "<body style='font-family:sans-serif;padding:40px;line-height:1.8'>"
+            "<h2>文件不存在: " + rel.toUtf8() + "</h2>"
+            "<p>页面文件已打包进程序, 这里通常是 <b>data.json</b>(大屏数据) 未生成。</p>"
+            "<p>排查:</p>"
+            "<ol>"
+            "<li>data.json 由服务端每 10 秒自动导出到当前 web 目录;</li>"
+            "<li>若缺失说明订单表尚无数据: 管理端销售页点\"生成演示数据\", 或删除数据库后重启服务端;</li>"
+            "<li>也可用环境变量指定导出目录: <b>CHARGING_WEB_DIR=/绝对路径/web</b> 后重启服务端。</li>"
+            "</ol>"
+            "</body></html>";
+        closeWith(404, "Not Found", body, "text/html; charset=utf-8");
+        return;
     }
 
     const QByteArray type = mimeFor(servePath);

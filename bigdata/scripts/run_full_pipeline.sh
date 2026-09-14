@@ -15,7 +15,7 @@ os.replace(t,p)
 PY
 }
 trap failed ERR
-for stage in ingest_to_ods profile_quality clean_to_dwd build_station_load build_ads build_load_features train_global_load train_station_load build_user_matrix train_user_als evaluate_models predict_station_load export_dashboard; do
+for stage in ingest_to_ods profile_quality clean_to_dwd profile_distribution build_station_load build_ads build_load_features train_global_load train_station_load build_user_matrix train_user_als evaluate_models predict_station_load create_tables export_dashboard; do
   echo "[$RUN_ID] $stage"
   "$repo/bigdata/scripts/submit.sh" "$stage" --config "$config" --run-id "$RUN_ID" > ".bigdata/logs/$RUN_ID/$stage.log" 2>&1
 done

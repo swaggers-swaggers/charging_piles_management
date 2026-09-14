@@ -56,13 +56,13 @@ RUN_ID=your_run MAX_CONCURRENT=1 bash bigdata/scripts/submit_load_batches.sh big
 |---|---|---|
 | ODS | 原始 CSV，SHA256、HDFS 校验和、行数 | `ods/beijing/<table>/ingest_date=YYYYMMDD/` |
 | DWD | 明细、原始 JSON 值、异常标记、隔离区 | `dwd/<table>/dt=.../` |
-| DWS | 15 分钟 / 小时负荷、日运营、用户时段矩阵 | `dws/` |
+| DWS | 15 分钟 / 小时负荷、行政区小时负荷、站点日运营、用户时段矩阵 | `dws/` |
 | 特征 | 因果滞后、滚动统计、固定时间切分 | `features/` |
 | 模型 | MLlib 模型、参数、特征、评估、生产指针 | `models/` |
 | ADS | 运营、用户、质量、负荷预测 | `ads/` |
 | 审计 | 每阶段起止、状态、Application ID、源清单 | `audit/<run_id>/` |
 
-字段字典见 `conf/schema_contracts.yaml`。`jobs/common.py` 中的 `SPECS` 是执行时合同；自动化测试核对 CSV 原始表头。每日分区最多一个数据文件（按日期散列 repartition），没有站点二次分区。原始 ODS 同批次只允许相同字节重复导入；不同字节报错。DWD/DWS 为全量确定性覆盖，因此本版本日常运行也可全量重算，不会重复追加。增量 MERGE 与分区回放尚未作为默认运行模式。
+字段字典见 `conf/schema_contracts.yaml`。`jobs/common.py` 中的 `SPECS` 是执行时合同；自动化测试核对 CSV 原始表头。每日分区最多一个数据文件（按日期散列 repartition），没有站点二次分区。原始 ODS 同批次只允许相同字节重复导入；不同字节报错。DWD/DWS 为全量确定性覆盖，因此本版本日常运行也可全量重算，不会重复追加。增量 MERGE 与分区回放尚未作为默认运行模式。全流水线会自动完成字段质量画像、数值分布画像和 Hive 外部表注册，无需再手工补跑。
 
 会话采用半开时间区间 `[created, ended)`，按与窗口重叠秒数分摊电量及费用。分摊前后逐会话校验；最后一个数据日之后的跨日尾段保留在 DWS，但缺少快照的尾段不作为训练/评估样本。小时订单数和用户数按会话开始统计，电量和费用按时间分摊。
 

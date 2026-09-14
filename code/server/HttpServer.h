@@ -8,8 +8,8 @@
 class QTcpSocket;
 class DataExporter;
 
-// 简易 HTTP 服务器: 为 Web 大数据可视化大屏提供静态文件服务
-// (index.html / echarts.min.js 打包在资源, /data.json 实时从数据库聚合返回)
+// 简易 HTTP 服务器: 磁盘上的最新 Web/ADS 文件优先，Qt 内嵌静态结果兜底；
+// /data.json 仍优先从业务数据库实时聚合返回。
 class HttpServer : public QTcpServer
 {
     Q_OBJECT

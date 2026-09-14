@@ -1,8 +1,17 @@
 <RCC>
     <qresource prefix="/">
         <file alias="web/index.html">../web/index.html</file>
+        <file alias="web/analytics.css">../web/analytics.css</file>
+        <file alias="web/analytics.js">../web/analytics.js</file>
         <file alias="web/echarts.min.js">../web/echarts.min.js</file>
         <file alias="web/map.html">../web/map.html</file>
         <file alias="web/dashboard-data.json">../web/dashboard-data.json</file>
+        <file alias="web/data/overview.json">../web/data/overview.json</file>
+        <file alias="web/data/stations.json">../web/data/stations.json</file>
+        <file alias="web/data/station-ranking.json">../web/data/station-ranking.json</file>
+        <file alias="web/data/load-forecast.json">../web/data/load-forecast.json</file>
+        <file alias="web/data/user-demand.json">../web/data/user-demand.json</file>
+        <file alias="web/data/data-quality.json">../web/data/data-quality.json</file>
+        <file alias="web/data/pipeline-health.json">../web/data/pipeline-health.json</file>
     </qresource>
 </RCC>
