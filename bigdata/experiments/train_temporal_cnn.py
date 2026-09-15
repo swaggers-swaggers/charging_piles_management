@@ -22,6 +22,29 @@ LOOKBACK = 168
 SPLITS = {'train': 0, 'validation': 1, 'test': 2}
 
 
+class ArrayBundle(dict):
+    @property
+    def files(self):
+        return list(self.keys())
+
+
+def load_array_bundle(path):
+    path = Path(path).resolve()
+    if path.suffix == '.npz':
+        return np.load(path)
+    rows = [json.loads(line) for line in path.read_text(encoding='utf-8').splitlines() if line]
+    if not rows:
+        raise ValueError(f'Empty feature bundle: {path}')
+    integer = {'station_id', 'event_time', 'local_hour', 'local_dow',
+               'active_sessions', 'split'}
+    return ArrayBundle({
+        key: np.asarray([row[key] for row in rows],
+                        dtype=np.int64 if key in integer else
+                        (None if key == 'station_code' else np.float32))
+        for key in rows[0]
+    })
+
+
 class TemporalCNN(nn.Module):
     def __init__(self, station_count: int, residual: bool = False):
         super().__init__()
@@ -49,24 +72,50 @@ class TemporalCNN(nn.Module):
         return self.head(torch.cat(parts, dim=1))
 
 
-def calendar_features(epoch_seconds):
-    # Source timestamps are interpreted in Asia/Shanghai throughout the pipeline.
-    local_hours = ((epoch_seconds // 3600) + 8) % 24
-    local_days = ((epoch_seconds // 86400) + 3) % 7  # 1970-01-01 was Thursday.
+def calendar_features(epoch_seconds, local_hours=None, local_days=None):
+    # Beijing exports use Asia/Shanghai. External real-data bundles may carry
+    # source-local hour/day arrays so DST and timezone are not guessed here.
+    if local_hours is None:
+        local_hours = ((epoch_seconds // 3600) + 8) % 24
+    if local_days is None:
+        local_days = ((epoch_seconds // 86400) + 3) % 7  # 1970-01-01 was Thursday.
     return np.column_stack((
         np.sin(local_hours * 2 * np.pi / 24), np.cos(local_hours * 2 * np.pi / 24),
         np.sin(local_days * 2 * np.pi / 7), np.cos(local_days * 2 * np.pi / 7),
     )).astype(np.float32)
 
 
-def baseline_at(values, end):
+def baseline_at(values, end, times=None):
+    """Return a weekly seasonal baseline without bridging missing calendar spans.
+
+    Some public data releases contain separate observation months.  Index-only
+    lagging would silently treat the end of one month as adjacent to the start
+    of another, so timestamp continuity is verified whenever epochs are given.
+    """
     output = []
     for horizon in HORIZONS:
         total = 0.
         for offset in range(horizon):
-            history = [values[end + offset - 168 * week]
-                       for week in range(1, 9) if end + offset - 168 * week >= 0]
-            total += float(np.mean(history))
+            history = []
+            target_epoch = None
+            if times is not None:
+                if end + offset < len(times):
+                    target_epoch = int(times[end + offset])
+                else:
+                    target_epoch = int(times[-1]) + (end + offset - len(times) + 1) * 3600
+            for week in range(1, 9):
+                index = end + offset - 168 * week
+                if index < 0:
+                    continue
+                if target_epoch is not None and target_epoch - int(times[index]) != 168 * week * 3600:
+                    continue
+                history.append(values[index])
+            if not history:
+                index = end + offset - 24
+                if index >= 0 and (target_epoch is None or
+                                   target_epoch - int(times[index]) == 24 * 3600):
+                    history.append(values[index])
+            total += float(np.mean(history)) if history else 0.0
         output.append(total)
     return output
 
@@ -77,6 +126,10 @@ def build_samples(raw, split_name, station_lookup, stride):
     for station_id in sorted(station_lookup):
         mask = raw['station_id'] == station_id
         times = raw['event_time'][mask]
+        station_calendars = calendar_features(
+            times,
+            raw['local_hour'][mask] if 'local_hour' in raw.files else None,
+            raw['local_dow'][mask] if 'local_dow' in raw.files else None)
         device = raw['device_count'][mask]
         values = raw['load_kwh'][mask] / np.maximum(device, 1.)
         splits = raw['split'][mask]
@@ -92,10 +145,10 @@ def build_samples(raw, split_name, station_lookup, stride):
             if not np.isfinite(sequence).all():
                 continue
             target = [values[end:end + horizon].sum() for horizon in HORIZONS]
-            baseline = baseline_at(values, end)
+            baseline = baseline_at(values, end, times)
             sequences.append(sequence)
             stations.append(station_lookup[station_id])
-            calendars.append(times[end])
+            calendars.append(station_calendars[end])
             targets.append(target)
             baselines.append(baseline)
             gbts.append(gbt_values[end])
@@ -103,7 +156,7 @@ def build_samples(raw, split_name, station_lookup, stride):
     return {
         'x': np.asarray(sequences, dtype=np.float32),
         'station': np.asarray(stations, dtype=np.int64),
-        'calendar': calendar_features(np.asarray(calendars, dtype=np.int64)),
+        'calendar': np.asarray(calendars, dtype=np.float32),
         'target': np.asarray(targets, dtype=np.float32),
         'baseline': np.asarray(baselines, dtype=np.float32),
         'gbt': np.asarray(gbts, dtype=np.float32),
@@ -116,6 +169,15 @@ def build_origins(raw, station_lookup):
     for station_id in sorted(station_lookup):
         mask = raw['station_id'] == station_id
         times = raw['event_time'][mask]
+        if 'local_hour' in raw.files:
+            next_hour = (int(raw['local_hour'][mask][-1]) + 1) % 24
+            next_day = (int(raw['local_dow'][mask][-1]) +
+                        (1 if int(raw['local_hour'][mask][-1]) == 23 else 0)) % 7
+            next_calendar = calendar_features(
+                np.asarray([times[-1] + 3600]), np.asarray([next_hour]),
+                np.asarray([next_day]))[0]
+        else:
+            next_calendar = calendar_features(np.asarray([times[-1] + 3600]))[0]
         device = raw['device_count'][mask]
         values = raw['load_kwh'][mask] / np.maximum(device, 1.)
         end = len(values)
@@ -123,13 +185,13 @@ def build_origins(raw, station_lookup):
             raise ValueError(f'Insufficient origin history for station {station_id}')
         sequences.append(values[-LOOKBACK:])
         stations.append(station_lookup[station_id])
-        calendars.append(times[-1] + 3600)
-        baselines.append(baseline_at(values, end))
+        calendars.append(next_calendar)
+        baselines.append(baseline_at(values, end, times))
         devices.append(device[-1])
     size = len(stations)
     return {'x': np.asarray(sequences, dtype=np.float32),
             'station': np.asarray(stations, dtype=np.int64),
-            'calendar': calendar_features(np.asarray(calendars, dtype=np.int64)),
+            'calendar': np.asarray(calendars, dtype=np.float32),
             'target': np.zeros((size, len(HORIZONS)), dtype=np.float32),
             'baseline': np.asarray(baselines, dtype=np.float32),
             'gbt': np.zeros((size, len(HORIZONS)), dtype=np.float32),

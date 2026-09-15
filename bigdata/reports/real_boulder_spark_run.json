@@ -1,0 +1,163 @@
+{
+  "run_id": "real_20260915_v1",
+  "source": "City of Boulder Electric Vehicle Charging Station Data",
+  "source_manifest": "/Users/gaoruohan/Downloads/小学期/大三/充电桩/.bigdata/source/real/boulder/manifest.json",
+  "raw_records": 148136,
+  "deduplicated_records": 148136,
+  "clean_records": 124640,
+  "rejected_records": 23496,
+  "quality_reasons": {
+    "invalid_duration": 2248,
+    "invalid_timestamp": 7820,
+    "invalid_energy": 13426,
+    "invalid_charging_time": 2
+  },
+  "selected_stations": [
+    {
+      "station_name": "BOULDER / ATRIUM ST1",
+      "session_count": 5802,
+      "first_session": "2018-01-07 07:23:00",
+      "last_session": "2023-12-01 09:13:00",
+      "active_days": 2154,
+      "energy_kwh": 42636.33299999999,
+      "station_id": 1
+    },
+    {
+      "station_name": "BOULDER / BASELINE ST1",
+      "session_count": 11939,
+      "first_session": "2018-01-04 05:13:00",
+      "last_session": "2023-12-01 09:59:00",
+      "active_days": 2157,
+      "energy_kwh": 105416.32399999998,
+      "station_id": 2
+    },
+    {
+      "station_name": "BOULDER / CARPENTER PARK1",
+      "session_count": 9094,
+      "first_session": "2020-07-31 06:08:00",
+      "last_session": "2023-12-01 11:21:00",
+      "active_days": 1218,
+      "energy_kwh": 85921.68400000002,
+      "station_id": 3
+    },
+    {
+      "station_name": "BOULDER / CARPENTER PARK2",
+      "session_count": 7028,
+      "first_session": "2020-08-21 06:03:00",
+      "last_session": "2023-12-01 06:31:00",
+      "active_days": 1197,
+      "energy_kwh": 61133.97400000001,
+      "station_id": 4
+    },
+    {
+      "station_name": "BOULDER / EAST REC",
+      "session_count": 8129,
+      "first_session": "2019-01-15 05:05:00",
+      "last_session": "2023-12-01 23:28:00",
+      "active_days": 1782,
+      "energy_kwh": 58422.289,
+      "station_id": 5
+    },
+    {
+      "station_name": "BOULDER / N BOULDER REC 1",
+      "session_count": 13876,
+      "first_session": "2018-08-22 22:39:00",
+      "last_session": "2023-12-01 11:10:00",
+      "active_days": 1926,
+      "energy_kwh": 137998.48299999998,
+      "station_id": 6
+    },
+    {
+      "station_name": "BOULDER / REC CENTER ST2",
+      "session_count": 6563,
+      "first_session": "2018-01-16 00:05:00",
+      "last_session": "2023-12-01 12:31:00",
+      "active_days": 2145,
+      "energy_kwh": 74233.751,
+      "station_id": 7
+    },
+    {
+      "station_name": "COMM VITALITY / 1000WALNUT1",
+      "session_count": 6158,
+      "first_session": "2018-01-26 01:24:00",
+      "last_session": "2023-05-01 04:55:00",
+      "active_days": 1921,
+      "energy_kwh": 64107.75400000001,
+      "station_id": 8
+    },
+    {
+      "station_name": "COMM VITALITY / 1100WALNUT1",
+      "session_count": 7742,
+      "first_session": "2018-04-07 03:42:00",
+      "last_session": "2023-05-02 11:15:00",
+      "active_days": 1851,
+      "energy_kwh": 67900.644,
+      "station_id": 9
+    },
+    {
+      "station_name": "COMM VITALITY / 1104 SPRUCE1",
+      "session_count": 7412,
+      "first_session": "2018-01-26 01:14:00",
+      "last_session": "2023-05-03 04:53:00",
+      "active_days": 1923,
+      "energy_kwh": 59542.558000000005,
+      "station_id": 10
+    }
+  ],
+  "hourly_rows": 436931,
+  "split_counts": {
+    "train": 408117,
+    "test": 14414,
+    "validation": 14400
+  },
+  "gbt_evaluation": {
+    "1": {
+      "validation": {
+        "n": 14400,
+        "mae": 1.2622949024184253,
+        "rmse": 2.338096835080899,
+        "wmape": 0.6288877608960128
+      },
+      "test": {
+        "n": 14414,
+        "mae": 1.3433020168491,
+        "rmse": 2.5041290423345064,
+        "wmape": 0.6502347160221099
+      }
+    },
+    "6": {
+      "validation": {
+        "n": 14400,
+        "mae": 8.106891151543392,
+        "rmse": 12.255104066100536,
+        "wmape": 0.673091462464277
+      },
+      "test": {
+        "n": 14364,
+        "mae": 8.44456598147234,
+        "rmse": 12.411489311696643,
+        "wmape": 0.6827308001325765
+      }
+    },
+    "24": {
+      "validation": {
+        "n": 14400,
+        "mae": 20.684935757569427,
+        "rmse": 28.072766711139725,
+        "wmape": 0.429361764146301
+      },
+      "test": {
+        "n": 14184,
+        "mae": 21.837068175097116,
+        "rmse": 28.24283309532364,
+        "wmape": 0.44053743216772606
+      }
+    }
+  },
+  "hdfs_feature_path": "hdfs://localhost:9000/charging_real/boulder/features/hourly/version=real_20260915_v1",
+  "npz_output": "/Users/gaoruohan/Downloads/小学期/大三/充电桩/.bigdata/experiments/real_boulder_load.npz",
+  "application_id": "application_1789135312450_0041",
+  "spark_master": "yarn",
+  "energy_allocation_assumption": "Session kWh is distributed uniformly from start time over reported charging duration.",
+  "created_at": "2026-09-15T01:46:28.199994+00:00"
+}

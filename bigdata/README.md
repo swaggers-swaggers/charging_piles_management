@@ -110,6 +110,53 @@ python3 bigdata/experiments/train_temporal_cnn.py \
 
 实验严格沿用训练/验证/测试时间边界，验证集用于比较，测试集只报告。模型和中间数组保存在忽略提交的 `.bigdata/experiments/`，可审计指标保存在 `reports/deep_learning_experiment.json` 和 `reports/deep_learning_residual_experiment.json`。只有验证集胜出且测试表现可接受时，才应进入下一轮按站点候选发布，不直接覆盖大屏冠军。
 
+## 外部真实数据实验
+
+新增 City of Boulder 官方开放充电交易数据通道，与北京模拟数据分库、分报告、分展示文件，不会把美国站点冒充北京站点。下载器对 ArcGIS 的 1,000 条分页限制做了断点续传、页行数校验和整体 SHA-256 清单。
+
+```bash
+# 1. 下载 148,136 条官方真实交易（本地原始数据默认被 Git 忽略）
+python3 bigdata/scripts/download_real_boulder.py
+
+# 2. PySpark 质量检查 + SparkSQL 小时聚合 + YARN 上的 H1/H6/H24 GBT
+SPARK_MASTER=yarn PYSPARK_PYTHON=/private/tmp/charging-bigdata-venv/bin/python \
+  bash bigdata/scripts/submit.sh prepare_real_boulder \
+  --run-id real_20260915_v1 --max-stations 10
+
+# 3. 共享 CNN 学习 8 周同期基线残差，模型与评估存入 HDFS
+python3 bigdata/experiments/train_real_residual_cnn.py \
+  --run-id real_cnn_20260915_v1 --epochs 10 --train-stride 3
+```
+
+清洗后的会话、隔离行、小时特征、Spark GBT 和 CNN 模型保存在 HDFS `/charging_real/boulder/`。页面候选输出为 `code/web/data/real-load-forecast.json`；它是外部实验数据，不自动覆盖北京模拟运营大屏。实验结果见 `reports/real_boulder_experiment.md`。
+
+## 北京真实数据与混合大屏
+
+北京主大屏使用 Figshare 发布的 **Beijing public charging transactions v2**（DOI `10.6084/m9.figshare.31952289.v2`，CC BY 4.0）。发布包包含 2025 年 1 月、7 月共约 854 万笔脱敏交易和 8,553 个站点元数据；下载脚本按发布方文件大小与 MD5 校验，原始大文件保存在 Git 忽略的 `.bigdata/source/real/beijing_figshare/`，并复制到 HDFS `/charging_real/beijing/ods/`。
+
+数据只覆盖两个离散月份，因此建模时保留为两个独立连续时间段，绝不把 2–6 月填成零，也不宣称是全年连续数据。站点位置仅有约 1 km 网格编码，没有精确经纬度或公开站名；页面继续使用程序自带北京导航地图，用匿名站点与行政区统计展示，不伪造精确落点。公开数据也没有用户 ID、故障遥测与 BMS 状态，这些模块使用原北京模拟数据补齐，并在每张卡片和 JSON `field_sources` 中标明“模拟补齐”。
+
+完整流程如下：
+
+```bash
+# 同一个 Python 环境需安装基础依赖与可选的 Torch 实验依赖
+.venv-bigdata/bin/pip install -r bigdata/requirements.txt -r bigdata/requirements-deep-learning.txt
+
+# 需要 HDFS、YARN 已启动，hdfs 与 spark-submit 可执行
+PYTHON_CMD=.venv-bigdata/bin/python \
+RUN_ID=beijing_demo bash bigdata/scripts/run_real_beijing_pipeline.sh
+
+# 安装位置不在 PATH 时可显式指定，不需要修改脚本
+PYTHON_CMD=.venv-bigdata/bin/python \
+HDFS_CMD=/path/to/hadoop/bin/hdfs \
+SPARK_SUBMIT=/path/to/spark/bin/spark-submit \
+RUN_ID=beijing_demo bash bigdata/scripts/run_real_beijing_pipeline.sh
+```
+
+该脚本依次执行：官方文件下载与校验 → HDFS ODS → PySpark 质量检查/去重/隔离 → SparkSQL 运营聚合 → 20 个高活跃站点小时序列 → YARN 上 H1/H6/H24 Spark GBT → PyTorch 残差 Temporal CNN → 七份同 generation 的大屏 JSON。Hadoop 负责分布式存储、清洗、特征和 GBT 训练；CNN 的梯度优化由 PyTorch CPU 完成，模型与评估结果再归档到 HDFS。这个边界会在训练报告中保留，不把本地 PyTorch 描述成 Hadoop 原生深度学习。
+
+本次真实运行的质量统计、全局测试指标和分站点冠军数量见 `reports/real_beijing_experiment.md`。
+
 ## 大屏契约和失败保护
 
 七类数据：overview、stations、station-ranking、load-forecast、user-demand、data-quality、pipeline-health。统一包含 `schemaVersion/dataNature/dataTime/generatedAt/runId/data`。

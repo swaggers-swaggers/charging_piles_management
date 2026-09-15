@@ -1,0 +1,426 @@
+{
+  "source": "Beijing public charging transactions (Figshare 31952289 v2)",
+  "run_id": "beijing_20260915_cnn_v1",
+  "data": [
+    {
+      "station_id": 1,
+      "station_name": "北京匿名站 ST_000169",
+      "horizon_hours": 1,
+      "model": "8week",
+      "prediction_kwh": 909.96533203125
+    },
+    {
+      "station_id": 2,
+      "station_name": "北京匿名站 ST_001611",
+      "horizon_hours": 1,
+      "model": "spark_gbt",
+      "prediction_kwh": 997.229248046875
+    },
+    {
+      "station_id": 3,
+      "station_name": "北京匿名站 ST_002276",
+      "horizon_hours": 1,
+      "model": "spark_gbt",
+      "prediction_kwh": 185.02401733398438
+    },
+    {
+      "station_id": 4,
+      "station_name": "北京匿名站 ST_003567",
+      "horizon_hours": 1,
+      "model": "spark_gbt",
+      "prediction_kwh": 1741.152099609375
+    },
+    {
+      "station_id": 5,
+      "station_name": "北京匿名站 ST_003935",
+      "horizon_hours": 1,
+      "model": "spark_gbt",
+      "prediction_kwh": 447.5382080078125
+    },
+    {
+      "station_id": 6,
+      "station_name": "北京匿名站 ST_004073",
+      "horizon_hours": 1,
+      "model": "8week",
+      "prediction_kwh": 2882.353759765625
+    },
+    {
+      "station_id": 7,
+      "station_name": "北京匿名站 ST_005038",
+      "horizon_hours": 1,
+      "model": "spark_gbt",
+      "prediction_kwh": 1258.2174072265625
+    },
+    {
+      "station_id": 8,
+      "station_name": "北京匿名站 ST_005238",
+      "horizon_hours": 1,
+      "model": "spark_gbt",
+      "prediction_kwh": 868.9815063476562
+    },
+    {
+      "station_id": 9,
+      "station_name": "北京匿名站 ST_005900",
+      "horizon_hours": 1,
+      "model": "residual_cnn",
+      "prediction_kwh": 1506.6888427734375
+    },
+    {
+      "station_id": 10,
+      "station_name": "北京匿名站 ST_006028",
+      "horizon_hours": 1,
+      "model": "spark_gbt",
+      "prediction_kwh": 275.81085205078125
+    },
+    {
+      "station_id": 11,
+      "station_name": "北京匿名站 ST_006049",
+      "horizon_hours": 1,
+      "model": "residual_cnn",
+      "prediction_kwh": 1456.69775390625
+    },
+    {
+      "station_id": 12,
+      "station_name": "北京匿名站 ST_006237",
+      "horizon_hours": 1,
+      "model": "spark_gbt",
+      "prediction_kwh": 997.229248046875
+    },
+    {
+      "station_id": 13,
+      "station_name": "北京匿名站 ST_006354",
+      "horizon_hours": 1,
+      "model": "spark_gbt",
+      "prediction_kwh": 1183.229248046875
+    },
+    {
+      "station_id": 14,
+      "station_name": "北京匿名站 ST_006360",
+      "horizon_hours": 1,
+      "model": "spark_gbt",
+      "prediction_kwh": 447.5382080078125
+    },
+    {
+      "station_id": 15,
+      "station_name": "北京匿名站 ST_007287",
+      "horizon_hours": 1,
+      "model": "spark_gbt",
+      "prediction_kwh": 491.7060852050781
+    },
+    {
+      "station_id": 16,
+      "station_name": "北京匿名站 ST_007398",
+      "horizon_hours": 1,
+      "model": "spark_gbt",
+      "prediction_kwh": 1183.229248046875
+    },
+    {
+      "station_id": 17,
+      "station_name": "北京匿名站 ST_007880",
+      "horizon_hours": 1,
+      "model": "spark_gbt",
+      "prediction_kwh": 268.4660339355469
+    },
+    {
+      "station_id": 18,
+      "station_name": "北京匿名站 ST_007920",
+      "horizon_hours": 1,
+      "model": "spark_gbt",
+      "prediction_kwh": 868.9815063476562
+    },
+    {
+      "station_id": 19,
+      "station_name": "北京匿名站 ST_008062",
+      "horizon_hours": 1,
+      "model": "spark_gbt",
+      "prediction_kwh": 2047.3907470703125
+    },
+    {
+      "station_id": 20,
+      "station_name": "北京匿名站 ST_008066",
+      "horizon_hours": 1,
+      "model": "8week",
+      "prediction_kwh": 973.476806640625
+    },
+    {
+      "station_id": 1,
+      "station_name": "北京匿名站 ST_000169",
+      "horizon_hours": 6,
+      "model": "8week",
+      "prediction_kwh": 1158.0689697265625
+    },
+    {
+      "station_id": 2,
+      "station_name": "北京匿名站 ST_001611",
+      "horizon_hours": 6,
+      "model": "8week",
+      "prediction_kwh": 2542.485107421875
+    },
+    {
+      "station_id": 3,
+      "station_name": "北京匿名站 ST_002276",
+      "horizon_hours": 6,
+      "model": "spark_gbt",
+      "prediction_kwh": 1261.15869140625
+    },
+    {
+      "station_id": 4,
+      "station_name": "北京匿名站 ST_003567",
+      "horizon_hours": 6,
+      "model": "8week",
+      "prediction_kwh": 2660.7451171875
+    },
+    {
+      "station_id": 5,
+      "station_name": "北京匿名站 ST_003935",
+      "horizon_hours": 6,
+      "model": "8week",
+      "prediction_kwh": 1929.6661376953125
+    },
+    {
+      "station_id": 6,
+      "station_name": "北京匿名站 ST_004073",
+      "horizon_hours": 6,
+      "model": "8week",
+      "prediction_kwh": 9776.0087890625
+    },
+    {
+      "station_id": 7,
+      "station_name": "北京匿名站 ST_005038",
+      "horizon_hours": 6,
+      "model": "residual_cnn",
+      "prediction_kwh": 7577.49560546875
+    },
+    {
+      "station_id": 8,
+      "station_name": "北京匿名站 ST_005238",
+      "horizon_hours": 6,
+      "model": "spark_gbt",
+      "prediction_kwh": 5046.4990234375
+    },
+    {
+      "station_id": 9,
+      "station_name": "北京匿名站 ST_005900",
+      "horizon_hours": 6,
+      "model": "8week",
+      "prediction_kwh": 5996.96240234375
+    },
+    {
+      "station_id": 10,
+      "station_name": "北京匿名站 ST_006028",
+      "horizon_hours": 6,
+      "model": "spark_gbt",
+      "prediction_kwh": 2788.89794921875
+    },
+    {
+      "station_id": 11,
+      "station_name": "北京匿名站 ST_006049",
+      "horizon_hours": 6,
+      "model": "residual_cnn",
+      "prediction_kwh": 5707.72509765625
+    },
+    {
+      "station_id": 12,
+      "station_name": "北京匿名站 ST_006237",
+      "horizon_hours": 6,
+      "model": "residual_cnn",
+      "prediction_kwh": 3041.909912109375
+    },
+    {
+      "station_id": 13,
+      "station_name": "北京匿名站 ST_006354",
+      "horizon_hours": 6,
+      "model": "8week",
+      "prediction_kwh": 4610.9580078125
+    },
+    {
+      "station_id": 14,
+      "station_name": "北京匿名站 ST_006360",
+      "horizon_hours": 6,
+      "model": "residual_cnn",
+      "prediction_kwh": 3092.36328125
+    },
+    {
+      "station_id": 15,
+      "station_name": "北京匿名站 ST_007287",
+      "horizon_hours": 6,
+      "model": "residual_cnn",
+      "prediction_kwh": 1872.965576171875
+    },
+    {
+      "station_id": 16,
+      "station_name": "北京匿名站 ST_007398",
+      "horizon_hours": 6,
+      "model": "8week",
+      "prediction_kwh": 5374.2646484375
+    },
+    {
+      "station_id": 17,
+      "station_name": "北京匿名站 ST_007880",
+      "horizon_hours": 6,
+      "model": "8week",
+      "prediction_kwh": 1504.2138671875
+    },
+    {
+      "station_id": 18,
+      "station_name": "北京匿名站 ST_007920",
+      "horizon_hours": 6,
+      "model": "8week",
+      "prediction_kwh": 3518.7890625
+    },
+    {
+      "station_id": 19,
+      "station_name": "北京匿名站 ST_008062",
+      "horizon_hours": 6,
+      "model": "8week",
+      "prediction_kwh": 6548.42236328125
+    },
+    {
+      "station_id": 20,
+      "station_name": "北京匿名站 ST_008066",
+      "horizon_hours": 6,
+      "model": "8week",
+      "prediction_kwh": 4598.04052734375
+    },
+    {
+      "station_id": 1,
+      "station_name": "北京匿名站 ST_000169",
+      "horizon_hours": 24,
+      "model": "spark_gbt",
+      "prediction_kwh": 16821.0703125
+    },
+    {
+      "station_id": 2,
+      "station_name": "北京匿名站 ST_001611",
+      "horizon_hours": 24,
+      "model": "8week",
+      "prediction_kwh": 12526.9541015625
+    },
+    {
+      "station_id": 3,
+      "station_name": "北京匿名站 ST_002276",
+      "horizon_hours": 24,
+      "model": "spark_gbt",
+      "prediction_kwh": 4295.9189453125
+    },
+    {
+      "station_id": 4,
+      "station_name": "北京匿名站 ST_003567",
+      "horizon_hours": 24,
+      "model": "spark_gbt",
+      "prediction_kwh": 16820.98046875
+    },
+    {
+      "station_id": 5,
+      "station_name": "北京匿名站 ST_003935",
+      "horizon_hours": 24,
+      "model": "8week",
+      "prediction_kwh": 10833.66015625
+    },
+    {
+      "station_id": 6,
+      "station_name": "北京匿名站 ST_004073",
+      "horizon_hours": 24,
+      "model": "8week",
+      "prediction_kwh": 34685.89453125
+    },
+    {
+      "station_id": 7,
+      "station_name": "北京匿名站 ST_005038",
+      "horizon_hours": 24,
+      "model": "spark_gbt",
+      "prediction_kwh": 21414.861328125
+    },
+    {
+      "station_id": 8,
+      "station_name": "北京匿名站 ST_005238",
+      "horizon_hours": 24,
+      "model": "spark_gbt",
+      "prediction_kwh": 23451.736328125
+    },
+    {
+      "station_id": 9,
+      "station_name": "北京匿名站 ST_005900",
+      "horizon_hours": 24,
+      "model": "8week",
+      "prediction_kwh": 16050.751953125
+    },
+    {
+      "station_id": 10,
+      "station_name": "北京匿名站 ST_006028",
+      "horizon_hours": 24,
+      "model": "spark_gbt",
+      "prediction_kwh": 7209.32568359375
+    },
+    {
+      "station_id": 11,
+      "station_name": "北京匿名站 ST_006049",
+      "horizon_hours": 24,
+      "model": "spark_gbt",
+      "prediction_kwh": 18492.37890625
+    },
+    {
+      "station_id": 12,
+      "station_name": "北京匿名站 ST_006237",
+      "horizon_hours": 24,
+      "model": "8week",
+      "prediction_kwh": 13527.84375
+    },
+    {
+      "station_id": 13,
+      "station_name": "北京匿名站 ST_006354",
+      "horizon_hours": 24,
+      "model": "8week",
+      "prediction_kwh": 16338.30859375
+    },
+    {
+      "station_id": 14,
+      "station_name": "北京匿名站 ST_006360",
+      "horizon_hours": 24,
+      "model": "spark_gbt",
+      "prediction_kwh": 11265.78125
+    },
+    {
+      "station_id": 15,
+      "station_name": "北京匿名站 ST_007287",
+      "horizon_hours": 24,
+      "model": "spark_gbt",
+      "prediction_kwh": 16820.916015625
+    },
+    {
+      "station_id": 16,
+      "station_name": "北京匿名站 ST_007398",
+      "horizon_hours": 24,
+      "model": "spark_gbt",
+      "prediction_kwh": 15345.0498046875
+    },
+    {
+      "station_id": 17,
+      "station_name": "北京匿名站 ST_007880",
+      "horizon_hours": 24,
+      "model": "spark_gbt",
+      "prediction_kwh": 7260.3466796875
+    },
+    {
+      "station_id": 18,
+      "station_name": "北京匿名站 ST_007920",
+      "horizon_hours": 24,
+      "model": "spark_gbt",
+      "prediction_kwh": 10296.2978515625
+    },
+    {
+      "station_id": 19,
+      "station_name": "北京匿名站 ST_008062",
+      "horizon_hours": 24,
+      "model": "spark_gbt",
+      "prediction_kwh": 16821.0703125
+    },
+    {
+      "station_id": 20,
+      "station_name": "北京匿名站 ST_008066",
+      "horizon_hours": 24,
+      "model": "spark_gbt",
+      "prediction_kwh": 16821.0703125
+    }
+  ]
+}

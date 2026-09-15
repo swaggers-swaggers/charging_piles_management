@@ -1,0 +1,1078 @@
+{
+  "run_id": "beijing_20260915_spark_v3",
+  "source": "Figshare Beijing public charging transactions",
+  "source_doi": "10.6084/m9.figshare.31952289.v2",
+  "raw_records": 8544695,
+  "deduplicated_records": 8541288,
+  "duplicate_records": 3407,
+  "clean_records": 8461489,
+  "rejected_records": 79799,
+  "quality_reasons": {
+    "invalid_energy": 35363,
+    "invalid_rated_power": 44436
+  },
+  "source_station_count": 8553,
+  "selected_stations": [
+    {
+      "station_id": "ST_000169",
+      "session_count": 20808,
+      "period_count": 2,
+      "first_session": "2025-01-01 17:53:55",
+      "last_session": "2025-08-01 07:58:59",
+      "history_energy_kwh": 698453.6900000002,
+      "avg_rated_power": 150.0,
+      "geocoding": "9958_4457",
+      "construction_site": "交通枢纽",
+      "station_total_power_kw": 3300.0,
+      "piles_num": 22.0,
+      "dc_piles_num": 22.0,
+      "ac_piles_num": 0.0,
+      "charging_gun_num": 220.0,
+      "dc_charging_gun_num": 220.0,
+      "ac_charging_gun_num": 0.0,
+      "model_station_id": 1,
+      "device_count": 220.0,
+      "orders": 756,
+      "energy_kwh": 24617.43,
+      "revenue": 38395.159999999996,
+      "duration_min": 32738.216666666667
+    },
+    {
+      "station_id": "ST_001611",
+      "session_count": 31345,
+      "period_count": 2,
+      "first_session": "2025-01-01 08:10:21",
+      "last_session": "2025-08-01 07:54:20",
+      "history_energy_kwh": 714625.53,
+      "avg_rated_power": 137.28888179933003,
+      "geocoding": "9893_4445",
+      "construction_site": "公共机构",
+      "station_total_power_kw": 4440.0,
+      "piles_num": 29.0,
+      "dc_piles_num": 29.0,
+      "ac_piles_num": 0.0,
+      "charging_gun_num": 56.0,
+      "dc_charging_gun_num": 56.0,
+      "ac_charging_gun_num": 0.0,
+      "model_station_id": 2,
+      "device_count": 56.0,
+      "orders": 544,
+      "energy_kwh": 11529.29,
+      "revenue": 15940.130000000001,
+      "duration_min": 20175.266666666666
+    },
+    {
+      "station_id": "ST_002276",
+      "session_count": 19248,
+      "period_count": 2,
+      "first_session": "2025-01-01 08:01:48",
+      "last_session": "2025-08-01 07:58:06",
+      "history_energy_kwh": 309822.07000000007,
+      "avg_rated_power": 60.0,
+      "geocoding": "9916_4445",
+      "construction_site": "交通枢纽",
+      "station_total_power_kw": 3000.0,
+      "piles_num": 50.0,
+      "dc_piles_num": 50.0,
+      "ac_piles_num": 0.0,
+      "charging_gun_num": 50.0,
+      "dc_charging_gun_num": 50.0,
+      "ac_charging_gun_num": 0.0,
+      "model_station_id": 3,
+      "device_count": 50.0,
+      "orders": 256,
+      "energy_kwh": 3639.3700000000003,
+      "revenue": 5509.36,
+      "duration_min": 6712.516666666666
+    },
+    {
+      "station_id": "ST_003567",
+      "session_count": 21007,
+      "period_count": 2,
+      "first_session": "2025-01-01 08:01:38",
+      "last_session": "2025-08-01 07:59:34",
+      "history_energy_kwh": 837506.8569999998,
+      "avg_rated_power": 120.0,
+      "geocoding": "9915_4455",
+      "construction_site": "公共机构",
+      "station_total_power_kw": 3000.0,
+      "piles_num": 25.0,
+      "dc_piles_num": 25.0,
+      "ac_piles_num": 0.0,
+      "charging_gun_num": 50.0,
+      "dc_charging_gun_num": 50.0,
+      "ac_charging_gun_num": 0.0,
+      "model_station_id": 4,
+      "device_count": 50.0,
+      "orders": 476,
+      "energy_kwh": 17434.97200000001,
+      "revenue": 17025.879999999997,
+      "duration_min": 17750.116666666665
+    },
+    {
+      "station_id": "ST_003935",
+      "session_count": 21272,
+      "period_count": 2,
+      "first_session": "2025-01-01 08:01:43",
+      "last_session": "2025-08-01 07:58:14",
+      "history_energy_kwh": 431184.891,
+      "avg_rated_power": 593.9494640842422,
+      "geocoding": "9899_4444",
+      "construction_site": "居住区",
+      "station_total_power_kw": 11400.0,
+      "piles_num": 19.0,
+      "dc_piles_num": 19.0,
+      "ac_piles_num": 13.0,
+      "charging_gun_num": 38.0,
+      "dc_charging_gun_num": 38.0,
+      "ac_charging_gun_num": 13.0,
+      "model_station_id": 5,
+      "device_count": 38.0,
+      "orders": 524,
+      "energy_kwh": 10216.367999999999,
+      "revenue": 15192.890000000001,
+      "duration_min": 18696.666666666668
+    },
+    {
+      "station_id": "ST_004073",
+      "session_count": 39674,
+      "period_count": 2,
+      "first_session": "2025-01-01 09:15:49",
+      "last_session": "2025-08-01 07:57:05",
+      "history_energy_kwh": 1014478.9820000002,
+      "avg_rated_power": 233.0352371830418,
+      "geocoding": "9917_4443",
+      "construction_site": "城际高速服务区",
+      "station_total_power_kw": 8440.0,
+      "piles_num": 42.0,
+      "dc_piles_num": 42.0,
+      "ac_piles_num": 0.0,
+      "charging_gun_num": 120.0,
+      "dc_charging_gun_num": 120.0,
+      "ac_charging_gun_num": 0.0,
+      "model_station_id": 6,
+      "device_count": 120.0,
+      "orders": 1221,
+      "energy_kwh": 30976.970999999987,
+      "revenue": 28686.429999999997,
+      "duration_min": 47573.78333333333
+    },
+    {
+      "station_id": "ST_005038",
+      "session_count": 30217,
+      "period_count": 2,
+      "first_session": "2025-01-17 11:47:07",
+      "last_session": "2025-07-31 07:57:36",
+      "history_energy_kwh": 831132.8399999995,
+      "avg_rated_power": 547.9048217890592,
+      "geocoding": "9916_4443",
+      "construction_site": "其他",
+      "station_total_power_kw": 2880.0,
+      "piles_num": 6.0,
+      "dc_piles_num": 6.0,
+      "ac_piles_num": 0.0,
+      "charging_gun_num": 48.0,
+      "dc_charging_gun_num": 48.0,
+      "ac_charging_gun_num": 0.0,
+      "model_station_id": 7,
+      "device_count": 48.0,
+      "orders": 691,
+      "energy_kwh": 18344.480000000003,
+      "revenue": 16212.92,
+      "duration_min": 26361.7
+    },
+    {
+      "station_id": "ST_005238",
+      "session_count": 60937,
+      "period_count": 2,
+      "first_session": "2025-01-01 08:00:29",
+      "last_session": "2025-08-01 07:56:40",
+      "history_energy_kwh": 1137128.284,
+      "avg_rated_power": 86.46759768285278,
+      "geocoding": "9899_4387",
+      "construction_site": "公共机构",
+      "station_total_power_kw": 5449.0,
+      "piles_num": 106.0,
+      "dc_piles_num": 59.0,
+      "ac_piles_num": 47.0,
+      "charging_gun_num": 116.0,
+      "dc_charging_gun_num": 69.0,
+      "ac_charging_gun_num": 47.0,
+      "model_station_id": 8,
+      "device_count": 116.0,
+      "orders": 1233,
+      "energy_kwh": 21495.291,
+      "revenue": 24894.470000000005,
+      "duration_min": 50284.3
+    },
+    {
+      "station_id": "ST_005900",
+      "session_count": 23062,
+      "period_count": 2,
+      "first_session": "2025-01-17 12:40:46",
+      "last_session": "2025-07-31 07:59:43",
+      "history_energy_kwh": 598994.88,
+      "avg_rated_power": 382.20275778336656,
+      "geocoding": "9901_4448",
+      "construction_site": "其他",
+      "station_total_power_kw": 3480.0,
+      "piles_num": 15.0,
+      "dc_piles_num": 15.0,
+      "ac_piles_num": 0.0,
+      "charging_gun_num": 56.0,
+      "dc_charging_gun_num": 56.0,
+      "ac_charging_gun_num": 0.0,
+      "model_station_id": 9,
+      "device_count": 56.0,
+      "orders": 554,
+      "energy_kwh": 13974.66,
+      "revenue": 13051.589999999998,
+      "duration_min": 22205.716666666667
+    },
+    {
+      "station_id": "ST_006028",
+      "session_count": 29475,
+      "period_count": 2,
+      "first_session": "2025-01-01 08:01:38",
+      "last_session": "2025-08-01 07:56:55",
+      "history_energy_kwh": 667853.53,
+      "avg_rated_power": 137.4005089058524,
+      "geocoding": "9896_4439",
+      "construction_site": "大型建筑配建停车场",
+      "station_total_power_kw": 5880.0,
+      "piles_num": 42.0,
+      "dc_piles_num": 42.0,
+      "ac_piles_num": 0.0,
+      "charging_gun_num": 84.0,
+      "dc_charging_gun_num": 84.0,
+      "ac_charging_gun_num": 0.0,
+      "model_station_id": 10,
+      "device_count": 84.0,
+      "orders": 497,
+      "energy_kwh": 10278.040000000003,
+      "revenue": 10773.560000000001,
+      "duration_min": 18004.55
+    },
+    {
+      "station_id": "ST_006049",
+      "session_count": 25698,
+      "period_count": 2,
+      "first_session": "2025-01-17 20:16:41",
+      "last_session": "2025-07-31 07:58:57",
+      "history_energy_kwh": 801450.7699999999,
+      "avg_rated_power": 720.0,
+      "geocoding": "9907_4433",
+      "construction_site": "其他",
+      "station_total_power_kw": 3600.0,
+      "piles_num": 5.0,
+      "dc_piles_num": 5.0,
+      "ac_piles_num": 0.0,
+      "charging_gun_num": 62.0,
+      "dc_charging_gun_num": 62.0,
+      "ac_charging_gun_num": 0.0,
+      "model_station_id": 11,
+      "device_count": 62.0,
+      "orders": 562,
+      "energy_kwh": 16483.74,
+      "revenue": 14887.929999999998,
+      "duration_min": 22688.883333333335
+    },
+    {
+      "station_id": "ST_006237",
+      "session_count": 22005,
+      "period_count": 2,
+      "first_session": "2025-01-01 08:00:19",
+      "last_session": "2025-08-01 07:59:36",
+      "history_energy_kwh": 681836.46,
+      "avg_rated_power": 279.92821631447407,
+      "geocoding": "9921_4425",
+      "construction_site": "其他",
+      "station_total_power_kw": 3548.2,
+      "piles_num": 40.0,
+      "dc_piles_num": 15.0,
+      "ac_piles_num": 25.0,
+      "charging_gun_num": 79.0,
+      "dc_charging_gun_num": 54.0,
+      "ac_charging_gun_num": 25.0,
+      "model_station_id": 12,
+      "device_count": 79.0,
+      "orders": 405,
+      "energy_kwh": 13185.439999999997,
+      "revenue": 12258.540000000005,
+      "duration_min": 21003.233333333334
+    },
+    {
+      "station_id": "ST_006354",
+      "session_count": 22502,
+      "period_count": 2,
+      "first_session": "2025-01-01 08:02:13",
+      "last_session": "2025-08-01 07:57:26",
+      "history_energy_kwh": 603951.24,
+      "avg_rated_power": 120.0,
+      "geocoding": "9894_4414",
+      "construction_site": "其他",
+      "station_total_power_kw": 3240.0,
+      "piles_num": 27.0,
+      "dc_piles_num": 27.0,
+      "ac_piles_num": 0.0,
+      "charging_gun_num": 54.0,
+      "dc_charging_gun_num": 54.0,
+      "ac_charging_gun_num": 0.0,
+      "model_station_id": 13,
+      "device_count": 54.0,
+      "orders": 599,
+      "energy_kwh": 15554.960000000005,
+      "revenue": 14151.880000000001,
+      "duration_min": 24361.183333333334
+    },
+    {
+      "station_id": "ST_006360",
+      "session_count": 31889,
+      "period_count": 2,
+      "first_session": "2025-01-01 08:04:44",
+      "last_session": "2025-08-01 07:59:46",
+      "history_energy_kwh": 694543.7999999998,
+      "avg_rated_power": 232.27131612781838,
+      "geocoding": "9902_4437",
+      "construction_site": "大型文体设施",
+      "station_total_power_kw": 9460.0,
+      "piles_num": 40.0,
+      "dc_piles_num": 40.0,
+      "ac_piles_num": 0.0,
+      "charging_gun_num": 80.0,
+      "dc_charging_gun_num": 80.0,
+      "ac_charging_gun_num": 0.0,
+      "model_station_id": 14,
+      "device_count": 80.0,
+      "orders": 716,
+      "energy_kwh": 14459.13,
+      "revenue": 16438.95,
+      "duration_min": 26040.15
+    },
+    {
+      "station_id": "ST_007287",
+      "session_count": 18881,
+      "period_count": 2,
+      "first_session": "2025-01-01 08:06:12",
+      "last_session": "2025-08-01 07:49:23",
+      "history_energy_kwh": 1016226.9499999997,
+      "avg_rated_power": 324.35570149886127,
+      "geocoding": "9891_4423",
+      "construction_site": "写字楼",
+      "station_total_power_kw": 7960.0,
+      "piles_num": 32.0,
+      "dc_piles_num": 20.0,
+      "ac_piles_num": 12.0,
+      "charging_gun_num": 52.0,
+      "dc_charging_gun_num": 40.0,
+      "ac_charging_gun_num": 12.0,
+      "model_station_id": 15,
+      "device_count": 52.0,
+      "orders": 413,
+      "energy_kwh": 22705.409999999996,
+      "revenue": 34440.17999999999,
+      "duration_min": 17196.716666666667
+    },
+    {
+      "station_id": "ST_007398",
+      "session_count": 21028,
+      "period_count": 2,
+      "first_session": "2025-01-01 08:00:26",
+      "last_session": "2025-08-01 07:59:03",
+      "history_energy_kwh": 676117.22,
+      "avg_rated_power": 346.21837549933423,
+      "geocoding": "9904_4407",
+      "construction_site": "企事业单位",
+      "station_total_power_kw": 2160.0,
+      "piles_num": 9.0,
+      "dc_piles_num": 9.0,
+      "ac_piles_num": 0.0,
+      "charging_gun_num": 30.0,
+      "dc_charging_gun_num": 30.0,
+      "ac_charging_gun_num": 0.0,
+      "model_station_id": 16,
+      "device_count": 30.0,
+      "orders": 473,
+      "energy_kwh": 14169.979999999994,
+      "revenue": 13079.959999999997,
+      "duration_min": 18554.7
+    },
+    {
+      "station_id": "ST_007880",
+      "session_count": 17038,
+      "period_count": 2,
+      "first_session": "2025-01-01 08:00:00",
+      "last_session": "2025-08-01 07:59:16",
+      "history_energy_kwh": 341230.4699999999,
+      "avg_rated_power": 120.0,
+      "geocoding": "9913_4447",
+      "construction_site": "其他",
+      "station_total_power_kw": 1200.0,
+      "piles_num": 10.0,
+      "dc_piles_num": 10.0,
+      "ac_piles_num": 0.0,
+      "charging_gun_num": 20.0,
+      "dc_charging_gun_num": 20.0,
+      "ac_charging_gun_num": 0.0,
+      "model_station_id": 17,
+      "device_count": 20.0,
+      "orders": 315,
+      "energy_kwh": 6731.339999999998,
+      "revenue": 8131.979999999998,
+      "duration_min": 11072.066666666668
+    },
+    {
+      "station_id": "ST_007920",
+      "session_count": 17121,
+      "period_count": 2,
+      "first_session": "2025-01-01 08:04:50",
+      "last_session": "2025-08-01 07:55:33",
+      "history_energy_kwh": 534236.45,
+      "avg_rated_power": 720.0,
+      "geocoding": "9911_4424",
+      "construction_site": "其他",
+      "station_total_power_kw": 1440.0,
+      "piles_num": 2.0,
+      "dc_piles_num": 2.0,
+      "ac_piles_num": 0.0,
+      "charging_gun_num": 28.0,
+      "dc_charging_gun_num": 28.0,
+      "ac_charging_gun_num": 0.0,
+      "model_station_id": 18,
+      "device_count": 28.0,
+      "orders": 348,
+      "energy_kwh": 10362.960000000001,
+      "revenue": 8737.76,
+      "duration_min": 12689.466666666667
+    },
+    {
+      "station_id": "ST_008062",
+      "session_count": 24985,
+      "period_count": 2,
+      "first_session": "2025-01-05 08:25:55",
+      "last_session": "2025-08-01 07:59:22",
+      "history_energy_kwh": 647303.1299999999,
+      "avg_rated_power": 297.90874524714826,
+      "geocoding": "9909_4434",
+      "construction_site": "公共机构",
+      "station_total_power_kw": 11850.0,
+      "piles_num": 46.0,
+      "dc_piles_num": 46.0,
+      "ac_piles_num": 0.0,
+      "charging_gun_num": 98.0,
+      "dc_charging_gun_num": 98.0,
+      "ac_charging_gun_num": 0.0,
+      "model_station_id": 19,
+      "device_count": 98.0,
+      "orders": 643,
+      "energy_kwh": 16361.180000000002,
+      "revenue": 14826.83,
+      "duration_min": 23719.666666666668
+    },
+    {
+      "station_id": "ST_008066",
+      "session_count": 18767,
+      "period_count": 2,
+      "first_session": "2025-01-26 23:40:52",
+      "last_session": "2025-08-01 07:52:45",
+      "history_energy_kwh": 489178.5300000001,
+      "avg_rated_power": 250.0,
+      "geocoding": "9897_4437",
+      "construction_site": "公共机构",
+      "station_total_power_kw": 12250.0,
+      "piles_num": 49.0,
+      "dc_piles_num": 49.0,
+      "ac_piles_num": 0.0,
+      "charging_gun_num": 96.0,
+      "dc_charging_gun_num": 96.0,
+      "ac_charging_gun_num": 0.0,
+      "model_station_id": 20,
+      "device_count": 96.0,
+      "orders": 541,
+      "energy_kwh": 13599.369999999997,
+      "revenue": 13346.569999999998,
+      "duration_min": 21010.833333333332
+    }
+  ],
+  "hourly_rows": 20644,
+  "split_counts": {
+    "train": 13489,
+    "validation": 3605,
+    "test": 3550
+  },
+  "gbt_evaluation": {
+    "1": {
+      "validation": {
+        "n": 3605,
+        "mae": 121.90390355211599,
+        "rmse": 177.10003072962482,
+        "wmape": 0.22614670058863473
+      },
+      "test": {
+        "n": 3550,
+        "mae": 157.39247382888706,
+        "rmse": 282.1572757268649,
+        "wmape": 0.3818275074030413
+      }
+    },
+    "6": {
+      "validation": {
+        "n": 3605,
+        "mae": 922.9722547640055,
+        "rmse": 1256.9304220159245,
+        "wmape": 0.2861430441347421
+      },
+      "test": {
+        "n": 3525,
+        "mae": 971.7284636071078,
+        "rmse": 1398.3507530582185,
+        "wmape": 0.3939710015668894
+      }
+    },
+    "24": {
+      "validation": {
+        "n": 3605,
+        "mae": 1316.1000358171905,
+        "rmse": 1781.8792412398366,
+        "wmape": 0.10396849505214038
+      },
+      "test": {
+        "n": 2970,
+        "mae": 3527.5233671345113,
+        "rmse": 4880.9109977377275,
+        "wmape": 0.36569831786783585
+      }
+    }
+  },
+  "gbt_model_run_id": "beijing_20260915_spark_v3",
+  "operation_date": "2025-07-30",
+  "operation": {
+    "dt": "2025-07-30",
+    "orders": 202212,
+    "energy_kwh": 5427250.5622999985,
+    "revenue": 5972617.9797,
+    "duration_min": 11829824.133333333
+  },
+  "daily": [
+    {
+      "dt": "2025-01-01",
+      "orders": 39854,
+      "energy_kwh": 1188763.3199999998,
+      "revenue": 1484720.6400000004,
+      "duration_min": 2992001.3666666667
+    },
+    {
+      "dt": "2025-01-02",
+      "orders": 37454,
+      "energy_kwh": 1118351.3609999998,
+      "revenue": 1421259.8599999996,
+      "duration_min": 2988592.283333333
+    },
+    {
+      "dt": "2025-01-03",
+      "orders": 47613,
+      "energy_kwh": 1392891.0210000002,
+      "revenue": 1784124.61,
+      "duration_min": 3743849.466666667
+    },
+    {
+      "dt": "2025-01-04",
+      "orders": 37734,
+      "energy_kwh": 1127092.743,
+      "revenue": 1434288.7199999997,
+      "duration_min": 2950163.65
+    },
+    {
+      "dt": "2025-01-05",
+      "orders": 36380,
+      "energy_kwh": 1078522.4060000002,
+      "revenue": 1383600.59,
+      "duration_min": 2856992.4
+    },
+    {
+      "dt": "2025-01-06",
+      "orders": 38302,
+      "energy_kwh": 1135045.9838000005,
+      "revenue": 1438389.3000000005,
+      "duration_min": 3090848.75
+    },
+    {
+      "dt": "2025-01-07",
+      "orders": 37907,
+      "energy_kwh": 1147599.1630000004,
+      "revenue": 1430010.2199999997,
+      "duration_min": 3085721.85
+    },
+    {
+      "dt": "2025-01-08",
+      "orders": 45269,
+      "energy_kwh": 1374058.4389,
+      "revenue": 1743076.8900000001,
+      "duration_min": 3702437.1
+    },
+    {
+      "dt": "2025-01-09",
+      "orders": 43403,
+      "energy_kwh": 1325248.5459000005,
+      "revenue": 1674023.52,
+      "duration_min": 3516681.533333333
+    },
+    {
+      "dt": "2025-01-10",
+      "orders": 46037,
+      "energy_kwh": 1379276.1319,
+      "revenue": 1768864.2800000005,
+      "duration_min": 3780323.066666667
+    },
+    {
+      "dt": "2025-01-11",
+      "orders": 33547,
+      "energy_kwh": 1046149.1839,
+      "revenue": 1284205.9300000006,
+      "duration_min": 2833670.0
+    },
+    {
+      "dt": "2025-01-12",
+      "orders": 32503,
+      "energy_kwh": 1000996.2418999999,
+      "revenue": 1252677.3399999999,
+      "duration_min": 2783912.0
+    },
+    {
+      "dt": "2025-01-13",
+      "orders": 33684,
+      "energy_kwh": 1011711.7560000005,
+      "revenue": 1272605.1700000002,
+      "duration_min": 2884382.15
+    },
+    {
+      "dt": "2025-01-14",
+      "orders": 47113,
+      "energy_kwh": 1406094.4739999992,
+      "revenue": 1771026.3099999998,
+      "duration_min": 3481764.2666666666
+    },
+    {
+      "dt": "2025-01-15",
+      "orders": 68742,
+      "energy_kwh": 2010107.5568999995,
+      "revenue": 2548057.6499999994,
+      "duration_min": 5312658.316666666
+    },
+    {
+      "dt": "2025-01-16",
+      "orders": 64603,
+      "energy_kwh": 1858604.9567999996,
+      "revenue": 2313598.6400000006,
+      "duration_min": 4750038.95
+    },
+    {
+      "dt": "2025-01-17",
+      "orders": 96068,
+      "energy_kwh": 2671299.4339,
+      "revenue": 3243648.4700000007,
+      "duration_min": 6357278.566666666
+    },
+    {
+      "dt": "2025-01-18",
+      "orders": 113306,
+      "energy_kwh": 3123570.372000001,
+      "revenue": 3703549.3799999994,
+      "duration_min": 6695853.333333333
+    },
+    {
+      "dt": "2025-01-19",
+      "orders": 106608,
+      "energy_kwh": 2914698.963000001,
+      "revenue": 3474435.019999999,
+      "duration_min": 6265499.183333334
+    },
+    {
+      "dt": "2025-01-20",
+      "orders": 114443,
+      "energy_kwh": 3159670.256899999,
+      "revenue": 3731826.8799999985,
+      "duration_min": 7353130.133333334
+    },
+    {
+      "dt": "2025-01-21",
+      "orders": 114457,
+      "energy_kwh": 3130751.7425,
+      "revenue": 3689786.8600000003,
+      "duration_min": 7024904.283333333
+    },
+    {
+      "dt": "2025-01-22",
+      "orders": 120104,
+      "energy_kwh": 3308301.1149999998,
+      "revenue": 3943182.939999999,
+      "duration_min": 7452338.483333333
+    },
+    {
+      "dt": "2025-01-23",
+      "orders": 123607,
+      "energy_kwh": 3426979.2615999994,
+      "revenue": 4113102.119999999,
+      "duration_min": 7771949.65
+    },
+    {
+      "dt": "2025-01-24",
+      "orders": 123959,
+      "energy_kwh": 3406338.196999997,
+      "revenue": 4113942.9100000006,
+      "duration_min": 7848672.866666666
+    },
+    {
+      "dt": "2025-01-25",
+      "orders": 99942,
+      "energy_kwh": 2795477.7348000007,
+      "revenue": 3352720.55,
+      "duration_min": 6088533.45
+    },
+    {
+      "dt": "2025-01-26",
+      "orders": 95949,
+      "energy_kwh": 2700922.789900001,
+      "revenue": 3244506.85,
+      "duration_min": 6312972.416666667
+    },
+    {
+      "dt": "2025-01-27",
+      "orders": 98157,
+      "energy_kwh": 2778241.3108999995,
+      "revenue": 3419186.509999999,
+      "duration_min": 6555555.316666666
+    },
+    {
+      "dt": "2025-01-28",
+      "orders": 46954,
+      "energy_kwh": 1362236.58,
+      "revenue": 1631431.22,
+      "duration_min": 3386209.9
+    },
+    {
+      "dt": "2025-01-29",
+      "orders": 44837,
+      "energy_kwh": 1301535.2909999997,
+      "revenue": 1623836.5500000003,
+      "duration_min": 3278789.4
+    },
+    {
+      "dt": "2025-01-30",
+      "orders": 54853,
+      "energy_kwh": 1590898.0548999999,
+      "revenue": 1982501.76,
+      "duration_min": 3824916.8666666667
+    },
+    {
+      "dt": "2025-01-31",
+      "orders": 58100,
+      "energy_kwh": 1679668.7208999996,
+      "revenue": 2074348.02,
+      "duration_min": 3911941.4833333334
+    },
+    {
+      "dt": "2025-07-01",
+      "orders": 220292,
+      "energy_kwh": 6176701.668099995,
+      "revenue": 6624366.081200003,
+      "duration_min": 14323434.416666666
+    },
+    {
+      "dt": "2025-07-02",
+      "orders": 212559,
+      "energy_kwh": 5826886.0359,
+      "revenue": 6340479.364300001,
+      "duration_min": 12095907.05
+    },
+    {
+      "dt": "2025-07-03",
+      "orders": 205477,
+      "energy_kwh": 5602530.1631999975,
+      "revenue": 6105583.018100001,
+      "duration_min": 11849225.316666666
+    },
+    {
+      "dt": "2025-07-04",
+      "orders": 235230,
+      "energy_kwh": 6451823.566599998,
+      "revenue": 7142345.956299995,
+      "duration_min": 14144949.266666668
+    },
+    {
+      "dt": "2025-07-05",
+      "orders": 215403,
+      "energy_kwh": 6089379.138299998,
+      "revenue": 6649830.357299999,
+      "duration_min": 12253528.7
+    },
+    {
+      "dt": "2025-07-06",
+      "orders": 206329,
+      "energy_kwh": 5796660.815700002,
+      "revenue": 6381646.784299998,
+      "duration_min": 11790369.05
+    },
+    {
+      "dt": "2025-07-07",
+      "orders": 216729,
+      "energy_kwh": 5995719.628299996,
+      "revenue": 6562256.1696,
+      "duration_min": 13104987.066666666
+    },
+    {
+      "dt": "2025-07-08",
+      "orders": 205311,
+      "energy_kwh": 5636325.675399997,
+      "revenue": 6116428.896800002,
+      "duration_min": 11915810.316666666
+    },
+    {
+      "dt": "2025-07-09",
+      "orders": 209715,
+      "energy_kwh": 5754987.888599997,
+      "revenue": 6271849.358100001,
+      "duration_min": 12093253.716666667
+    },
+    {
+      "dt": "2025-07-10",
+      "orders": 202505,
+      "energy_kwh": 5610371.2466,
+      "revenue": 6144585.1258000005,
+      "duration_min": 11784244.05
+    },
+    {
+      "dt": "2025-07-11",
+      "orders": 231550,
+      "energy_kwh": 6358330.049700002,
+      "revenue": 7028990.122300003,
+      "duration_min": 14017938.116666667
+    },
+    {
+      "dt": "2025-07-12",
+      "orders": 206877,
+      "energy_kwh": 5800424.209899998,
+      "revenue": 6274751.975899998,
+      "duration_min": 11575315.95
+    },
+    {
+      "dt": "2025-07-13",
+      "orders": 202365,
+      "energy_kwh": 5637896.692899997,
+      "revenue": 6228928.257800001,
+      "duration_min": 11536525.7
+    },
+    {
+      "dt": "2025-07-14",
+      "orders": 217016,
+      "energy_kwh": 6017789.377199998,
+      "revenue": 6585756.442099996,
+      "duration_min": 13085190.1
+    },
+    {
+      "dt": "2025-07-15",
+      "orders": 192425,
+      "energy_kwh": 5226349.7921,
+      "revenue": 5634403.829799999,
+      "duration_min": 11082881.2
+    },
+    {
+      "dt": "2025-07-16",
+      "orders": 201060,
+      "energy_kwh": 5404028.706099998,
+      "revenue": 5877378.367,
+      "duration_min": 11654073.35
+    },
+    {
+      "dt": "2025-07-17",
+      "orders": 215104,
+      "energy_kwh": 5893016.188999998,
+      "revenue": 6399519.649899998,
+      "duration_min": 12566880.5
+    },
+    {
+      "dt": "2025-07-18",
+      "orders": 234751,
+      "energy_kwh": 6446343.857700003,
+      "revenue": 7071802.039000001,
+      "duration_min": 14088345.216666667
+    },
+    {
+      "dt": "2025-07-19",
+      "orders": 197685,
+      "energy_kwh": 5496436.0136,
+      "revenue": 5894466.461399999,
+      "duration_min": 10865018.6
+    },
+    {
+      "dt": "2025-07-20",
+      "orders": 177373,
+      "energy_kwh": 4896093.340500001,
+      "revenue": 5346288.0408,
+      "duration_min": 9828462.216666667
+    },
+    {
+      "dt": "2025-07-21",
+      "orders": 208951,
+      "energy_kwh": 5712212.923899998,
+      "revenue": 6237147.762799998,
+      "duration_min": 12433968.066666666
+    },
+    {
+      "dt": "2025-07-22",
+      "orders": 211922,
+      "energy_kwh": 5817571.822799999,
+      "revenue": 6291414.518599998,
+      "duration_min": 12339160.666666666
+    },
+    {
+      "dt": "2025-07-23",
+      "orders": 214125,
+      "energy_kwh": 5878592.162099997,
+      "revenue": 6364021.2991999965,
+      "duration_min": 12246572.733333332
+    },
+    {
+      "dt": "2025-07-24",
+      "orders": 201224,
+      "energy_kwh": 5488483.173899998,
+      "revenue": 5920415.726200003,
+      "duration_min": 11249347.783333333
+    },
+    {
+      "dt": "2025-07-25",
+      "orders": 214611,
+      "energy_kwh": 5832445.465599998,
+      "revenue": 6397187.497400002,
+      "duration_min": 12304625.1
+    },
+    {
+      "dt": "2025-07-26",
+      "orders": 200357,
+      "energy_kwh": 5535114.507899997,
+      "revenue": 5972506.727099999,
+      "duration_min": 11069723.6
+    },
+    {
+      "dt": "2025-07-27",
+      "orders": 183619,
+      "energy_kwh": 5011125.141699996,
+      "revenue": 5464648.518799999,
+      "duration_min": 9987694.683333334
+    },
+    {
+      "dt": "2025-07-28",
+      "orders": 192803,
+      "energy_kwh": 5122137.881299999,
+      "revenue": 5609501.018000001,
+      "duration_min": 10853150.9
+    },
+    {
+      "dt": "2025-07-29",
+      "orders": 179107,
+      "energy_kwh": 4873242.857699998,
+      "revenue": 5354456.0978000015,
+      "duration_min": 10385723.1
+    },
+    {
+      "dt": "2025-07-30",
+      "orders": 202212,
+      "energy_kwh": 5427250.5622999985,
+      "revenue": 5972617.9797,
+      "duration_min": 11829824.133333333
+    },
+    {
+      "dt": "2025-07-31",
+      "orders": 145313,
+      "energy_kwh": 3854659.8307,
+      "revenue": 4405413.895699997,
+      "duration_min": 7549173.566666666
+    }
+  ],
+  "site_type": [
+    {
+      "site_type": "其他",
+      "orders": 85411,
+      "energy_kwh": 2269184.6304000006
+    },
+    {
+      "site_type": "公共机构",
+      "orders": 43223,
+      "energy_kwh": 1177818.546
+    },
+    {
+      "site_type": "大型建筑配建停车场",
+      "orders": 17622,
+      "energy_kwh": 476211.91800000006
+    },
+    {
+      "site_type": "居住区",
+      "orders": 14676,
+      "energy_kwh": 377083.295
+    },
+    {
+      "site_type": "写字楼",
+      "orders": 13554,
+      "energy_kwh": 368998.1094000001
+    },
+    {
+      "site_type": "企事业单位",
+      "orders": 5778,
+      "energy_kwh": 158285.90600000002
+    },
+    {
+      "site_type": "大型文体设施",
+      "orders": 5654,
+      "energy_kwh": 147380.92500000002
+    },
+    {
+      "site_type": "工业园区",
+      "orders": 4283,
+      "energy_kwh": 125371.21600000001
+    },
+    {
+      "site_type": "交通枢纽",
+      "orders": 4366,
+      "energy_kwh": 124553.68100000001
+    },
+    {
+      "site_type": "路边停车位",
+      "orders": 3445,
+      "energy_kwh": 86849.78299999997
+    }
+  ],
+  "tariff": [
+    {
+      "band": "日间(06–18)",
+      "energy_kwh": 84891709.94249998
+    },
+    {
+      "band": "晚间(18–24)",
+      "energy_kwh": 50540375.257000096
+    },
+    {
+      "band": "夜间(00–06)",
+      "energy_kwh": 39238845.18580009
+    }
+  ],
+  "weekday": [
+    {
+      "holiday": 0,
+      "orders": 6213394,
+      "avg_kwh": 27.640340887556526
+    },
+    {
+      "holiday": 1,
+      "orders": 2248095,
+      "avg_kwh": 27.971106765906224
+    }
+  ],
+  "station_device_total": 98376,
+  "hdfs_feature_path": "hdfs://localhost:9000/charging_real/beijing/features/hourly/version=beijing_20260915_spark_v3",
+  "training_rows_output": "/Users/gaoruohan/Downloads/小学期/大三/充电桩/.bigdata/experiments/real_beijing_load.jsonl",
+  "application_id": "application_1789454826925_0003",
+  "spark_master": "yarn",
+  "period_gap_policy": "2025-01 and 2025-07 are separate contiguous panels; no zero fill across months",
+  "energy_allocation_assumption": "Session kWh is distributed uniformly over its reported duration",
+  "created_at": "2026-09-15T07:03:09.308629+00:00"
+}
