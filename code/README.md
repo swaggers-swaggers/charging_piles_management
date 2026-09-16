@@ -99,9 +99,20 @@ Qt Creator 中分别选择两个可执行目标运行即可；日常连接可完
 
 ### Web 大屏
 
-服务端内置 HTTP 服务，默认浏览器地址为 [http://127.0.0.1:8080](http://127.0.0.1:8080)。页面大约每 5 秒请求数据，`/data.json` 优先实时从数据库聚合；服务端另按 10 秒间隔导出数据文件。
+大屏当前为大数据四主题版本（运营总览 / AI 负荷预测 / 用户需求 / 数据与模型健康），页面及 ECharts 位于 [web/](web/)。
 
-页面及 ECharts 位于 [web/](web/)。自定义部署路径时，可通过 `CHARGING_WEB_DIR` 指定包含 `index.html` 和 `echarts.min.js` 的目录。HTTP 资源处理见 [HttpServer.cpp](server/HttpServer.cpp)，导出目录选择见 [DataExporter.cpp](server/DataExporter.cpp)。
+**两种运行方式：**
+
+1. **独立 HTTP 服务（推荐，大数据 ADS 模式）**：不依赖 Qt 服务端，直接加载 `web/data/` 下由 Spark 流水线生成的七份 JSON。
+   ```bash
+   cd web && ./start.sh
+   # 或
+   python3 -m http.server 8080 --directory web
+   ```
+
+2. **Qt 服务端内置 HTTP（实时业务模式）**：服务端启动后访问 [http://127.0.0.1:8080](http://127.0.0.1:8080)。`DataExporter` 按 10 秒间隔从 SQLite 聚合实时业务数据并导出到 web 目录，`Predictor` 提供简化版 24 小时负荷预测（纯 C++ 实现，历史均值 + 星期系数 + 滑动平均）。
+
+自定义部署路径时，可通过 `CHARGING_WEB_DIR` 指定包含 `index.html` 和 `echarts.min.js` 的目录。HTTP 资源处理见 [HttpServer.cpp](server/HttpServer.cpp)，导出目录选择见 [DataExporter.cpp](server/DataExporter.cpp)，实时预测见 [Predictor.cpp](server/Predictor.cpp)。
 
 ## 代码导航
 
@@ -112,6 +123,7 @@ Qt Creator 中分别选择两个可执行目标运行即可；日常连接可完
 | [TcpClient.cpp](client/network/TcpClient.cpp)、[TcpClientWorker.cpp](client/network/TcpClientWorker.cpp) | 独立网络线程、连接切换、超时处理和推送分发 |
 | [ClientHandler.cpp](server/network/ClientHandler.cpp) | 服务端请求处理与客户端会话 |
 | [ChargingEngine.cpp](server/ChargingEngine.cpp) | 模拟充电推进、结算、恢复和预约扫描 |
+| [Predictor.cpp](server/Predictor.cpp) | 服务端实时 24 小时负荷预测（历史均值 + 星期系数 + 滑动平均） |
 | [dao/](server/dao/) | 数据库读写 |
 | [AdminMainWindow.cpp](server/AdminMainWindow.cpp) | 六个管理页面和局域网信息面板 |
 | [UserMainWindow.cpp](client/UserMainWindow.cpp) | 用户页面导航和会话信息 |
